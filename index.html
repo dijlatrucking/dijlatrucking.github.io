@@ -69,8 +69,8 @@
   .st-submitted{--c:var(--acc)} .st-funded{--c:var(--good)} .st-cancelled{--c:#666}
   .item[class*="st-"]{border-left-color:var(--c)} .pill[class*="st-"]{color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent)}
   .item.st-cancelled{opacity:.7}
-  .steps{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px}
-  .steps button{flex:none;padding:8px 10px;font-size:12.5px;color:var(--muted)}
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+  .steps button{padding:10px 2px;font-size:13px;color:var(--muted)}
   .steps button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#141100}
   .acts{display:flex;gap:6px;flex-wrap:wrap}
   .acts button{padding:8px 12px;font-size:13px}
@@ -127,6 +127,9 @@
   .rangebar{display:grid;grid-template-columns:1fr auto 1fr auto;gap:8px;align-items:center}
   .rangebar input{padding:9px 8px;font-size:15px;min-width:0}
   .rangebar button{padding:9px 11px}
+  .stagechips{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;overflow:visible}
+  .stagechips .chip{padding:8px 2px;font-size:12.5px;text-align:center;white-space:nowrap}
+  .stagechips .chip span{display:block;margin:1px 0 0;font-size:11.5px}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--acc);color:#141100;font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
   .toast.show{opacity:1}
   body.auth-lock{overflow:hidden}
@@ -231,7 +234,7 @@
       <div class="btns"><button type="button" class="ghost" id="loadCancel">Cancel</button><button type="submit" class="primary">Save load</button></div>
     </form>
     <div class="chips" id="loadTruckChips" aria-label="Truck"></div>
-    <div class="chips" id="loadFilters" aria-label="Stage"></div>
+    <div class="chips stagechips" id="loadFilters" aria-label="Stage"></div>
     <input type="search" id="loadSearch" placeholder="Search broker, load #, city" aria-label="Search loads" autocomplete="off">
     <div class="list" id="loadList"></div>
   </section>
@@ -555,12 +558,11 @@ let settings = { ...DEFAULTS };
 const TRUCKS = () => [["t1", settings.t1 || "Truck 1"], ["t2", settings.t2 || "Truck 2"]];
 const truckByUnit = u => { u = String(u || "").replace(/^0+/, ""); return u && String(settings.u1 || "").replace(/^0+/, "") === u ? "t1" : u && String(settings.u2 || "").replace(/^0+/, "") === u ? "t2" : ""; };
 const truckName = id => id === "shared" ? "Both trucks" : (TRUCKS().find(t => t[0] === id) || [0, "?"])[1];
-const STAGES = () => [
-  ["booked", "Booked"], ["dispatched", "Dispatched"], ["pickedup", "Picked up"], ["delivered", "Delivered"],
-  ["submitted", `Sent to ${settings.factor || "factoring"}`], ["funded", "Paid"], ["cancelled", "Cancelled"]
-];
+const STAGES = () => [["booked", "Booked"], ["pickedup", "Picked up"], ["delivered", "Delivered"], ["funded", "Paid"]];
+// older loads used more stages; fold them into the four we keep
+const LEGACY = { dispatched: "booked", submitted: "delivered" };
 const stLabel = id => (STAGES().find(s => s[0] === id) || [0, id])[1];
-const OPEN = ["booked", "dispatched", "pickedup", "delivered", "submitted"];
+const OPEN = ["booked", "pickedup", "delivered"];
 const CATS = ["Fuel", "DEF", "Tolls", "Repairs", "Tires", "Maintenance", "Insurance", "Truck payment", "Trailer", "Permits & plates", "IFTA tax", "IFTA service fee", "Parking", "Lumper", "Scale", "Phone & ELD", "Other"];
 
 // ----- Load math -----
@@ -655,7 +657,7 @@ function renderDash(){
   $("sumTable").innerHTML = `<thead><tr><th></th>${cols.map(([, n]) => `<th>${esc(n)}</th>`).join("")}</tr></thead><tbody>` +
     rows.map(([lab, f, cls]) => `<tr class="${cls || ""}"><td>${lab}</td>${c.map(x => `<td class="money">${f(x)}</td>`).join("")}</tr>`).join("") + "</tbody>";
   // waiting on money (any date)
-  const wait = loads.filter(l => l.stage === "delivered" || l.stage === "submitted");
+  const wait = loads.filter(l => l.stage === "delivered");
   const late = wait.filter(l => daysSince(lDelDate(l)) >= num(settings.ageDays || 30));
   $("waitAlert").hidden = !wait.length;
   $("waitAlert").innerHTML = `<b>${money(wait.reduce((s, l) => s + lNet(l), 0))}</b> still to be paid on ${wait.length} delivered load${wait.length === 1 ? "" : "s"}.` +
@@ -678,18 +680,18 @@ $("dFrom").addEventListener("change", onRange); $("dTo").addEventListener("chang
 $("dClear").onclick = () => { dFrom = dTo = ""; dashPer = "month"; renderDash(); };
 
 // ----- Loads -----
-let loadTruck = "all", loadFilter = "open", loadQuery = "", editingLoad = null;
+let loadTruck = "all", loadFilter = "all", loadQuery = "", editingLoad = null;
 function renderLoads(){
   const open = loads.filter(l => OPEN.includes(l.stage));
-  const wait = loads.filter(l => l.stage === "delivered" || l.stage === "submitted");
+  const wait = loads.filter(l => l.stage === "delivered");
   const mr = range("month"), monthNet = loads.filter(l => l.stage !== "cancelled" && inRange(lDate(l), mr)).reduce((s, l) => s + lNet(l), 0);
   $("loadStats").innerHTML = `<div><b>${open.length}</b><span>Open loads</span></div><div><b>${money(wait.reduce((s, l) => s + lNet(l), 0))}</b><span>Waiting on pay</span></div><div><b>${money(monthNet)}</b><span>Net this month</span></div>`;
   $("loadTruckChips").innerHTML = chipsHtml([["all", "Both trucks"], ...TRUCKS()], loadTruck, "t");
   const byTruck = loads.filter(l => loadTruck === "all" || l.truck === loadTruck);
-  $("loadFilters").innerHTML = chipsHtml([["open", "Open", byTruck.filter(l => OPEN.includes(l.stage)).length], ["all", "All", byTruck.length],
+  $("loadFilters").innerHTML = chipsHtml([["all", "All", byTruck.length],
     ...STAGES().map(([id, lab]) => [id, lab, byTruck.filter(l => l.stage === id).length])], loadFilter, "f");
   const q = loadQuery.toLowerCase();
-  const list = byTruck.filter(l => loadFilter === "all" || (loadFilter === "open" ? OPEN.includes(l.stage) : l.stage === loadFilter))
+  const list = byTruck.filter(l => loadFilter === "all" || l.stage === loadFilter)
     .filter(l => !q || [l.broker, l.loadNo, l.from, l.to, l.notes, l.commodity].join(" ").toLowerCase().includes(q));
   if (!list.length) { $("loadList").innerHTML = loads.length ? `<div class="empty"><b>Nothing here</b>Try another filter.</div>` : `<div class="empty"><b>No loads yet</b>Tap "New load" when you book one.</div>`; return; }
   $("loadList").innerHTML = list.map(l => {
@@ -1118,7 +1120,7 @@ window.Sync = (() => {
     : JSON.stringify(v ?? null);
   const plain = v => JSON.parse(JSON.stringify(v));
   const K = {
-    loads: { all: () => loads.map(x => [x.id, plain(x)]), set: list => { loads = list.map(([, v]) => v).sort((a, b) => String(b.created || "").localeCompare(String(a.created || ""))); } },
+    loads: { all: () => loads.map(x => [x.id, plain(x)]), set: list => { loads = list.map(([, v]) => (LEGACY[v.stage] ? { ...v, stage: LEGACY[v.stage] } : v)).sort((a, b) => String(b.created || "").localeCompare(String(a.created || ""))); } },
     expenses: { all: () => expenses.map(x => [x.id, plain(x)]), set: list => { expenses = list.map(([, v]) => v); } }
   };
   const last = { loads: null, expenses: null, settings: null };
