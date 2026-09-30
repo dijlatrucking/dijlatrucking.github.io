@@ -97,6 +97,8 @@
   .scanbtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
   .scanbtn.busy{opacity:.6;pointer-events:none}
   .scanmsg{margin:-4px 0 0;font-size:12.5px;color:var(--muted)} .scanmsg.ok{color:var(--good)} .scanmsg.bad{color:var(--bad)}
+  .billplan{display:grid;gap:8px;background:var(--ink);border:1px solid var(--good);border-radius:10px;padding:12px}
+  .billplan .bp{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;font-size:14px}
   .filled{border-color:var(--good) !important;box-shadow:0 0 0 1px var(--good) inset}
   .depq{display:grid;grid-template-columns:1fr auto;gap:8px}
   .deprow{display:flex;justify-content:space-between;align-items:center;gap:8px} .deprow button{padding:6px 12px;font-size:13px;flex:none}
@@ -218,6 +220,9 @@
     <button type="button" class="primary wide" id="expNewBtn">+ Add expense</button>
     <form class="card stack" id="expForm" hidden autocomplete="off">
       <h2 id="expFormTitle">New expense</h2>
+      <label class="scanbtn" id="billWrap"><input type="file" id="billFile" accept="application/pdf,.pdf,image/*"><span>📄 Scan bill / receipt</span></label>
+      <p class="scanmsg" id="billMsg" role="status">IFTA service bills, statements and receipts. Read on this phone, never uploaded or saved.</p>
+      <div class="billplan" id="billPlan" hidden></div>
       <div class="row2">
         <label>Category<select id="eCat"></select></label>
         <label>Amount ($)<input id="eAmt" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label>
@@ -261,6 +266,10 @@
       <div class="row2">
         <label>Truck 1 name<input id="sT1" placeholder="Truck 1"></label>
         <label>Truck 2 name<input id="sT2" placeholder="Truck 2"></label>
+      </div>
+      <div class="row2">
+        <label>Truck 1 unit #<input id="sU1" inputmode="numeric" placeholder="e.g. 5"></label>
+        <label>Truck 2 unit #<input id="sU2" inputmode="numeric" placeholder="e.g. 66"></label>
       </div>
       <div class="row2">
         <label>Factoring company<input id="sFac" placeholder="GAP"></label>
@@ -435,6 +444,12 @@ window.RateCon = (() => {
         if (c !== f.from && !head.has(c)) { f.to = c; const g = grab(i - 1, 3); if (g.date && g.date !== f.fromDate) f.toDate = g.date; else { const g2 = grab(i, 2); if (g2.date) f.toDate = g2.date; } break; }
       }
     }
+    const tr = text.match(/\btruck\s*(?:#|no\.?|number|unit)\s*:?\s*(\d{1,5})\b/i) || text.match(/\bunit\s*#?\s*:?\s*(\d{1,5})\b/i);
+    if (tr) f.truckNo = tr[1];
+    else {   // table style: "... Truck #   Trailer #" with the numbers on the next line
+      const i = lines.findIndex(l => /truck\s*#/i.test(l) && /trailer\s*#/i.test(l));
+      if (i >= 0 && lines[i + 1]) { const n = lines[i + 1].match(/\b\d{1,5}\b/g); if (n && n.length >= 2) f.truckNo = n[n.length - 2]; else if (n) f.truckNo = n[0]; }
+    }
     // miles, weight, commodity (nice to have)
     const mi = text.match(/\b(?:total\s+)?miles?\s*:?\s*([0-9,]{2,6})\b/i); if (mi) f.miles = parseInt(mi[1].replace(/,/g, ""), 10);
     const wt = text.match(/\b(?:estimated\s+)?weight\s*:?\s*([0-9,]{3,6}(?:\.\d+)?)/i); if (wt) f.weight = Math.round(parseFloat(wt[1].replace(/,/g, "")));
@@ -448,6 +463,49 @@ window.RateCon = (() => {
     return f;
   }
   return { readFile, parse };
+})();
+
+// ===== Bill / statement reader (IFTA service bills, receipts). Runs on this device; nothing uploaded. =====
+window.BillReader = (() => {
+  const MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+  const DEC = /\d{1,3}(?:,\d{3})*\.\d{2}/g;
+  const toNum = s => parseFloat(String(s).replace(/,/g, ""));
+  const iso = (y, m, d) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  function parse(raw){
+    const text = raw.replace(/\r/g, "").replace(/[§]/g, "$");
+    const lines = text.split("\n");
+    const out = { units: [], items: [] };
+    if (/truckers\s*reporting/i.test(text)) out.vendor = "Truckers Reporting Service";
+    else { const m = [...text.matchAll(/^\W*([A-Z][A-Za-z&.' ]{3,40}(?:inc|llc|services?|company|co)\.?)\s*$/gim)].find(x => !/dijla/i.test(x[1])); if (m) out.vendor = m[1].trim(); }
+    const inv = text.match(/\bINV(?:OICE)?\s*#?\s*(\d{3,})/i); if (inv) out.invoice = inv[1];
+    // month breakdown: "BREAKDOWN FOR THE MONTH OF AUGUST 2026"
+    const mo = text.match(/month\s*of\W{0,6}([A-Za-z]{3,9})\W{0,6}(\d{4})/i);
+    if (mo) { const i = MONTHS.findIndex(x => x.startsWith(mo[1].toLowerCase().slice(0, 3))); if (i >= 0) { out.month = MONTHS[i][0].toUpperCase() + MONTHS[i].slice(1) + " " + mo[2]; out.date = iso(+mo[2], i + 1, new Date(+mo[2], i + 1, 0).getDate()); } }
+    const q = text.match(/\b(1ST|2ND|3RD|4TH)\s*Q(?:TR|UARTER)\b/i); if (q) out.period = q[1].toUpperCase() + " quarter";
+    // statement date: first full date in the text
+    const dt = text.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/); if (dt) out.date = iso(+dt[3], +dt[1], +dt[2]);
+    // per-unit rows: "#5 $ 122.50 $ 22.50 $ - $ 145.00" (first amount = tax/reporting, last = unit total)
+    lines.forEach(l => {
+      const m = l.match(/^\W{0,4}#?\s*(\d{1,4})(\s+\$?\s*[\d,]+\.\d{2}.*)$/); if (!m || /total/i.test(l)) return;
+      if (+m[1] >= 1900 && +m[1] <= 2100) return;
+      const nums = (m[2].match(DEC) || []).map(toNum); if (nums.length < 2) return;
+      const total = nums[nums.length - 1], tax = nums[0];
+      out.units.push({ unit: m[1], tax, lic: Math.max(0, Math.round((total - tax) * 100) / 100), total });
+    });
+    // grand total: "TOTAL ... 290.00" / "Amount Due $290.00"
+    const totLine = lines.find(l => /^\W*total\b/i.test(l) && /\d\.\d{2}/.test(l));
+    const due = text.match(/amount\s+due[^0-9$]{0,40}\$?\s*([\d,]+\.\d{2})/i);
+    const grand = /grand\s+total[^0-9$]{0,30}\$?\s*([\d,]+\.\d{2})/i.exec(text);
+    if (grand) out.total = toNum(grand[1]);
+    else if (due) out.total = toNum(due[1]);
+    else if (totLine) { const n = totLine.match(DEC); if (n) out.total = toNum(n[n.length - 1]); }
+    else if (out.units.length) out.total = out.units.reduce((s, u) => s + u.total, 0);
+    // itemized lines: "--- Licensing services $45.00"
+    lines.forEach(l => { const m = l.match(/^\W*-{2,}\s*([A-Za-z][A-Za-z /&]+?)\s+\$\s*([\d,]+\.\d{2})/); if (m) out.items.push({ desc: m[1].trim(), amt: toNum(m[2]) }); });
+    out.ifta = /ifta|truckers\s*reporting|fuel\s*tax|tax\s*reporting|operations\s*tax/i.test(text) || (out.units.length > 0 && /licens/i.test(text));
+    return out;
+  }
+  return { parse };
 })();
 
 </script>
@@ -472,6 +530,7 @@ let loads = [], expenses = [];
 const DEFAULTS = { company: "", t1: "Truck 1", t2: "Truck 2", factor: "GAP", pct: 2, ageDays: 30, countBy: "pickup" };
 let settings = { ...DEFAULTS };
 const TRUCKS = () => [["t1", settings.t1 || "Truck 1"], ["t2", settings.t2 || "Truck 2"]];
+const truckByUnit = u => { u = String(u || "").replace(/^0+/, ""); return u && String(settings.u1 || "").replace(/^0+/, "") === u ? "t1" : u && String(settings.u2 || "").replace(/^0+/, "") === u ? "t2" : ""; };
 const truckName = id => id === "shared" ? "Both trucks" : (TRUCKS().find(t => t[0] === id) || [0, "?"])[1];
 const STAGES = () => [
   ["booked", "Booked"], ["dispatched", "Dispatched"], ["pickedup", "Picked up"], ["delivered", "Delivered"],
@@ -711,17 +770,67 @@ $("rcFile").addEventListener("change", async e => {
     if (set("lTo", f.to)) got.push("delivery");
     set("lToDate", f.toDate);
     if (f.miles) set("lMiles", f.miles);
+    const tb = truckByUnit(f.truckNo); if (tb) { $("lTruck").value = tb; $("lTruck").classList.add("filled"); }
     if (set("lWeight", f.weight)) got.push("weight");
     set("lCommodity", f.commodity);
     loadCalc();
     if (!got.length) { say("Couldn't find the load details in that file. Fill it in by hand.", "bad"); return; }
     const dup = f.loadNo && loads.find(l => l.loadNo === f.loadNo && l.id !== editingLoad);
-    say(`Filled in: ${got.join(", ")}. Check the green fields${f.miles ? "" : ", add the miles"} and pick the truck.` + (dup ? ` Heads up: load #${f.loadNo} is already saved.` : ""), dup ? "bad" : "ok");
+    say(`Filled in: ${got.join(", ")}. Check the green fields${f.miles ? "" : ", add the miles"} ${truckByUnit(f.truckNo) ? "" : " and pick the truck"}.` + (dup ? ` Heads up: load #${f.loadNo} is already saved.` : ""), dup ? "bad" : "ok");
   } catch (err) {
     console.warn(err); say("Couldn't read that file. Check your connection and try again, or fill it in by hand.", "bad");
   } finally { wrap.classList.remove("busy"); }
 });
 document.getElementById("loadForm").addEventListener("input", e => e.target.classList.remove("filled"));
+document.getElementById("expForm").addEventListener("input", e => e.target.classList.remove("filled"));
+
+// ----- Scan a bill (IFTA service breakdown / statement / receipt) -----
+let billUnits = null;
+$("billFile").addEventListener("change", async e => {
+  const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+  const msg = $("billMsg"), wrap = $("billWrap"), plan = $("billPlan");
+  const say = (t, cls) => { msg.textContent = t; msg.className = "scanmsg " + (cls || ""); };
+  wrap.classList.add("busy"); plan.hidden = true; billUnits = null; say("Reading…");
+  try {
+    const { text } = await RateCon.readFile(file, t => say(t));
+    const b = BillReader.parse(text);
+    const set = (id, v) => { if (v === undefined || v === "" || v === null) return; $(id).value = v; $(id).classList.add("filled"); };
+    const dup = b.invoice && expenses.find(x => (x.note || "").includes("#" + b.invoice));
+    const label = [b.vendor || (b.ifta ? "IFTA service" : ""), b.month, b.period].filter(Boolean).join(" · ");
+    if (b.units.length >= 1 && b.ifta) {
+      // one expense per truck
+      billUnits = b.units.map(u => ({ ...u, truck: truckByUnit(u.unit) }));
+      plan.innerHTML = `<b>${esc(label || "Breakdown")}</b>` + billUnits.map((u, i) => `<div class="bp"><span>Unit ${esc(u.unit)} · <b class="money">${money2(u.total)}</b><br><span class="meta">tax reporting ${money2(u.tax)} + licensing ${money2(u.lic)}</span></span>
+        <select data-bu="${i}" aria-label="Truck for unit ${esc(u.unit)}">${[["", "Pick truck…"], ...TRUCKS()].map(([id, n]) => `<option value="${id}" ${u.truck === id ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></div>`).join("") +
+        `<div class="meta">Date ${niceDate(b.date || today())} · total ${money2(b.total || billUnits.reduce((s, u) => s + u.total, 0))}</div><button type="button" class="primary" id="billAdd">Add ${billUnits.length} expense${billUnits.length === 1 ? "" : "s"}</button>`;
+      plan.hidden = false; plan.dataset.date = b.date || today(); plan.dataset.label = label;
+      say(`Found ${billUnits.length} truck${billUnits.length === 1 ? "" : "s"} on this bill. Check the trucks and tap Add.` + (dup ? ` Heads up: invoice #${b.invoice} is already saved.` : ""), dup ? "bad" : "ok");
+      return;
+    }
+    if (!b.total) { say("Couldn't find a total on that file. Fill it in by hand.", "bad"); return; }
+    document.querySelectorAll("#expForm .filled").forEach(el => el.classList.remove("filled"));
+    set("eAmt", b.total); set("eDate", b.date);
+    if (b.ifta) { $("eCat").value = "IFTA service fee"; $("eCat").classList.add("filled"); fuelToggle(); paidTouched = true; $("ePaid").value = "own"; $("eTruck").value = "shared"; $("eTruck").classList.add("filled"); }
+    const note = [b.vendor, b.invoice ? "INV #" + b.invoice : "", b.items.map(i => `${i.desc} ${money2(i.amt)}`).join(" + ")].filter(Boolean).join(" · ");
+    set("eNote", note);
+    say(`Filled in ${money2(b.total)}${b.ifta ? " as IFTA service fee, split across both trucks" : ""}. Check the green fields and save.` + (dup ? ` Heads up: invoice #${b.invoice} is already saved.` : ""), dup ? "bad" : "ok");
+  } catch (err) { console.warn(err); say("Couldn't read that file. Check your connection and try again, or fill it in by hand.", "bad"); }
+  finally { wrap.classList.remove("busy"); }
+});
+$("billPlan").addEventListener("change", e => { const s = e.target.closest("[data-bu]"); if (s && billUnits) billUnits[+s.dataset.bu].truck = s.value; });
+$("billPlan").addEventListener("click", e => {
+  if (e.target.id !== "billAdd" || !billUnits) return;
+  if (billUnits.some(u => !u.truck)) { toast("Pick a truck for each unit"); return; }
+  const plan = $("billPlan"), learn = {};
+  billUnits.forEach(u => {
+    expenses.push({ id: newId("ex"), created: new Date().toISOString(), cat: "IFTA service fee", amount: u.total, truck: u.truck, date: plan.dataset.date,
+      paidWith: "own", gallons: 0, state: "", link: "", note: `${plan.dataset.label} · unit ${u.unit} · tax reporting ${money2(u.tax)} + licensing ${money2(u.lic)}` });
+    if (!truckByUnit(u.unit)) learn[u.truck === "t1" ? "u1" : "u2"] = u.unit;       // remember which unit is which truck
+  });
+  if (Object.keys(learn).length) { settings = { ...settings, ...learn }; Sync.push("settings"); }
+  Sync.push("expenses"); toast(`Added ${billUnits.length} expense${billUnits.length === 1 ? "" : "s"}`);
+  billUnits = null; plan.hidden = true; closeExpForm(); renderExp();
+});
 
 // ----- Expenses -----
 let expTruck = "all", expPer = "month", editingExp = null;
@@ -758,6 +867,8 @@ function openExpForm(x){
   $("eCat").value = v.cat; $("eAmt").value = v.amount ?? ""; $("eTruck").value = v.truck; $("eDate").value = v.date || today();
   paidTouched = !!x; $("ePaid").value = v.paidWith || (["Fuel", "DEF"].includes(v.cat) ? "gap" : "own");
   $("eGal").value = v.gallons ?? ""; $("eState").value = v.state || ""; $("eNote").value = v.note || ""; $("eLink").value = v.link || "";
+  document.querySelectorAll("#expForm .filled").forEach(el => el.classList.remove("filled"));
+  $("billPlan").hidden = true; billUnits = null; $("billMsg").className = "scanmsg"; $("billMsg").textContent = "IFTA service bills, statements and receipts. Read on this phone, never uploaded or saved.";
   fuelToggle(); $("expForm").hidden = false; $("expNewBtn").hidden = true;
   $("expForm").scrollIntoView({ block: "start", behavior: "smooth" });
 }
@@ -861,11 +972,13 @@ $("taxCsv").onclick = () => {
 function fillSettings(){
   if (document.activeElement && document.activeElement.closest("#setForm")) return;
   $("sCo").value = settings.company || ""; $("sT1").value = settings.t1 || ""; $("sT2").value = settings.t2 || "";
+  $("sU1").value = settings.u1 || ""; $("sU2").value = settings.u2 || "";
   $("sFac").value = settings.factor || ""; $("sPct").value = settings.pct ?? 2; $("sAge").value = settings.ageDays ?? 30;
 }
 $("setForm").onsubmit = e => {
   e.preventDefault();
   settings = { company: $("sCo").value.trim(), t1: $("sT1").value.trim() || "Truck 1", t2: $("sT2").value.trim() || "Truck 2",
+    u1: $("sU1").value.trim(), u2: $("sU2").value.trim(),
     factor: $("sFac").value.trim() || "Factoring", pct: Math.max(0, num($("sPct").value)), ageDays: Math.max(1, Math.round(num($("sAge").value)) || 30), countBy: settings.countBy || "pickup" };
   Sync.push("settings"); document.activeElement.blur(); render(); toast("Settings saved");
 };
