@@ -7,9 +7,9 @@
 <meta name="description" content="We&#x27;re a small, owner-operated carrier looking for one solid OTR driver. You&#x27;ll work directly with the owners, run dependable reefer freight, and always know who you&#x27;re dealing with.">
 <meta property="og:title" content="Now hiring OTR CDL-A reefer drivers | Dijla Trucking LLC">
 <meta property="og:description" content="We&#x27;re a small, owner-operated carrier looking for one solid OTR driver. You&#x27;ll work directly with the owners, run dependable reefer freight, and always know who you&#x27;re dealing with.">
-<meta property="og:image" content="img/hero.jpg">
-<link rel="preload" as="image" href="img/hero.jpg" fetchpriority="high">
-<meta name="theme-color" content="#0f2a5c">
+<meta property="og:image" content="img/hero-night-wide.jpg">
+<link rel="preload" as="image" href="img/hero-night-tall.jpg" media="(max-width:759px)" fetchpriority="high"><link rel="preload" as="image" href="img/hero-night-wide.jpg" media="(min-width:760px)" fetchpriority="high">
+<meta name="theme-color" content="#050b1a">
 <link rel="icon" type="image/png" href="../favicon-64.png">
 <link rel="preload" as="font" type="font/woff2" href="fonts/plus-jakarta-sans-latin-800-normal.woff2" crossorigin>
 <link rel="preload" as="font" type="font/woff2" href="fonts/archivo-black-latin-400-normal.woff2" crossorigin>
@@ -35,12 +35,12 @@
   /* top bar: logo + wordmark + menu */
   .topbar{position:absolute;z-index:5;top:0;left:0;right:0;padding-top:max(14px,env(safe-area-inset-top))}
   .topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff;min-width:0}
-  .brand img{width:clamp(58px,15vw,88px);height:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.35))}
-  .brand .wm{display:grid;line-height:.92;padding-left:12px;border-left:2px solid rgba(255,255,255,.55)}
+  .brand{display:flex;align-items:center;gap:clamp(8px,2.6vw,12px);text-decoration:none;color:#fff;min-width:0}
+  .brand img{width:clamp(60px,21vw,123px);height:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.35))}
+  .brand .wm{display:grid;line-height:.92;padding-left:clamp(8px,2.6vw,12px);border-left:2px solid rgba(255,255,255,.55)}
   .brand .wm b,.brand .wm span{font-synthesis:none}
-  .brand .wm b{font:900 clamp(30px,8.4vw,54px)/.95 var(--word);letter-spacing:.01em;background:linear-gradient(180deg,#fff 0%,#e6ebf2 55%,#aab4c3 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
-  .brand .wm span{font:900 clamp(17px,4.6vw,30px)/1.05 var(--word);letter-spacing:.02em;color:#eef2f8;text-shadow:0 2px 4px rgba(0,0,0,.35)}
+  .brand .wm b{font:900 clamp(30px,11.8vw,76px)/.95 var(--word);letter-spacing:.01em;background:linear-gradient(180deg,#fff 0%,#e6ebf2 55%,#aab4c3 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+  .brand .wm span{font:900 clamp(16px,6.4vw,42px)/1.05 var(--word);letter-spacing:.02em;color:#eef2f8;text-shadow:0 2px 4px rgba(0,0,0,.35)}
   .brand .wm small{font:800 .52em/1 var(--body);color:var(--amber);letter-spacing:.06em;margin-left:5px;vertical-align:.12em}
   .menubtn{width:48px;height:48px;display:grid;place-items:center;background:transparent;border:0;color:#fff;cursor:pointer;border-radius:12px;flex:none}
   .menubtn svg{width:32px;height:32px}
@@ -150,14 +150,71 @@
   footer{background:var(--deep);color:rgba(255,255,255,.7);padding:28px 0 calc(30px + env(safe-area-inset-bottom,0px));text-align:center;font-size:13.5px}
   footer b{color:#fff} footer a{color:var(--sky)}
   footer img{width:44px;height:auto;display:block;margin:0 auto 8px;opacity:.95}
+  /* ===== Night theme (from the Dijla night-highway art): midnight navy, electric blue glow, gold highlights ===== */
+  :root{color-scheme:dark;--ink:#050b1a;--tint:#071126;--panel:#0c1a36;--panel2:#10224a;--line:rgba(120,170,255,.2);--deep:#040a18;
+    --sky:#6fb3ff;--glow:#3f8cff;--gold:#f5b53d;--gold2:#ffd27a;--text:#e8eefb;--muted:#9fb0cf}
+  html,body{background:var(--ink)}
+  body{color:var(--text);background:radial-gradient(900px 520px at 85% 0%,rgba(40,95,210,.22),transparent 70%),radial-gradient(700px 500px at 0% 55%,rgba(40,95,210,.12),transparent 70%),var(--ink)}
+  a{color:var(--sky)}
+  .brand .wm::after{content:"";display:block;height:3px;margin-top:7px;border-radius:2px;background:linear-gradient(90deg,var(--gold),rgba(245,181,61,.25) 70%,transparent)}
+  .brand .wm small{color:var(--gold)}
+  .menu{background:#0c1a36;border:1px solid var(--line);box-shadow:0 18px 40px rgba(0,0,0,.5)}
+  .menu a{color:var(--text)} .menu a:hover,.menu a:focus-visible{background:#132a57}
+  .menu a.apply{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1a1200}
+  .kicker{border-color:rgba(245,181,61,.6);color:var(--gold2);background:rgba(245,181,61,.08)}
+  .hero h1 em{color:var(--gold);text-shadow:0 0 22px rgba(245,181,61,.45)}
+  .cta{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1a1200;box-shadow:0 8px 26px rgba(245,181,61,.28)}
+  .cta.ghost{background:rgba(6,16,38,.45);color:#fff;border:1.5px solid rgba(111,179,255,.7);box-shadow:0 0 18px rgba(63,140,255,.25)}
+  .facts{background:rgba(6,14,34,.72);border-color:var(--line);box-shadow:0 0 30px rgba(63,140,255,.12)}
+  .facts svg.i{color:var(--sky);filter:drop-shadow(0 0 6px rgba(111,179,255,.6))}
+  .facts .f+.f{border-color:rgba(120,170,255,.18)}
+  h2{color:var(--gold)}
+  h3.big{color:#fff}
+  .about p{color:#cdd8ee}
+  .photo{border:1px solid var(--line);box-shadow:0 0 0 1px rgba(111,179,255,.08),0 18px 44px rgba(0,0,0,.5),0 0 36px rgba(63,140,255,.14)}
+  .offersec{background:linear-gradient(180deg,rgba(7,17,38,.0),rgba(9,22,48,.85) 18%,rgba(9,22,48,.85) 82%,rgba(7,17,38,0))}
+  .box,.req li{background:linear-gradient(180deg,rgba(20,42,88,.72),rgba(10,24,54,.72));border:1px solid var(--line);box-shadow:0 10px 26px rgba(0,0,0,.28)}
+  .box .ic{background:rgba(111,179,255,.12);color:var(--sky);box-shadow:inset 0 0 0 1px rgba(111,179,255,.3),0 0 16px rgba(63,140,255,.25)}
+  .box .t,.req li{color:#fff}
+  .box .x{color:#b9c6e0}
+  .req li::before{background:rgba(245,181,61,.14);color:var(--gold)}
+  .band::before{background:linear-gradient(90deg,rgba(4,10,24,.95) 0%,rgba(4,10,24,.7) 55%,rgba(4,10,24,.25) 100%)}
+  .band q{text-shadow:0 2px 14px rgba(0,0,0,.4)}
+  .applywrap{background:linear-gradient(180deg,#040a18,#0a1838)}
+  .applywrap .head h2{color:var(--gold)}
+  .card{background:linear-gradient(180deg,#0e1f42,#0b1834);border:1px solid var(--line);box-shadow:0 20px 50px rgba(0,0,0,.45),0 0 40px rgba(63,140,255,.1)}
+  label,legend{color:var(--text)}
+  label .opt{color:var(--muted)}
+  input,select,textarea{background:#081530;border-color:#2a4478;color:#fff}
+  input::placeholder,textarea::placeholder{color:#7688ab}
+  input:focus,select:focus,textarea:focus{outline-color:var(--gold);border-color:var(--gold)}
+  .pills span{background:#081530;border-color:#2a4478;color:var(--text)}
+  .pills input:checked+span{background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:var(--gold);color:#1a1200;font-weight:700}
+  .pills input:focus-visible+span{outline-color:var(--gold)}
+  .consent input{accent-color:var(--gold)}
+  button.go{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1a1200;box-shadow:0 8px 24px rgba(245,181,61,.25)}
+  .note,.sub{color:var(--muted)}
+  .err{color:#ff8f86}
+  .done h3{color:#fff}
+  #again{background:transparent !important;color:#fff !important;border:1px solid rgba(111,179,255,.6) !important;box-shadow:none}
+  footer{background:#030814;border-top:1px solid rgba(120,170,255,.12)}
+  footer a{color:var(--gold2)}
+  /* night hero art: truck already sits on the right, so no mirroring */
+  .hero .bg{object-position:50% 100%;-webkit-mask-image:linear-gradient(180deg,#000 80%,transparent 100%);mask-image:linear-gradient(180deg,#000 80%,transparent 100%);height:calc(max(14px,env(safe-area-inset-top)) + clamp(380px,103vw,580px))}
+  .herobody{padding-top:calc(max(14px,env(safe-area-inset-top)) + clamp(360px,96vw,545px))}
+  @media (min-width:760px){
+    .hero .bg{transform:none;object-position:center 48%;height:100%;-webkit-mask-image:none;mask-image:none}
+    .hero::after{background:linear-gradient(90deg,rgba(4,10,24,.94) 0%,rgba(4,10,24,.72) 38%,rgba(4,10,24,.05) 70%),linear-gradient(180deg,rgba(4,10,24,.6) 0%,rgba(4,10,24,0) 24%,rgba(4,10,24,0) 62%,rgba(4,10,24,.92) 100%)}
+    .herobody{padding-top:200px}
+  }
 </style>
 </head>
 <body id="top">
 <header class="hero">
-  <img class="bg" src="img/hero.jpg" alt="Red semi truck with a reefer trailer on an open highway, snowy mountains behind" width="1024" height="683" fetchpriority="high">
+  <picture><source media="(min-width:760px)" srcset="img/hero-night-wide.jpg"><img class="bg" src="img/hero-night-tall.jpg" alt="Red semi truck on a winding mountain highway at night, under a glowing map of U.S. freight routes" width="939" height="969" fetchpriority="high"></picture>
   <nav class="topbar" aria-label="Main">
     <div class="wrap" style="position:relative">
-      <a class="brand" href="#top" aria-label="Dijla Trucking LLC"><img src="../logo.png" alt="" width="88" height="88"><span class="wm"><b>DIJLA</b><span>TRUCKING<small>LLC</small></span></span></a>
+      <a class="brand" href="#top" aria-label="Dijla Trucking LLC"><img src="../logo.png" alt="" width="88" height="88"><span class="wm"><b>DIJLA</b><span>TRUCKING</span></span></a>
       <button type="button" class="menubtn" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="menu"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <div class="menu" id="menu" hidden><a href="#about">About us</a><a href="#offer">What we offer</a><a href="#requirements">Requirements</a><a class="apply" href="#apply">Apply now</a></div>
     </div>
