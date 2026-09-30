@@ -143,6 +143,7 @@
   <!-- ===== DASHBOARD ===== -->
   <section class="stack" id="tab-dash">
     <div class="chips" id="perChips" aria-label="Period"></div>
+    <div class="chips" id="byChips" aria-label="Count loads by"></div>
     <div class="alert" id="waitAlert" hidden></div>
     <div class="card"><h2 id="sumTitle">Summary</h2><div class="scroll"><table class="sum" id="sumTable"></table></div></div>
     <div class="card"><h2>Expenses by category</h2><div class="bars" id="catBars"></div></div>
@@ -439,7 +440,7 @@ function toast(msg){
 
 // ----- State (filled from the cloud) -----
 let loads = [], expenses = [];
-const DEFAULTS = { company: "", t1: "Truck 1", t2: "Truck 2", factor: "GAP", pct: 2, ageDays: 30 };
+const DEFAULTS = { company: "", t1: "Truck 1", t2: "Truck 2", factor: "GAP", pct: 2, ageDays: 30, countBy: "pickup" };
 let settings = { ...DEFAULTS };
 const TRUCKS = () => [["t1", settings.t1 || "Truck 1"], ["t2", settings.t2 || "Truck 2"]];
 const truckName = id => id === "shared" ? "Both trucks" : (TRUCKS().find(t => t[0] === id) || [0, "?"])[1];
@@ -458,7 +459,9 @@ const lNet = l => num(l.rate) - lFee(l);
 const hasDep = l => l.deposit !== undefined && l.deposit !== null && l.deposit !== "";
 const lDeduct = l => hasDep(l) ? Math.max(0, lNet(l) - num(l.deposit)) : 0;          // fuel/advances GAP kept back on this load
 const isGap = e => (e.paidWith || (["Fuel", "DEF"].includes(e.cat) ? "gap" : "own")) === "gap";
-const lDate = l => l.toDate || l.fromDate || (l.created || "").slice(0, 10);
+// which date puts a load in "this week / this month": pickup (default) or delivery
+const lDate = l => (settings.countBy === "delivery" ? (l.toDate || l.fromDate) : (l.fromDate || l.toDate)) || (l.created || "").slice(0, 10);
+const lDelDate = l => l.toDate || l.fromDate || (l.created || "").slice(0, 10);
 const rpm = (g, m) => m ? "$" + (g / m).toFixed(2) : "–";
 
 // ----- Tabs (refresh stays on the same tab) -----
@@ -481,11 +484,14 @@ function render(){
 }
 
 // ----- Periods -----
-const PERIODS = [["week","This week"],["month","This month"],["last","Last month"],["year","This year"],["all","All time"]];
+const PERIODS = [["week","This week"],["lastweek","Last week"],["month","This month"],["last","Last month"],["year","This year"],["all","All time"]];
 function range(p){
   const d = new Date(), y = d.getFullYear(), m = d.getMonth();
   const f = x => x.getFullYear() + "-" + String(x.getMonth()+1).padStart(2,"0") + "-" + String(x.getDate()).padStart(2,"0");
-  if (p === "week") { const s = new Date(d); s.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return [f(s), f(d)]; }
+  if (p === "week" || p === "lastweek") {                     // full Monday–Sunday weeks
+    const s = new Date(d); s.setDate(d.getDate() - ((d.getDay() + 6) % 7) - (p === "lastweek" ? 7 : 0));
+    const e = new Date(s); e.setDate(s.getDate() + 6); return [f(s), f(e)];
+  }
   if (p === "month") return [f(new Date(y, m, 1)), f(new Date(y, m + 1, 0))];
   if (p === "last") return [f(new Date(y, m - 1, 1)), f(new Date(y, m, 0))];
   if (p === "year") return [y + "-01-01", y + "-12-31"];
@@ -498,6 +504,7 @@ const chipsHtml = (items, cur, attr) => items.map(([id, lab, n]) => `<button typ
 let dashPer = "month";
 function renderDash(){
   $("perChips").innerHTML = chipsHtml(PERIODS, dashPer, "p");
+  $("byChips").innerHTML = `<span class="meta" style="align-self:center;flex:none">Count loads by</span>` + chipsHtml([["pickup", "Pickup date"], ["delivery", "Delivery date"]], settings.countBy || "pickup", "by");
   const r = range(dashPer);
   const L = loads.filter(l => l.stage !== "cancelled" && inRange(lDate(l), r));
   const E = expenses.filter(e => inRange(e.date, r));
@@ -525,12 +532,13 @@ function renderDash(){
     ["Avg weight", x => x.wavg ? Math.round(x.wavg).toLocaleString("en-US") + " lb" : "–"], ["Heaviest", x => x.wmax ? x.wmax.toLocaleString("en-US") + " lb" : "–"],
     ["Total hauled", x => x.wtot ? (x.wtot / 2000).toLocaleString("en-US", { maximumFractionDigits: 1 }) + " tons" : "–"]
   ];
-  $("sumTitle").textContent = `Summary · ${PERIODS.find(p => p[0] === dashPer)[1]}`;
+  const [r0, r1] = range(dashPer), nd = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  $("sumTitle").textContent = `Summary · ${PERIODS.find(p => p[0] === dashPer)[1]}` + (dashPer === "all" ? "" : ` (${nd(r0)} – ${nd(r1)})`);
   $("sumTable").innerHTML = `<thead><tr><th></th>${cols.map(([, n]) => `<th>${esc(n)}</th>`).join("")}</tr></thead><tbody>` +
     rows.map(([lab, f, cls]) => `<tr class="${cls || ""}"><td>${lab}</td>${c.map(x => `<td class="money">${f(x)}</td>`).join("")}</tr>`).join("") + "</tbody>";
   // waiting on money (any date)
   const wait = loads.filter(l => l.stage === "delivered" || l.stage === "submitted");
-  const late = wait.filter(l => daysSince(lDate(l)) >= num(settings.ageDays || 30));
+  const late = wait.filter(l => daysSince(lDelDate(l)) >= num(settings.ageDays || 30));
   $("waitAlert").hidden = !wait.length;
   $("waitAlert").innerHTML = `<b>${money(wait.reduce((s, l) => s + lNet(l), 0))}</b> still to be paid on ${wait.length} delivered load${wait.length === 1 ? "" : "s"}.` +
     (late.length ? ` <span class="neg">${late.length} older than ${settings.ageDays || 30} days.</span>` : "");
@@ -547,6 +555,7 @@ function renderDash(){
     : `<tbody><tr><td style="color:var(--muted)">No loads in this period.</td></tr></tbody>`;
 }
 $("perChips").addEventListener("click", e => { const b = e.target.closest("[data-p]"); if (b) { dashPer = b.dataset.p; renderDash(); } });
+$("byChips").addEventListener("click", e => { const b = e.target.closest("[data-by]"); if (b && b.dataset.by !== settings.countBy) { settings = { ...settings, countBy: b.dataset.by }; Sync.push("settings"); renderDash(); } });
 
 // ----- Loads -----
 let loadTruck = "all", loadFilter = "open", loadQuery = "", editingLoad = null;
@@ -759,7 +768,7 @@ function fillSettings(){
 $("setForm").onsubmit = e => {
   e.preventDefault();
   settings = { company: $("sCo").value.trim(), t1: $("sT1").value.trim() || "Truck 1", t2: $("sT2").value.trim() || "Truck 2",
-    factor: $("sFac").value.trim() || "Factoring", pct: Math.max(0, num($("sPct").value)), ageDays: Math.max(1, Math.round(num($("sAge").value)) || 30) };
+    factor: $("sFac").value.trim() || "Factoring", pct: Math.max(0, num($("sPct").value)), ageDays: Math.max(1, Math.round(num($("sAge").value)) || 30), countBy: settings.countBy || "pickup" };
   Sync.push("settings"); document.activeElement.blur(); render(); toast("Settings saved");
 };
 
