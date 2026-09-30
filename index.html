@@ -176,6 +176,10 @@
         <label>Loaded miles<input id="lMiles" type="number" min="0" inputmode="numeric" placeholder="0"></label>
         <label>Empty miles (deadhead)<input id="lEmpty" type="number" min="0" inputmode="numeric" placeholder="0"></label>
       </div>
+      <div class="row2">
+        <label>Weight (lb)<input id="lWeight" type="number" min="0" max="200000" inputmode="numeric" placeholder="e.g. 42000"></label>
+        <label>Commodity<input id="lCommodity" placeholder="e.g. Onions"></label>
+      </div>
       <label class="chk"><input type="checkbox" id="lFactored" checked> <span id="lFactoredLbl">Factored</span></label>
       <div class="calc" id="lCalc"></div>
       <label>Notes<input id="lNotes" placeholder="Optional"></label>
@@ -496,14 +500,17 @@ function renderDash(){
     const ex = E.reduce((s, e) => s + (id === "all" || e.truck === id ? num(e.amount) : e.truck === "shared" ? num(e.amount) / 2 : 0), 0);
     const gross = ls.reduce((s, l) => s + num(l.rate), 0), fees = ls.reduce((s, l) => s + lFee(l), 0);
     const miles = ls.reduce((s, l) => s + lMiles(l), 0);
-    return { n: ls.length, gross, fees, net: gross - fees, ex, profit: gross - fees - ex, miles };
+    const wl = ls.filter(l => num(l.weight) > 0), wsum = wl.reduce((s, l) => s + num(l.weight), 0);
+    return { n: ls.length, gross, fees, net: gross - fees, ex, profit: gross - fees - ex, miles, wavg: wl.length ? wsum / wl.length : 0, wmax: wl.reduce((m, l) => Math.max(m, num(l.weight)), 0), wtot: wsum };
   };
   const c = cols.map(([id]) => calc(id));
   const rows = [
     ["Loads", x => x.n], ["Gross", x => money(x.gross)], [`${esc(settings.factor || "Factoring")} fees`, x => money(-x.fees)],
     ["Net pay", x => money(x.net)], ["Expenses", x => money(-x.ex)],
     ["Profit", x => `<span class="${x.profit >= 0 ? "pos" : "neg"}">${money(x.profit)}</span>`, "key"],
-    ["Miles", x => x.miles.toLocaleString("en-US")], ["Revenue / mile", x => rpm(x.gross, x.miles)], ["Cost / mile", x => rpm(x.ex, x.miles)]
+    ["Miles", x => x.miles.toLocaleString("en-US")], ["Revenue / mile", x => rpm(x.gross, x.miles)], ["Cost / mile", x => rpm(x.ex, x.miles)],
+    ["Avg weight", x => x.wavg ? Math.round(x.wavg).toLocaleString("en-US") + " lb" : "–"], ["Heaviest", x => x.wmax ? x.wmax.toLocaleString("en-US") + " lb" : "–"],
+    ["Total hauled", x => x.wtot ? (x.wtot / 2000).toLocaleString("en-US", { maximumFractionDigits: 1 }) + " tons" : "–"]
   ];
   $("sumTitle").textContent = `Summary · ${PERIODS.find(p => p[0] === dashPer)[1]}`;
   $("sumTable").innerHTML = `<thead><tr><th></th>${cols.map(([, n]) => `<th>${esc(n)}</th>`).join("")}</tr></thead><tbody>` +
@@ -541,7 +548,7 @@ function renderLoads(){
     ...STAGES().map(([id, lab]) => [id, lab, byTruck.filter(l => l.stage === id).length])], loadFilter, "f");
   const q = loadQuery.toLowerCase();
   const list = byTruck.filter(l => loadFilter === "all" || (loadFilter === "open" ? OPEN.includes(l.stage) : l.stage === loadFilter))
-    .filter(l => !q || [l.broker, l.loadNo, l.from, l.to, l.notes].join(" ").toLowerCase().includes(q));
+    .filter(l => !q || [l.broker, l.loadNo, l.from, l.to, l.notes, l.commodity].join(" ").toLowerCase().includes(q));
   if (!list.length) { $("loadList").innerHTML = loads.length ? `<div class="empty"><b>Nothing here</b>Try another filter.</div>` : `<div class="empty"><b>No loads yet</b>Tap "New load" when you book one.</div>`; return; }
   $("loadList").innerHTML = list.map(l => {
     const last = (l.hist && l.hist.length) ? l.hist[l.hist.length - 1].d : lDate(l);
@@ -552,7 +559,7 @@ function renderLoads(){
           <div class="lane">${esc(l.from || "?")} → ${esc(l.to || "?")}</div></div>
         <div class="r"><span class="pill st-${l.stage}">${esc(stLabel(l.stage))}</span><b class="money">${money2(num(l.rate))}</b></div>
       </div>
-      <div class="meta">${esc(truckName(l.truck))} · ${niceDate(l.fromDate) || "?"} → ${niceDate(l.toDate) || "?"} · ${lMiles(l).toLocaleString("en-US")} mi · ${rpm(num(l.rate), lMiles(l))}/mi${l.factored === false ? " · not factored" : ` · net ${money2(lNet(l))}`}</div>
+      <div class="meta">${esc(truckName(l.truck))} · ${niceDate(l.fromDate) || "?"} → ${niceDate(l.toDate) || "?"} · ${lMiles(l).toLocaleString("en-US")} mi · ${rpm(num(l.rate), lMiles(l))}/mi${l.weight ? ` · ${num(l.weight).toLocaleString("en-US")} lb` : ""}${l.commodity ? ` · ${esc(l.commodity)}` : ""}${l.factored === false ? " · not factored" : ` · net ${money2(lNet(l))}`}</div>
       ${OPEN.includes(l.stage) ? `<div class="meta">${ds} day${ds === 1 ? "" : "s"} in this stage</div>` : ""}
       ${l.hist && l.hist.length ? `<div class="hist">${l.hist.map(h => `<span>${esc(stLabel(h.s))} <b>${niceDate(h.d)}</b></span>`).join("")}</div>` : ""}
       ${l.notes ? `<div class="meta" style="color:var(--text)">${esc(l.notes)}</div>` : ""}
@@ -578,7 +585,8 @@ function openLoadForm(l){
   const v = l || { truck: loadTruck !== "all" ? loadTruck : "t1", fromDate: today(), factored: true };
   $("lTruck").value = v.truck || "t1"; $("lRate").value = v.rate ?? ""; $("lBroker").value = v.broker || ""; $("lNo").value = v.loadNo || "";
   $("lFrom").value = v.from || ""; $("lFromDate").value = v.fromDate || ""; $("lTo").value = v.to || ""; $("lToDate").value = v.toDate || "";
-  $("lMiles").value = v.miles ?? ""; $("lEmpty").value = v.empty ?? ""; $("lFactored").checked = v.factored !== false;
+  $("lMiles").value = v.miles ?? ""; $("lEmpty").value = v.empty ?? "";
+  $("lWeight").value = v.weight || ""; $("lCommodity").value = v.commodity || ""; $("lFactored").checked = v.factored !== false;
   $("lNotes").value = v.notes || ""; $("lLink").value = v.link || "";
   document.querySelectorAll("#loadForm .filled").forEach(el => el.classList.remove("filled"));
   $("rcMsg").textContent = "Fills in the load for you. The file is read on this phone and never uploaded or saved."; $("rcMsg").className = "scanmsg";
@@ -594,6 +602,7 @@ $("loadForm").onsubmit = e => {
   const f = { truck: $("lTruck").value, rate: Math.round(num($("lRate").value) * 100) / 100, broker: $("lBroker").value.trim(), loadNo: $("lNo").value.trim(),
     from: $("lFrom").value.trim(), fromDate: $("lFromDate").value, to: $("lTo").value.trim(), toDate: $("lToDate").value,
     miles: Math.round(num($("lMiles").value)), empty: Math.round(num($("lEmpty").value)), factored: $("lFactored").checked,
+    weight: Math.round(num($("lWeight").value)), commodity: $("lCommodity").value.trim(),
     notes: $("lNotes").value.trim(), link: $("lLink").value.trim() };
   const was = editingLoad;
   if (was) Object.assign(loads.find(x => x.id === was), f);
@@ -639,8 +648,8 @@ $("rcFile").addEventListener("change", async e => {
     if (set("lTo", f.to)) got.push("delivery");
     set("lToDate", f.toDate);
     if (f.miles) set("lMiles", f.miles);
-    const extra = [f.commodity, f.weight ? f.weight.toLocaleString("en-US") + " lb" : ""].filter(Boolean).join(" · ");
-    if (extra && !$("lNotes").value) set("lNotes", extra);
+    if (set("lWeight", f.weight)) got.push("weight");
+    set("lCommodity", f.commodity);
     loadCalc();
     if (!got.length) { say("Couldn't find the load details in that file. Fill it in by hand.", "bad"); return; }
     const dup = f.loadNo && loads.find(l => l.loadNo === f.loadNo && l.id !== editingLoad);
