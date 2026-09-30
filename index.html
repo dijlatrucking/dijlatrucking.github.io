@@ -1682,16 +1682,50 @@ window.Sync = (() => {
     $("authGate").hidden = false; document.body.classList.add("auth-lock");
     $("authForm").hidden = false; $("authWait").hidden = true; $("authMsg").textContent = "";
   }
+  // Google sign-in. With a Google client ID we open Google's own sign-in window (works on iPhone Safari,
+  // which blocks the storage Firebase's popup relies on); without one, or if Google's script can't load, Firebase's popup.
+  const GCLIENT = "548103427278-i96hlr9kgdcvasb8h8jjg1ka39d0v1k5.apps.googleusercontent.com";
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let tokenClient = null;
+  const authFail = err => {
+    const c = err && err.code || "";
+    $("authMsg").textContent = c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request"
+        ? (isIOS && !tokenClient ? "Sign-in didn't finish. On iPhone, turn off Settings → Safari → Prevent Cross-Site Tracking, then try again." : "")
+      : c === "auth/network-request-failed" ? "No connection. Check your internet and try again."
+      : c === "auth/unauthorized-domain" ? "This site isn't on Firebase's authorized domains list yet."
+      : c === "auth/invalid-credential" ? "Google sign-in didn't go through. Try again." : "Couldn't sign in. Try again.";
+  };
+  // until Google's script is ready the button waits (a tap would otherwise use the popup iPhones block)
+  let gisState = GCLIENT ? "loading" : "off";
+  const btnLabel = $("authBtn").lastChild, btnText = btnLabel.textContent;
+  const gisDone = st => { if (gisState !== "loading") return; gisState = st; btnLabel.textContent = btnText; $("authBtn").disabled = false; };
+  if (GCLIENT) {
+    btnLabel.textContent = "Loading sign-in…"; $("authBtn").disabled = true;
+    setTimeout(() => gisDone("failed"), 8000);                       // Google unreachable: fall back to the old popup
+    const gs = document.createElement("script"); gs.src = "https://accounts.google.com/gsi/client"; gs.async = true;
+    gs.onerror = () => gisDone("failed");
+    gs.onload = () => {
+      try {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: GCLIENT, scope: "openid email profile",
+          callback: async resp => {
+            if (!resp || resp.error || !resp.access_token) { $("authBtn").disabled = false; $("authMsg").textContent = resp && resp.error === "access_denied" ? "" : "Couldn't sign in. Try again."; return; }
+            try { await Cloud.signInWithToken(resp.access_token); } catch (err) { authFail(err); } finally { $("authBtn").disabled = false; }
+          },
+          error_callback: e => { $("authBtn").disabled = false;
+            $("authMsg").textContent = e && e.type === "popup_failed_to_open" ? "The sign-in window was blocked. Allow pop-ups for this site and try again." : ""; }
+        });
+      } catch (e) { tokenClient = null; }
+      gisDone(tokenClient ? "ready" : "failed");
+    };
+    document.head.appendChild(gs);
+  }
   $("authBtn").onclick = async () => {
     if (!window.Cloud) { $("authMsg").textContent = "Still connecting. Check your internet and try again."; return; }
-    $("authBtn").disabled = true; $("authMsg").textContent = "";
-    try { await Cloud.signIn(); }
-    catch (err) {
-      const c = err && err.code || "";
-      $("authMsg").textContent = c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request" ? ""
-        : c === "auth/network-request-failed" ? "No connection. Check your internet and try again."
-        : c === "auth/unauthorized-domain" ? "This site isn't on Firebase's authorized domains list yet." : "Couldn't sign in. Try again.";
-    } finally { $("authBtn").disabled = false; }
+    $("authMsg").textContent = "";
+    if (tokenClient) { $("authBtn").disabled = true; tokenClient.requestAccessToken({ prompt: "select_account" }); setTimeout(() => { $("authBtn").disabled = false; }, 4000); return; }
+    $("authBtn").disabled = true;
+    try { await Cloud.signIn(); } catch (err) { authFail(err); } finally { $("authBtn").disabled = false; }
   };
   $("signOutBtn").onclick = async () => {
     if (pending.size && !confirm("Some changes haven't reached the cloud yet. Sign out anyway?")) return;
@@ -1706,7 +1740,7 @@ window.Sync = (() => {
 <script type="module">
 // ===== Truck Ops cloud: Firebase Google sign-in + Firestore sync =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, connectAuthEmulator }
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
          collection, doc, onSnapshot, writeBatch, setDoc, terminate, clearIndexedDbPersistence }
@@ -1764,6 +1798,8 @@ window.Cloud = {
     try { await signInWithPopup(auth, p); }
     catch (e) { if (e && e.code === "auth/popup-blocked") await signInWithRedirect(auth, p); else throw e; }
   },
+  // Token from Google's own sign-in window (see app.html); Firebase checks it with Google.
+  signInWithToken(accessToken){ return signInWithCredential(auth, GoogleAuthProvider.credential(null, accessToken)); },
   async signOutOnly(){ stop(); try { await signOut(auth); } catch (e) {} },
   async signOut(){ stop(); try { await signOut(auth); } catch (e) {} if (db) { try { await terminate(db); await clearIndexedDbPersistence(db); } catch (e) {} } }
 };
