@@ -35,11 +35,15 @@
   header.top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
   header.top .logo{width:50px;height:auto;flex:none}
   header.top h1{margin:0;font-size:20px;letter-spacing:.02em}
+  header.top > div{min-width:0} header.top h1{overflow-wrap:anywhere;line-height:1.15}
+  @media (max-width:370px){header.top{gap:8px} header.top .logo{width:40px} header.top h1{font-size:17px}
+    #signOutBtn{padding:8px 10px;font-size:13.5px} .hirebtn{padding:8px 9px}}
   header.top p{margin:0;font-size:12.5px;color:var(--muted)}
   .sync{font-weight:600} .sync.ok{color:var(--good)} .sync.warn{color:var(--warn)} .sync.bad{color:var(--bad)}
   nav.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:14px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
   nav.tabs button{border:none;background:transparent;color:var(--muted);padding:11px 2px;border-radius:8px;font-weight:600;font-size:13.5px}
   @media (max-width:400px){nav.tabs button{font-size:12.5px}}
+  @media (max-width:350px){nav.tabs{gap:2px;padding:4px} nav.tabs button{font-size:11px;padding:10px 0;letter-spacing:-.01em}}
   nav.tabs button[aria-selected="true"]{background:var(--acc);color:var(--on-acc)}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
   .card h2{margin:0 0 10px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--acc-hi)}
@@ -157,6 +161,7 @@
   .authbox h1{margin:0 0 6px;font-size:22px;letter-spacing:.12em}
   .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px;font-weight:600;font-size:16px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:10px}
   .gbtn svg{width:22px;height:22px}
+  .authalt{background:none;border:0;padding:6px;margin-top:4px;color:var(--blue);font-size:13.5px;text-decoration:underline;cursor:pointer}
   .authmsg{min-height:20px;margin:0;font-size:14px;color:var(--bad)}
   .authnote{margin:0;font-size:12.5px;color:var(--muted)}
   @media (prefers-reduced-motion:reduce){*{transition:none !important}}
@@ -169,6 +174,7 @@
     <h1 style="font-size:15px;letter-spacing:.3em;color:var(--muted)">OPS</h1>
     <button type="button" class="gbtn" id="authBtn"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</button>
     <p class="authmsg" id="authMsg" role="status"></p>
+    <button type="button" class="authalt" id="authAlt" hidden>Trouble signing in? Try another way</button>
     <p class="authnote">Only approved accounts can sign in.</p>
   </div>
   <p class="muted" id="authWait">Connecting…</p>
@@ -803,7 +809,7 @@ $("dFrom").addEventListener("change", onRange); $("dTo").addEventListener("chang
 $("dClear").onclick = () => { dFrom = dTo = ""; dashPer = "month"; renderDash(); };
 
 // ----- Loads -----
-let loadTruck = "all", loadFilter = "all", loadQuery = "", editingLoad = null;
+let loadTruck = "all", loadFilter = "all", loadQuery = "", editingLoad = null, loadLimit = 100;
 function renderLoads(){
   const open = loads.filter(l => OPEN.includes(l.stage));
   const wait = loads.filter(l => l.stage === "delivered");
@@ -817,7 +823,8 @@ function renderLoads(){
   const list = byTruck.filter(l => loadFilter === "all" || l.stage === loadFilter)
     .filter(l => !q || [l.broker, l.loadNo, l.from, l.to, l.notes, l.commodity].join(" ").toLowerCase().includes(q));
   if (!list.length) { $("loadList").innerHTML = loads.length ? `<div class="empty"><b>Nothing here</b>Try another filter.</div>` : `<div class="empty"><b>No loads yet</b>Tap "New load" when you book one.</div>`; return; }
-  $("loadList").innerHTML = list.map(l => {
+  const shown = list.slice(0, loadLimit), rest = list.length - shown.length;   // long histories: newest first, 100 at a time
+  $("loadList").innerHTML = shown.map(l => {
     const last = (l.hist && l.hist.length) ? l.hist[l.hist.length - 1].d : lDate(l);
     const ds = daysSince(last);
     return `<article class="item st-${l.stage}" data-id="${esc(l.id)}">
@@ -836,7 +843,7 @@ function renderLoads(){
       <div class="acts"><button type="button" data-a="edit">Edit</button>${l.link ? `<button type="button" data-a="link">Paperwork</button>` : ""}<button type="button" data-a="del" class="danger">Delete</button></div>
       <div class="confirm" hidden><span>Delete this load for good?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
     </article>`;
-  }).join("");
+  }).join("") + (rest ? `<button type="button" class="ghost" id="loadMore" style="width:100%">Show ${Math.min(100, rest)} more · ${rest} older load${rest === 1 ? "" : "s"}</button>` : "");
 }
 function fillTruckSelect(sel, withShared){ sel.innerHTML = TRUCKS().map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join("") + (withShared ? `<option value="shared">Both trucks (split)</option>` : ""); }
 function loadCalc(){
@@ -881,10 +888,11 @@ $("loadForm").onsubmit = e => {
   else loads.unshift({ id: newId("ld"), stage: "booked", hist: [{ s: "booked", d: today() }], created: new Date().toISOString(), ...f });
   Sync.push("loads"); closeLoadForm(); renderLoads(); toast(was ? "Load saved" : "Load added");
 };
-$("loadTruckChips").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) { loadTruck = b.dataset.t; renderLoads(); } });
-$("loadFilters").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (b) { loadFilter = b.dataset.f; renderLoads(); } });
-$("loadSearch").addEventListener("input", e => { loadQuery = e.target.value; renderLoads(); });
+$("loadTruckChips").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) { loadTruck = b.dataset.t; loadLimit = 100; renderLoads(); } });
+$("loadFilters").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (b) { loadFilter = b.dataset.f; loadLimit = 100; renderLoads(); } });
+$("loadSearch").addEventListener("input", e => { loadQuery = e.target.value; loadLimit = 100; renderLoads(); });
 $("loadList").addEventListener("click", e => {
+  if (e.target.closest("#loadMore")) { loadLimit += 100; renderLoads(); return; }
   const b = e.target.closest("[data-a]"); if (!b) return;
   const card = b.closest(".item"), l = loads.find(x => x.id === card.dataset.id); if (!l) return;
   const a = b.dataset.a;
@@ -1702,7 +1710,7 @@ window.Sync = (() => {
   // until Google's script is ready the button waits (a tap would otherwise use the popup iPhones block)
   let gisState = GCLIENT ? "loading" : "off";
   const btnLabel = $("authBtn").lastChild, btnText = btnLabel.textContent;
-  const gisDone = st => { if (gisState !== "loading") return; gisState = st; btnLabel.textContent = btnText; $("authBtn").disabled = false; };
+  const gisDone = st => { if (gisState !== "loading") return; gisState = st; btnLabel.textContent = btnText; $("authBtn").disabled = false; $("authAlt").hidden = st !== "ready"; };
   if (GCLIENT) {
     btnLabel.textContent = "Loading sign-in…"; $("authBtn").disabled = true;
     setTimeout(() => gisDone("failed"), 8000);                       // Google unreachable: fall back to the old popup
@@ -1724,6 +1732,12 @@ window.Sync = (() => {
     };
     document.head.appendChild(gs);
   }
+  // backup: the older Firebase sign-in, for browsers where Google's window errors out
+  $("authAlt").onclick = async () => {
+    if (!window.Cloud) { $("authMsg").textContent = "Still connecting. Check your internet and try again."; return; }
+    $("authMsg").textContent = ""; $("authAlt").disabled = true;
+    try { await Cloud.signIn(); } catch (err) { authFail(err); } finally { $("authAlt").disabled = false; }
+  };
   $("authBtn").onclick = async () => {
     if (!window.Cloud) { $("authMsg").textContent = "Still connecting. Check your internet and try again."; return; }
     $("authMsg").textContent = "";
