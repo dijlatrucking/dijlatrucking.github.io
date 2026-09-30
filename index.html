@@ -34,12 +34,14 @@
   header.top h1{margin:0;font-size:20px;letter-spacing:.02em}
   header.top p{margin:0;font-size:12.5px;color:var(--muted)}
   .sync{font-weight:600} .sync.ok{color:var(--good)} .sync.warn{color:var(--warn)} .sync.bad{color:var(--bad)}
-  nav.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:14px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
-  nav.tabs button{border:none;background:transparent;color:var(--muted);padding:11px 4px;border-radius:8px;font-weight:600;font-size:14px}
+  nav.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:14px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
+  nav.tabs button{border:none;background:transparent;color:var(--muted);padding:11px 2px;border-radius:8px;font-weight:600;font-size:13.5px}
+  @media (max-width:400px){nav.tabs button{font-size:12.5px}}
   nav.tabs button[aria-selected="true"]{background:var(--acc);color:#141100}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
   .card h2{margin:0 0 10px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--acc-hi)}
-  .stack{display:grid;gap:12px}
+  .stack{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+  .stack>*{min-width:0}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
   @media (max-width:430px){.row3{grid-template-columns:1fr 1fr}.row3>:last-child{grid-column:1/-1}}
@@ -80,6 +82,7 @@
   .calc{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);background:var(--ink);border-radius:8px;padding:9px 11px}
   .calc b{color:var(--text)}
   table.sum{width:100%;border-collapse:collapse;font-size:14px}
+  #taxQ{font-size:13px} #taxQ th,#taxQ td{padding:8px 4px}
   table.sum th,table.sum td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
   table.sum th:first-child,table.sum td:first-child{text-align:left;color:var(--muted);font-weight:500}
   table.sum thead th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc-hi)}
@@ -97,6 +100,18 @@
   .filled{border-color:var(--good) !important;box-shadow:0 0 0 1px var(--good) inset}
   .depq{display:grid;grid-template-columns:1fr auto;gap:8px}
   .deprow{display:flex;justify-content:space-between;align-items:center;gap:8px} .deprow button{padding:6px 12px;font-size:13px;flex:none}
+  .taxbig{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+  .taxbig div{background:var(--ink);border-radius:10px;padding:10px 12px;display:grid}
+  .taxbig b{font:700 18px/1.2 var(--mono);color:var(--acc-hi);white-space:nowrap} .taxbig span{font-size:11.5px;color:var(--muted)}
+  @media (max-width:430px){.taxbig{grid-template-columns:1fr 1fr}}
+  @media print{
+    body{background:#fff;color:#000} .wrap{max-width:none;padding:0}
+    header.top,nav.tabs,.noprint,.toast{display:none !important}
+    section[id^=tab-]:not(#tab-tax){display:none !important} #tab-tax{display:grid !important}
+    .card{background:#fff;border:1px solid #bbb;break-inside:avoid} .card h2{color:#000}
+    table.sum th,table.sum td{border-color:#ccc;color:#000} table.sum thead th{color:#000} .taxbig div{background:#f3f3f3} .taxbig b{color:#000}
+    .meta{color:#333} .pos{color:#000} .neg{color:#000}
+  }
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--acc);color:#141100;font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
   .toast.show{opacity:1}
   body.auth-lock{overflow:hidden}
@@ -137,6 +152,7 @@
     <button type="button" role="tab" data-tab="dash" aria-selected="true">Dashboard</button>
     <button type="button" role="tab" data-tab="loads" aria-selected="false">Loads</button>
     <button type="button" role="tab" data-tab="exp" aria-selected="false">Expenses</button>
+    <button type="button" role="tab" data-tab="tax" aria-selected="false">1099</button>
     <button type="button" role="tab" data-tab="set" aria-selected="false">Settings</button>
   </nav>
 
@@ -222,6 +238,19 @@
     <div class="chips" id="expTruckChips" aria-label="Truck"></div>
     <div class="chips" id="expPerChips" aria-label="Period"></div>
     <div class="list" id="expList"></div>
+  </section>
+
+  <!-- ===== 1099 / TAX ===== -->
+  <section class="stack" id="tab-tax" hidden>
+    <div class="chips noprint" id="taxYearChips" aria-label="Year"></div>
+    <div class="chips noprint" id="taxTruckChips" aria-label="Truck"></div>
+    <div class="card" id="taxHead"></div>
+    <div class="card"><h2>Income by quarter</h2><div class="scroll"><table class="sum" id="taxQ"></table></div>
+      <p class="meta" style="margin:8px 0 0">Counted when paid (the date a load was marked Paid). <span id="taxUnpaid"></span></p></div>
+    <div class="card"><h2>Expenses by category</h2><div class="scroll"><table class="sum" id="taxCats"></table></div>
+      <p class="meta" style="margin:8px 0 0">Expenses tagged "Both trucks" are split 50/50. Truck payments: your accountant may only deduct the interest part, plus depreciation.</p></div>
+    <div class="btns noprint"><button type="button" class="primary" id="taxCsv">Download for accountant (CSV)</button><button type="button" id="taxPrint">Print / Save as PDF</button></div>
+    <p class="meta noprint" style="margin:0">This is a record-keeping summary, not tax advice. Have your accountant check it before filing.</p>
   </section>
 
   <!-- ===== SETTINGS ===== -->
@@ -481,6 +510,7 @@ function render(){
   if (tab === "loads") renderLoads();
   if (tab === "exp") renderExp();
   if (tab === "set") fillSettings();
+  if (tab === "tax") renderTax();
 }
 
 // ----- Periods -----
@@ -759,6 +789,74 @@ $("expList").addEventListener("click", e => {
   if (a === "yesdel") { expenses = expenses.filter(y => y !== x); Sync.push("expenses"); renderExp(); toast("Expense deleted"); }
 });
 
+// ----- 1099 / tax year (cash basis: a load counts in the year and quarter it was paid) -----
+let taxYear = new Date().getFullYear(), taxTruck = "t1";
+const paidDate = l => { const h = (l.hist || []).find(x => x.s === "funded"); return h ? h.d : ""; };
+function taxData(year, truck){
+  const inYear = d => d && d.slice(0, 4) === String(year);
+  const qOf = d => Math.floor((+d.slice(5, 7) - 1) / 3);
+  const paid = loads.filter(l => l.stage === "funded" && l.truck === truck && inYear(paidDate(l)));
+  const unpaid = loads.filter(l => l.truck === truck && l.stage !== "funded" && l.stage !== "cancelled" && inYear(lDate(l)));
+  const share = e => e.truck === truck ? num(e.amount) : e.truck === "shared" ? num(e.amount) / 2 : 0;
+  const exps = expenses.filter(e => inYear(e.date) && share(e) > 0);
+  const Q = [0, 1, 2, 3].map(q => {
+    const ls = paid.filter(l => qOf(paidDate(l)) === q), es = exps.filter(e => qOf(e.date) === q);
+    const gross = ls.reduce((s, l) => s + num(l.rate), 0), fees = ls.reduce((s, l) => s + lFee(l), 0);
+    const gapFuel = es.filter(isGap).reduce((s, e) => s + share(e), 0), kept = ls.reduce((s, l) => s + lDeduct(l), 0);
+    const gapOut = Math.max(gapFuel, kept), other = es.filter(e => !isGap(e)).reduce((s, e) => s + share(e), 0);
+    return { n: ls.length, gross, fees, gapOut, paid: gross - fees - gapOut, other, net: gross - fees - gapOut - other,
+      miles: ls.reduce((s, l) => s + lMiles(l), 0), gallons: es.filter(e => e.cat === "Fuel").reduce((s, e) => s + num(e.gallons) * (e.truck === "shared" ? .5 : 1), 0) };
+  });
+  const T = Q.reduce((a, q) => { Object.keys(q).forEach(k => a[k] = (a[k] || 0) + q[k]); return a; }, {});
+  // expenses by category (fuel from deposits that wasn't logged shows as its own line)
+  const cats = {}; exps.forEach(e => cats[e.cat] = (cats[e.cat] || 0) + share(e));
+  const loggedGap = exps.filter(isGap).reduce((s, e) => s + share(e), 0);
+  const unlogged = Math.max(0, T.gapOut - loggedGap);
+  const catRows = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+  if (unlogged > 0.005) catRows.push(["Fuel/advances kept by " + (settings.factor || "GAP") + " (not itemized)", unlogged]);
+  catRows.push([(settings.factor || "Factoring") + " fees (" + num(settings.pct) + "%)", T.fees]);
+  return { paid, unpaid, exps, Q, T, catRows, deductible: catRows.reduce((s, r) => s + r[1], 0) };
+}
+function renderTax(){
+  const years = [...new Set([new Date().getFullYear(), ...loads.map(l => (paidDate(l) || lDate(l)).slice(0, 4)), ...expenses.map(e => String(e.date).slice(0, 4))].map(Number).filter(Boolean))].sort((a, b) => b - a);
+  $("taxYearChips").innerHTML = chipsHtml(years.map(y => [String(y), String(y)]), String(taxYear), "y");
+  $("taxTruckChips").innerHTML = chipsHtml(TRUCKS(), taxTruck, "t");
+  const d = taxData(taxYear, taxTruck), T = d.T;
+  $("taxHead").innerHTML = `<h2>${esc(truckName(taxTruck))} · ${taxYear}</h2>
+    <div class="meta">${esc(settings.company || "Truck Ops")} · ${T.n || 0} paid load${T.n === 1 ? "" : "s"} · ${Math.round(T.miles || 0).toLocaleString("en-US")} mi · ${(T.gallons || 0).toLocaleString("en-US", { maximumFractionDigits: 0 })} gal fuel</div>
+    <div class="taxbig"><div><b>${money(T.paid || 0)}</b><span>Paid to truck (1099)</span></div><div><b>${money(d.deductible)}</b><span>Expenses incl. fees</span></div>
+    <div><b class="${T.net >= 0 ? "" : "neg"}">${money(T.net || 0)}</b><span>Net profit</span></div></div>`;
+  const qs = ["Q1 Jan–Mar", "Q2 Apr–Jun", "Q3 Jul–Sep", "Q4 Oct–Dec"];
+  const rows = [["Loads paid", q => q.n], ["Gross", q => money(q.gross)], [`${esc(settings.factor || "GAP")} fees`, q => money(-q.fees)],
+    [`${esc(settings.factor || "GAP")} fuel & deductions`, q => money(-q.gapOut)], ["Paid to truck", q => `<b>${money(q.paid)}</b>`, "key"],
+    ["Other expenses", q => money(-q.other)], ["Net", q => `<span class="${q.net >= 0 ? "pos" : "neg"}">${money(q.net)}</span>`, "key"]];
+  $("taxQ").innerHTML = `<thead><tr><th></th>${qs.map(q => `<th>${q.slice(0, 2)}</th>`).join("")}<th>Year</th></tr></thead><tbody>` +
+    rows.map(([lab, f, cls]) => `<tr class="${cls || ""}"><td>${lab}</td>${d.Q.map(q => `<td class="money">${f(q)}</td>`).join("")}<td class="money">${f(T)}</td></tr>`).join("") + "</tbody>";
+  $("taxUnpaid").textContent = d.unpaid.length ? `${d.unpaid.length} load${d.unpaid.length === 1 ? "" : "s"} from ${taxYear} not marked Paid yet (${money(d.unpaid.reduce((s, l) => s + lNet(l), 0))} after fees) aren't included.` : "";
+  $("taxCats").innerHTML = d.catRows.length ? `<tbody>${d.catRows.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="money">${money2(v)}</td></tr>`).join("")}<tr class="key"><td>Total</td><td class="money">${money2(d.deductible)}</td></tr></tbody>`
+    : `<tbody><tr><td class="muted">No expenses for this truck in ${taxYear}.</td></tr></tbody>`;
+}
+$("taxYearChips").addEventListener("click", e => { const b = e.target.closest("[data-y]"); if (b) { taxYear = +b.dataset.y; renderTax(); } });
+$("taxTruckChips").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) { taxTruck = b.dataset.t; renderTax(); } });
+$("taxPrint").onclick = () => window.print();
+$("taxCsv").onclick = () => {
+  const d = taxData(taxYear, taxTruck), T = d.T, q = v => `"${String(v ?? "").replace(/"/g, '""')}"`, m = v => (Math.round(num(v) * 100) / 100).toFixed(2);
+  const L = [];
+  L.push([q(`${settings.company || "Truck Ops"} - ${truckName(taxTruck)} - ${taxYear} summary`)].join(","), "");
+  L.push("Summary,Amount", `Paid to truck (1099),${m(T.paid)}`, `Gross,${m(T.gross)}`, `${q((settings.factor || "GAP") + " fees")},${m(T.fees)}`,
+    `${q((settings.factor || "GAP") + " fuel & deductions")},${m(T.gapOut)}`, `Other expenses,${m(T.other)}`, `Net profit,${m(T.net)}`, `Miles,${Math.round(T.miles || 0)}`, `Fuel gallons,${m(T.gallons)}`, "");
+  L.push("Quarter,Loads paid,Gross,Fees,Fuel & deductions,Paid to truck,Other expenses,Net");
+  d.Q.forEach((x, i) => L.push([`Q${i + 1}`, x.n, m(x.gross), m(x.fees), m(x.gapOut), m(x.paid), m(x.other), m(x.net)].join(",")));
+  L.push("", "Expense category,Amount"); d.catRows.forEach(([k, v]) => L.push([q(k), m(v)].join(",")));
+  L.push("", "Paid loads", "Paid date,Broker,Load #,Pickup,Delivery,Rate,Fee,GAP deposit,Miles,Weight (lb)");
+  d.paid.slice().sort((a, b) => paidDate(a).localeCompare(paidDate(b))).forEach(l => L.push([paidDate(l), q(l.broker), q(l.loadNo), q(l.from), q(l.to), m(l.rate), m(lFee(l)), hasDep(l) ? m(l.deposit) : "", lMiles(l), num(l.weight) || ""].join(",")));
+  L.push("", "Expenses", "Date,Category,Amount (this truck's share),Paid with,Gallons,State,Note");
+  d.exps.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(e => L.push([e.date, q(e.cat), m(e.truck === "shared" ? num(e.amount) / 2 : e.amount) , isGap(e) ? "GAP card" : "Own", num(e.gallons) || "", e.state || "", q(e.note)].join(",")));
+  const blob = new Blob([L.join("\r\n")], { type: "text/csv" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `${(settings.company || "truck-ops").replace(/[^A-Za-z0-9]+/g, "-")}-${truckName(taxTruck).replace(/[^A-Za-z0-9]+/g, "-")}-${taxYear}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast("Downloaded");
+};
+
 // ----- Settings -----
 function fillSettings(){
   if (document.activeElement && document.activeElement.closest("#setForm")) return;
@@ -866,7 +964,7 @@ window.Sync = (() => {
   return { apply, push, error, signedIn, signedOut };
 })();
 
-{ const t = location.hash.slice(1); if (["loads", "exp", "set"].includes(t)) showTab(t); else render(); }
+{ const t = location.hash.slice(1); if (["loads", "exp", "tax", "set"].includes(t)) showTab(t); else render(); }
 </script>
 <script type="module">
 // ===== Truck Ops cloud: Firebase Google sign-in + Firestore sync =====
