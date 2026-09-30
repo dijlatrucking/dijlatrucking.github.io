@@ -479,7 +479,7 @@ const STAGES = () => [
 ];
 const stLabel = id => (STAGES().find(s => s[0] === id) || [0, id])[1];
 const OPEN = ["booked", "dispatched", "pickedup", "delivered", "submitted"];
-const CATS = ["Fuel", "DEF", "Tolls", "Repairs", "Tires", "Maintenance", "Insurance", "Truck payment", "Trailer", "Permits & plates", "Parking", "Lumper", "Scale", "Phone & ELD", "Other"];
+const CATS = ["Fuel", "DEF", "Tolls", "Repairs", "Tires", "Maintenance", "Insurance", "Truck payment", "Trailer", "Permits & plates", "IFTA tax", "IFTA service fee", "Parking", "Lumper", "Scale", "Phone & ELD", "Other"];
 
 // ----- Load math -----
 const lMiles = l => num(l.miles) + num(l.empty);
