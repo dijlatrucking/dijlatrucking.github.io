@@ -1629,12 +1629,15 @@ window.Sync = (() => {
   };
   const last = { loads: null, expenses: null, settings: null, applications: null };
   const pending = new Set(), timers = {};
-  let on = false, errored = "", gotData = false, userEmail = "";
+  let on = false, errored = "", gotData = false, userEmail = "", slow = false, slowT = 0;
   const fresh = { expenses: false, settings: false };            // both read from the server (not just the phone's cache)
   function status(){
     const el = $("syncState");
+    // "Synced" only once the cloud has actually answered; until then say so honestly
+    const who = userEmail ? " · " + userEmail.split("@")[0] : "";
     const t = errored ? ["bad", errored] : !navigator.onLine ? ["warn", "Offline · changes sync when you're back online"]
-      : pending.size ? ["warn", "Saving…"] : ["ok", "Synced ✓"];
+      : !gotData ? (slow ? ["bad", "Can't reach the cloud. Check your connection, turn off any VPN or content blocker, then reload."] : ["warn", "Connecting to the cloud…"])
+      : pending.size ? ["warn", "Saving…" + who] : ["ok", "Synced ✓" + who];
     el.className = "sync " + t[0]; el.textContent = t[1];
   }
   addEventListener("online", status); addEventListener("offline", status);
@@ -1686,7 +1689,8 @@ window.Sync = (() => {
     fail(err);
   }
   function signedIn(email){
-    on = true; errored = ""; gotData = false; userEmail = email;
+    on = true; errored = ""; gotData = false; userEmail = email; slow = false;
+    clearTimeout(slowT); slowT = setTimeout(() => { if (on && !gotData) { slow = true; status(); } }, 15000);
     $("authGate").hidden = true; document.body.classList.remove("auth-lock"); status(); render();
   }
   function signedOut(){
