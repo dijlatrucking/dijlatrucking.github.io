@@ -1299,6 +1299,8 @@ async function showPdf(btn, label, make){
     pdfName = name; pdfBlob = doc.output("blob");
     $("pvTitle").textContent = title; $("pvPages").innerHTML = '<p class="muted" style="text-align:center">Loading…</p>'; $("pvMsg").textContent = "";
     $("pdfView").hidden = false; document.body.classList.add("auth-lock");
+    // the phone's back button closes the viewer instead of leaving the site
+    if (!(history.state && history.state.pdf)) { try { history.pushState({ pdf: 1 }, "", location.href); } catch (e) {} }
     await loadJs(PDFJS); pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_W;
     const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await pdfBlob.arrayBuffer()) }).promise;
     $("pvPages").innerHTML = "";
@@ -1481,7 +1483,9 @@ $("rpAll").onclick = () => { $("rpFrom").value = ""; $("rpTo").value = ""; rpCou
 $("rpView").onclick = () => showPdf($("rpView"), "Loads", () => ({ doc: buildLoadsPdf(), title: "Loads report",
   name: `${fileSafe(settings.company || "Dijla Trucking")}-loads-${$("rpFrom").value || "all"}${$("rpTo").value ? "-to-" + $("rpTo").value : ""}.pdf` }));
 
-function closePdf(){ $("pdfView").hidden = true; document.body.classList.remove("auth-lock"); }
+function hidePdf(){ $("pdfView").hidden = true; document.body.classList.remove("auth-lock"); }
+function closePdf(){ hidePdf(); if (history.state && history.state.pdf) history.back(); }   // drop the entry we added
+addEventListener("popstate", () => { if (!$("pdfView").hidden) hidePdf(); });
 function downloadPdf(){ const a = document.createElement("a"); a.href = URL.createObjectURL(pdfBlob); a.download = pdfName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
 $("taxPdf").onclick = viewTaxPdf;
 $("pvClose").onclick = closePdf;
