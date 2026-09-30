@@ -96,6 +96,7 @@
   .scanmsg{margin:-4px 0 0;font-size:12.5px;color:var(--muted)} .scanmsg.ok{color:var(--good)} .scanmsg.bad{color:var(--bad)}
   .filled{border-color:var(--good) !important;box-shadow:0 0 0 1px var(--good) inset}
   .depq{display:grid;grid-template-columns:1fr auto;gap:8px}
+  .deprow{display:flex;justify-content:space-between;align-items:center;gap:8px} .deprow button{padding:6px 12px;font-size:13px;flex:none}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--acc);color:#141100;font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
   .toast.show{opacity:1}
   body.auth-lock{overflow:hidden}
@@ -572,8 +573,8 @@ function renderLoads(){
         <div class="r"><span class="pill st-${l.stage}">${esc(stLabel(l.stage))}</span><b class="money">${money2(num(l.rate))}</b></div>
       </div>
       <div class="meta">${esc(truckName(l.truck))} · ${niceDate(l.fromDate) || "?"} → ${niceDate(l.toDate) || "?"} · ${lMiles(l).toLocaleString("en-US")} mi · ${rpm(num(l.rate), lMiles(l))}/mi${l.weight ? ` · ${num(l.weight).toLocaleString("en-US")} lb` : ""}${l.commodity ? ` · ${esc(l.commodity)}` : ""}${l.factored === false ? " · not factored" : ` · net ${money2(lNet(l))}`}</div>
-      ${hasDep(l) ? `<div class="meta">GAP deposit <b class="money" style="color:var(--good)">${money2(num(l.deposit))}</b>${lDeduct(l) ? ` · fuel/advances kept back ${money2(lDeduct(l))}` : ""}</div>`
-        : l.stage === "funded" ? `<div class="depq"><input type="number" min="0" step="0.01" inputmode="decimal" placeholder="GAP deposit $" data-a="depin" aria-label="GAP deposit for this load"><button type="button" data-a="depsave">Save deposit</button></div>` : ""}
+      ${hasDep(l) ? `<div class="deprow"><span class="meta">GAP deposit <b class="money" style="color:var(--good)">${money2(num(l.deposit))}</b>${lDeduct(l) ? ` · fuel/advances kept back ${money2(lDeduct(l))}` : ""}</span><button type="button" data-a="depedit">Change</button></div>` : ""}
+      ${hasDep(l) || l.stage === "funded" ? `<div class="depq" ${hasDep(l) ? "hidden" : ""}><input type="number" min="0" step="0.01" inputmode="decimal" placeholder="GAP deposit $" data-a="depin" value="${hasDep(l) ? num(l.deposit) : ""}" aria-label="GAP deposit for this load"><button type="button" data-a="depsave">Save deposit</button></div>` : ""}
       ${OPEN.includes(l.stage) ? `<div class="meta">${ds} day${ds === 1 ? "" : "s"} in this stage</div>` : ""}
       ${l.hist && l.hist.length ? `<div class="hist">${l.hist.map(h => `<span>${esc(stLabel(h.s))} <b>${niceDate(h.d)}</b></span>`).join("")}</div>` : ""}
       ${l.notes ? `<div class="meta" style="color:var(--text)">${esc(l.notes)}</div>` : ""}
@@ -638,8 +639,10 @@ $("loadList").addEventListener("click", e => {
     if (l.stage === "delivered" && !l.toDate) l.toDate = today();
     Sync.push("loads"); renderLoads(); toast(`Marked ${stLabel(l.stage)}`);
   }
+  if (a === "depedit") { card.querySelector(".deprow").hidden = true; const q = card.querySelector(".depq"); q.hidden = false; const i = q.querySelector("input"); i.focus(); i.select(); }
   if (a === "depsave") {
-    const v = card.querySelector("[data-a=depin]").value; if (v === "") { toast("Type the deposit amount"); return; }
+    const v = card.querySelector("[data-a=depin]").value;
+    if (v === "") { if (!hasDep(l)) { toast("Type the deposit amount"); return; } l.deposit = null; Sync.push("loads"); renderLoads(); toast("Deposit cleared"); return; }
     l.deposit = Math.round(num(v) * 100) / 100; Sync.push("loads"); renderLoads(); toast("Deposit saved");
   }
   if (a === "edit") openLoadForm(l);
