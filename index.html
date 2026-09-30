@@ -95,6 +95,7 @@
   .scanbtn.busy{opacity:.6;pointer-events:none}
   .scanmsg{margin:-4px 0 0;font-size:12.5px;color:var(--muted)} .scanmsg.ok{color:var(--good)} .scanmsg.bad{color:var(--bad)}
   .filled{border-color:var(--good) !important;box-shadow:0 0 0 1px var(--good) inset}
+  .depq{display:grid;grid-template-columns:1fr auto;gap:8px}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--acc);color:#141100;font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
   .toast.show{opacity:1}
   body.auth-lock{overflow:hidden}
@@ -180,6 +181,7 @@
         <label>Weight (lb)<input id="lWeight" type="number" min="0" max="200000" inputmode="numeric" placeholder="e.g. 42000"></label>
         <label>Commodity<input id="lCommodity" placeholder="e.g. Onions"></label>
       </div>
+      <label>GAP deposit ($) <span style="font-weight:400">· what actually hit your account, after fuel. Leave blank until paid.</span><input id="lDeposit" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Optional"></label>
       <label class="chk"><input type="checkbox" id="lFactored" checked> <span id="lFactoredLbl">Factored</span></label>
       <div class="calc" id="lCalc"></div>
       <label>Notes<input id="lNotes" placeholder="Optional"></label>
@@ -206,6 +208,7 @@
         <label>Truck<select id="eTruck"></select></label>
         <label>Date<input id="eDate" type="date"></label>
       </div>
+      <label>Paid with<select id="ePaid"><option value="gap">GAP fuel card (taken out of load pay)</option><option value="own">Own card / cash</option></select></label>
       <div class="row2" id="fuelRow">
         <label>Gallons<input id="eGal" type="number" min="0" step="0.001" inputmode="decimal" placeholder="0"></label>
         <label>State<input id="eState" maxlength="2" placeholder="ID" style="text-transform:uppercase"></label>
@@ -451,6 +454,9 @@ const CATS = ["Fuel", "DEF", "Tolls", "Repairs", "Tires", "Maintenance", "Insura
 const lMiles = l => num(l.miles) + num(l.empty);
 const lFee = l => l.factored === false ? 0 : num(l.rate) * num(settings.pct) / 100;
 const lNet = l => num(l.rate) - lFee(l);
+const hasDep = l => l.deposit !== undefined && l.deposit !== null && l.deposit !== "";
+const lDeduct = l => hasDep(l) ? Math.max(0, lNet(l) - num(l.deposit)) : 0;          // fuel/advances GAP kept back on this load
+const isGap = e => (e.paidWith || (["Fuel", "DEF"].includes(e.cat) ? "gap" : "own")) === "gap";
 const lDate = l => l.toDate || l.fromDate || (l.created || "").slice(0, 10);
 const rpm = (g, m) => m ? "$" + (g / m).toFixed(2) : "–";
 
@@ -497,16 +503,22 @@ function renderDash(){
   const cols = [...TRUCKS(), ["all", "Total"]];
   const calc = id => {
     const ls = id === "all" ? L : L.filter(l => l.truck === id);
-    const ex = E.reduce((s, e) => s + (id === "all" || e.truck === id ? num(e.amount) : e.truck === "shared" ? num(e.amount) / 2 : 0), 0);
+    const share = e => id === "all" || e.truck === id ? num(e.amount) : e.truck === "shared" ? num(e.amount) / 2 : 0;
+    const gapFuel = E.filter(isGap).reduce((s, e) => s + share(e), 0);      // bought on the GAP card
+    const other = E.filter(e => !isGap(e)).reduce((s, e) => s + share(e), 0);
+    const kept = ls.reduce((s, l) => s + lDeduct(l), 0);                       // what GAP kept back on loads with a deposit typed in
+    const gapOut = Math.max(gapFuel, kept);                                    // same money, counted once
+    const ex = gapOut + other;
     const gross = ls.reduce((s, l) => s + num(l.rate), 0), fees = ls.reduce((s, l) => s + lFee(l), 0);
     const miles = ls.reduce((s, l) => s + lMiles(l), 0);
     const wl = ls.filter(l => num(l.weight) > 0), wsum = wl.reduce((s, l) => s + num(l.weight), 0);
-    return { n: ls.length, gross, fees, net: gross - fees, ex, profit: gross - fees - ex, miles, wavg: wl.length ? wsum / wl.length : 0, wmax: wl.reduce((m, l) => Math.max(m, num(l.weight)), 0), wtot: wsum };
+    return { n: ls.length, gross, fees, net: gross - fees, gapOut, paid: gross - fees - gapOut, other, ex, profit: gross - fees - ex, miles, wavg: wl.length ? wsum / wl.length : 0, wmax: wl.reduce((m, l) => Math.max(m, num(l.weight)), 0), wtot: wsum };
   };
   const c = cols.map(([id]) => calc(id));
   const rows = [
     ["Loads", x => x.n], ["Gross", x => money(x.gross)], [`${esc(settings.factor || "Factoring")} fees`, x => money(-x.fees)],
-    ["Net pay", x => money(x.net)], ["Expenses", x => money(-x.ex)],
+    [`${esc(settings.factor || "GAP")} fuel & deductions`, x => money(-x.gapOut)],
+    ["Paid to you (after fuel)", x => `<b>${money(x.paid)}</b>`, "key"], ["Other expenses", x => money(-x.other)],
     ["Profit", x => `<span class="${x.profit >= 0 ? "pos" : "neg"}">${money(x.profit)}</span>`, "key"],
     ["Miles", x => x.miles.toLocaleString("en-US")], ["Revenue / mile", x => rpm(x.gross, x.miles)], ["Cost / mile", x => rpm(x.ex, x.miles)],
     ["Avg weight", x => x.wavg ? Math.round(x.wavg).toLocaleString("en-US") + " lb" : "–"], ["Heaviest", x => x.wmax ? x.wmax.toLocaleString("en-US") + " lb" : "–"],
@@ -560,6 +572,8 @@ function renderLoads(){
         <div class="r"><span class="pill st-${l.stage}">${esc(stLabel(l.stage))}</span><b class="money">${money2(num(l.rate))}</b></div>
       </div>
       <div class="meta">${esc(truckName(l.truck))} · ${niceDate(l.fromDate) || "?"} → ${niceDate(l.toDate) || "?"} · ${lMiles(l).toLocaleString("en-US")} mi · ${rpm(num(l.rate), lMiles(l))}/mi${l.weight ? ` · ${num(l.weight).toLocaleString("en-US")} lb` : ""}${l.commodity ? ` · ${esc(l.commodity)}` : ""}${l.factored === false ? " · not factored" : ` · net ${money2(lNet(l))}`}</div>
+      ${hasDep(l) ? `<div class="meta">GAP deposit <b class="money" style="color:var(--good)">${money2(num(l.deposit))}</b>${lDeduct(l) ? ` · fuel/advances kept back ${money2(lDeduct(l))}` : ""}</div>`
+        : l.stage === "funded" ? `<div class="depq"><input type="number" min="0" step="0.01" inputmode="decimal" placeholder="GAP deposit $" data-a="depin" aria-label="GAP deposit for this load"><button type="button" data-a="depsave">Save deposit</button></div>` : ""}
       ${OPEN.includes(l.stage) ? `<div class="meta">${ds} day${ds === 1 ? "" : "s"} in this stage</div>` : ""}
       ${l.hist && l.hist.length ? `<div class="hist">${l.hist.map(h => `<span>${esc(stLabel(h.s))} <b>${niceDate(h.d)}</b></span>`).join("")}</div>` : ""}
       ${l.notes ? `<div class="meta" style="color:var(--text)">${esc(l.notes)}</div>` : ""}
@@ -571,11 +585,12 @@ function renderLoads(){
 }
 function fillTruckSelect(sel, withShared){ sel.innerHTML = TRUCKS().map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join("") + (withShared ? `<option value="shared">Both trucks (split)</option>` : ""); }
 function loadCalc(){
-  const l = { rate: $("lRate").value, miles: $("lMiles").value, empty: $("lEmpty").value, factored: $("lFactored").checked };
+  const l = { rate: $("lRate").value, miles: $("lMiles").value, empty: $("lEmpty").value, factored: $("lFactored").checked, deposit: $("lDeposit").value };
   $("lCalc").innerHTML = `Rate/mile <b>${rpm(num(l.rate), lMiles(l))}</b> · Loaded/mile <b>${rpm(num(l.rate), num(l.miles))}</b>` +
     (l.factored ? ` · ${esc(settings.factor || "Factoring")} ${num(settings.pct)}% <b>-${money2(lFee(l))}</b> · You get <b>${money2(lNet(l))}</b>` : ` · You get <b>${money2(num(l.rate))}</b>`);
+  if (hasDep(l)) $("lCalc").innerHTML += ` · GAP kept back <b>${money2(lDeduct(l))}</b> (fuel/advances)`;
 }
-["lRate", "lMiles", "lEmpty", "lFactored"].forEach(k => $(k).addEventListener("input", loadCalc));
+["lRate", "lMiles", "lEmpty", "lFactored", "lDeposit"].forEach(k => $(k).addEventListener("input", loadCalc));
 function openLoadForm(l){
   editingLoad = l ? l.id : null;
   $("loadFormTitle").textContent = l ? "Edit load" : "New load";
@@ -586,6 +601,7 @@ function openLoadForm(l){
   $("lTruck").value = v.truck || "t1"; $("lRate").value = v.rate ?? ""; $("lBroker").value = v.broker || ""; $("lNo").value = v.loadNo || "";
   $("lFrom").value = v.from || ""; $("lFromDate").value = v.fromDate || ""; $("lTo").value = v.to || ""; $("lToDate").value = v.toDate || "";
   $("lMiles").value = v.miles ?? ""; $("lEmpty").value = v.empty ?? "";
+  $("lDeposit").value = hasDep(v) ? v.deposit : "";
   $("lWeight").value = v.weight || ""; $("lCommodity").value = v.commodity || ""; $("lFactored").checked = v.factored !== false;
   $("lNotes").value = v.notes || ""; $("lLink").value = v.link || "";
   document.querySelectorAll("#loadForm .filled").forEach(el => el.classList.remove("filled"));
@@ -603,6 +619,7 @@ $("loadForm").onsubmit = e => {
     from: $("lFrom").value.trim(), fromDate: $("lFromDate").value, to: $("lTo").value.trim(), toDate: $("lToDate").value,
     miles: Math.round(num($("lMiles").value)), empty: Math.round(num($("lEmpty").value)), factored: $("lFactored").checked,
     weight: Math.round(num($("lWeight").value)), commodity: $("lCommodity").value.trim(),
+    deposit: $("lDeposit").value === "" ? null : Math.round(num($("lDeposit").value) * 100) / 100,
     notes: $("lNotes").value.trim(), link: $("lLink").value.trim() };
   const was = editingLoad;
   if (was) Object.assign(loads.find(x => x.id === was), f);
@@ -620,6 +637,10 @@ $("loadList").addEventListener("click", e => {
     l.stage = b.dataset.st; l.hist = (l.hist || []).filter(h => h.s !== l.stage); l.hist.push({ s: l.stage, d: today() });
     if (l.stage === "delivered" && !l.toDate) l.toDate = today();
     Sync.push("loads"); renderLoads(); toast(`Marked ${stLabel(l.stage)}`);
+  }
+  if (a === "depsave") {
+    const v = card.querySelector("[data-a=depin]").value; if (v === "") { toast("Type the deposit amount"); return; }
+    l.deposit = Math.round(num(v) * 100) / 100; Sync.push("loads"); renderLoads(); toast("Deposit saved");
   }
   if (a === "edit") openLoadForm(l);
   if (a === "link") window.open(l.link, "_blank", "noopener");
@@ -674,7 +695,7 @@ function renderExp(){
   if (!list.length) { $("expList").innerHTML = expenses.length ? `<div class="empty"><b>Nothing here</b>No expenses in this period.</div>` : `<div class="empty"><b>No expenses yet</b>Tap "Add expense" for fuel, repairs and the rest.</div>`; return; }
   $("expList").innerHTML = list.map(e => `<article class="item" data-id="${esc(e.id)}" style="border-left-color:${e.cat === "Fuel" ? "var(--acc)" : "var(--blue)"}">
       <div class="top2">
-        <div style="min-width:0"><div class="big">${esc(e.cat)}</div><div class="meta">${niceDate(e.date)} · ${esc(truckName(e.truck))}${e.cat === "Fuel" && e.gallons ? ` · ${num(e.gallons)} gal${e.state ? " in " + esc(e.state) : ""}` : ""}</div></div>
+        <div style="min-width:0"><div class="big">${esc(e.cat)}</div><div class="meta">${niceDate(e.date)} · ${esc(truckName(e.truck))}${e.cat === "Fuel" && e.gallons ? ` · ${num(e.gallons)} gal${e.state ? " in " + esc(e.state) : ""}` : ""}${isGap(e) ? " · GAP card" : ""}</div></div>
         <div class="r"><b class="money">${money2(num(e.amount))}</b></div>
       </div>
       ${e.note ? `<div class="meta" style="color:var(--text)">${esc(e.note)}</div>` : ""}
@@ -683,7 +704,9 @@ function renderExp(){
     </article>`).join("");
 }
 $("eCat").innerHTML = CATS.map(c => `<option>${c}</option>`).join("");
-const fuelToggle = () => { $("fuelRow").hidden = !["Fuel", "DEF"].includes($("eCat").value); };
+let paidTouched = false;
+const fuelToggle = () => { const fuel = ["Fuel", "DEF"].includes($("eCat").value); $("fuelRow").hidden = !fuel; if (!paidTouched) $("ePaid").value = fuel ? "gap" : "own"; };
+$("ePaid").addEventListener("change", () => { paidTouched = true; });
 $("eCat").addEventListener("change", fuelToggle);
 function openExpForm(x){
   editingExp = x ? x.id : null;
@@ -691,6 +714,7 @@ function openExpForm(x){
   fillTruckSelect($("eTruck"), true);
   const v = x || { cat: "Fuel", truck: expTruck !== "all" ? expTruck : "t1", date: today() };
   $("eCat").value = v.cat; $("eAmt").value = v.amount ?? ""; $("eTruck").value = v.truck; $("eDate").value = v.date || today();
+  paidTouched = !!x; $("ePaid").value = v.paidWith || (["Fuel", "DEF"].includes(v.cat) ? "gap" : "own");
   $("eGal").value = v.gallons ?? ""; $("eState").value = v.state || ""; $("eNote").value = v.note || ""; $("eLink").value = v.link || "";
   fuelToggle(); $("expForm").hidden = false; $("expNewBtn").hidden = true;
   $("expForm").scrollIntoView({ block: "start", behavior: "smooth" });
@@ -703,6 +727,7 @@ $("expForm").onsubmit = e => {
   if (!$("eAmt").value) { toast("Add the amount"); $("eAmt").focus(); return; }
   const fuel = ["Fuel", "DEF"].includes($("eCat").value);
   const f = { cat: $("eCat").value, amount: Math.round(num($("eAmt").value) * 100) / 100, truck: $("eTruck").value, date: $("eDate").value || today(),
+    paidWith: $("ePaid").value,
     gallons: fuel ? num($("eGal").value) : 0, state: fuel ? $("eState").value.trim().toUpperCase().slice(0, 2) : "", note: $("eNote").value.trim(), link: $("eLink").value.trim() };
   const was = editingExp;
   if (was) Object.assign(expenses.find(x => x.id === was), f);
