@@ -196,7 +196,19 @@
   <!-- ===== LOADS ===== -->
   <section class="stack" id="tab-loads" hidden>
     <div class="stats" id="loadStats"></div>
-    <button type="button" class="primary wide" id="loadNewBtn">+ New load</button>
+    <div class="row2"><button type="button" class="primary" id="loadNewBtn">+ New load</button><button type="button" id="rpOpen">📄 Loads report</button></div>
+    <div class="card stack" id="rpCard" hidden>
+      <h2>Loads report</h2>
+      <div class="chips"><button type="button" class="chip" id="rpMonth">This month</button><button type="button" class="chip" id="rpYear">This year</button><button type="button" class="chip" id="rpAll">All time</button></div>
+      <div class="rangebar" style="grid-template-columns:1fr auto 1fr"><input type="date" id="rpFrom" aria-label="From"><span class="muted">to</span><input type="date" id="rpTo" aria-label="To"></div>
+      <div class="row3">
+        <label>Truck<select id="rpTruck"></select></label>
+        <label>Status<select id="rpStatus"><option value="all">All</option><option value="open">Not paid yet</option><option value="booked">Booked</option><option value="pickedup">Picked up</option><option value="delivered">Delivered</option><option value="funded">Paid</option></select></label>
+        <label>Broker<select id="rpBroker"><option value="">All brokers</option></select></label>
+      </div>
+      <p class="meta" id="rpCount" style="margin:0"></p>
+      <div class="btns"><button type="button" class="ghost" id="rpCancel">Close</button><button type="button" class="primary" id="rpView" style="flex:1">📄 View PDF</button></div>
+    </div>
     <form class="card stack" id="loadForm" hidden autocomplete="off">
       <h2 id="loadFormTitle">New load</h2>
       <label class="scanbtn" id="scanWrap"><input type="file" id="rcFile" accept="application/pdf,.pdf,image/*"><span>📄 Scan rate con</span></label>
@@ -1059,14 +1071,14 @@ function buildTaxPdf(year, truck){
   return doc;
 }
 let pdfBlob = null, pdfName = "";
-async function viewTaxPdf(){
-  const btn = $("taxPdf"); btn.disabled = true; btn.textContent = "Making PDF…";
+// Show any jsPDF document in the viewer (Download / Share at the bottom)
+async function showPdf(btn, label, make){
+  const was = btn.textContent; btn.disabled = true; btn.textContent = "Making PDF…";
   try {
     await loadJs(JSPDF); await getLogo();
-    const doc = buildTaxPdf(taxYear, taxTruck);
-    pdfName = `${(settings.company || "Dijla-Trucking").replace(/[^A-Za-z0-9]+/g, "-")}-${truckName(taxTruck).replace(/[^A-Za-z0-9]+/g, "-")}-${taxYear}-1099.pdf`;
-    pdfBlob = doc.output("blob");
-    $("pvTitle").textContent = `${truckName(taxTruck)} · ${taxYear}`; $("pvPages").innerHTML = '<p class="muted" style="text-align:center">Loading…</p>'; $("pvMsg").textContent = "";
+    const { doc, name, title } = make();
+    pdfName = name; pdfBlob = doc.output("blob");
+    $("pvTitle").textContent = title; $("pvPages").innerHTML = '<p class="muted" style="text-align:center">Loading…</p>'; $("pvMsg").textContent = "";
     $("pdfView").hidden = false; document.body.classList.add("auth-lock");
     await loadJs(PDFJS); pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_W;
     const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await pdfBlob.arrayBuffer()) }).promise;
@@ -1080,8 +1092,95 @@ async function viewTaxPdf(){
       $("pvPages").appendChild(c);
     }
   } catch (err) { console.warn(err); toast("Couldn't make the PDF. Check your connection and try again."); closePdf(); }
-  finally { btn.disabled = false; btn.textContent = "📄 View PDF"; }
+  finally { btn.disabled = false; btn.textContent = was; }
 }
+const fileSafe = t => String(t).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+function viewTaxPdf(){
+  return showPdf($("taxPdf"), "1099", () => ({ doc: buildTaxPdf(taxYear, taxTruck), title: `${truckName(taxTruck)} · ${taxYear}`,
+    name: `${fileSafe(settings.company || "Dijla Trucking")}-${fileSafe(truckName(taxTruck))}-${taxYear}-1099.pdf` }));
+}
+
+// ----- Loads report PDF -----
+function reportLoads(){
+  const f = $("rpFrom").value || "0000-01-01", t = $("rpTo").value || "9999-12-31", tr = $("rpTruck").value, st = $("rpStatus").value, br = $("rpBroker").value;
+  return loads.filter(l => { const d = lDate(l); return d >= f && d <= t; })
+    .filter(l => tr === "all" || l.truck === tr).filter(l => st === "all" || (st === "open" ? OPEN.includes(l.stage) : l.stage === st))
+    .filter(l => !br || (l.broker || "") === br)
+    .sort((a, b) => lDate(a).localeCompare(lDate(b)));
+}
+function buildLoadsPdf(){
+  const list = reportLoads();
+  const { jsPDF } = window.jspdf, doc = new jsPDF({ unit: "pt", format: "letter", orientation: "landscape" });
+  const W = 792, M = 32, R = W - M, INK = [20, 22, 28], MUT = [110, 116, 128], LINE = [220, 223, 230], ACC = [245, 179, 1];
+  const $$ = n => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const clean = x => String(x ?? "").replace(/[–—]/g, "-").replace(/→/g, ">").replace(/[^\x20-\x7E]/g, "");
+  const nd = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
+  const trTxt = $("rpTruck").value === "all" ? "Both trucks" : truckName($("rpTruck").value);
+  const stTxt = $("rpStatus").selectedOptions[0].textContent, brTxt = $("rpBroker").value || "All brokers";
+  const rangeTxt = ($("rpFrom").value || $("rpTo").value) ? `${$("rpFrom").value ? nd($("rpFrom").value) : "Start"} - ${$("rpTo").value ? nd($("rpTo").value) : "today"}` : "All dates";
+  let y = 0, page = 1;
+  const header = () => {
+    doc.setFillColor(15, 17, 21); doc.rect(0, 0, W, 62, "F"); doc.setFillColor(...ACC); doc.rect(0, 62, W, 3, "F");
+    const LX = logoData ? M + 56 : M;
+    if (logoData) { try { doc.addImage(logoData, "PNG", M, 6, 49, 50); } catch (e) {} }
+    doc.setTextColor(255, 207, 77); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text(clean(settings.company || "Dijla Trucking"), LX, 28);
+    doc.setTextColor(230, 232, 238); doc.setFont("helvetica", "normal"); doc.setFontSize(10.5);
+    doc.text(clean(`Loads report  |  ${rangeTxt}  |  ${trTxt}  |  ${stTxt}  |  ${brTxt}`), LX, 46);
+    doc.setFontSize(8.5); doc.setTextColor(170, 176, 188); doc.text("Generated " + nd(today()), R, 46, { align: "right" });
+    y = 86;
+  };
+  const footer = () => { doc.setFontSize(8); doc.setTextColor(...MUT); doc.setFont("helvetica", "normal");
+    doc.text(`Dates are ${settings.countBy === "delivery" ? "delivery" : "pickup"} dates. Net = rate minus ${settings.factor || "factoring"} ${num(settings.pct)}% fee.`, M, 596); doc.text("Page " + page, R, 596, { align: "right" }); };
+  header();
+  // summary boxes
+  const gross = list.reduce((s, l) => s + num(l.rate), 0), fees = list.reduce((s, l) => s + lFee(l), 0), miles = list.reduce((s, l) => s + lMiles(l), 0);
+  const deps = list.filter(hasDep).reduce((s, l) => s + num(l.deposit), 0);
+  const boxes = [["Loads", String(list.length)], ["Gross", $$(gross)], ["Net after fees", $$(gross - fees)], ["Miles", miles.toLocaleString("en-US")], ["Avg per mile", miles ? "$" + (gross / miles).toFixed(2) : "-"], ["GAP deposits", deps ? $$(deps) : "-"]];
+  const bw = (R - M - 5 * 8) / 6;
+  boxes.forEach(([lab, v], i) => { const x = M + i * (bw + 8); doc.setFillColor(246, 247, 249); doc.setDrawColor(...LINE); doc.roundedRect(x, y, bw, 44, 4, 4, "FD");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(...INK); doc.text(clean(v), x + 8, y + 20);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUT); doc.text(lab, x + 8, y + 34); });
+  y += 62;
+  const cols = [{ h: "Date", w: 56 }, { h: "Truck", w: 48 }, { h: "Broker", w: 84 }, { h: "Load #", w: 58 }, { h: "Lane", w: 152 }, { h: "Miles", w: 40, a: "r" },
+    { h: "Weight", w: 48, a: "r" }, { h: "Rate", w: 64, a: "r" }, { h: "Net", w: 64, a: "r" }, { h: "Status", w: 56 }, { h: "Deposit", w: R - M - 670, a: "r" }];
+  const drawHead = () => { doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...MUT); let x = M;
+    cols.forEach(c => { doc.text(c.h, c.a === "r" ? x + c.w - 3 : x + 2, y, { align: c.a === "r" ? "right" : "left" }); x += c.w; });
+    y += 5; doc.setDrawColor(...INK); doc.setLineWidth(.8); doc.line(M, y, R, y); y += 12; };
+  const row = (cells, bold) => {
+    if (y > 570) { footer(); doc.addPage(); page++; header(); drawHead(); }
+    doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(8.8); doc.setTextColor(...INK); let x = M;
+    cells.forEach((c, i) => { let t = clean(c); while (t.length > 1 && doc.getTextWidth(t) > cols[i].w - 5) t = t.slice(0, -1);
+      doc.text(t, cols[i].a === "r" ? x + cols[i].w - 3 : x + 2, y, { align: cols[i].a === "r" ? "right" : "left" }); x += cols[i].w; });
+    y += 5; doc.setDrawColor(...LINE); doc.setLineWidth(.5); doc.line(M, y, R, y); y += 11;
+  };
+  drawHead();
+  if (!list.length) { doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...MUT); doc.text("No loads match these filters.", M, y + 6); }
+  list.forEach(l => row([lDate(l), truckName(l.truck), l.broker || "", l.loadNo || "", `${l.from || "?"} > ${l.to || "?"}`, lMiles(l) ? lMiles(l).toLocaleString("en-US") : "",
+    num(l.weight) ? num(l.weight).toLocaleString("en-US") : "", $$(num(l.rate)), $$(lNet(l)), stLabel(l.stage), hasDep(l) ? $$(num(l.deposit)) : ""]));
+  if (list.length) row(["", "", "", "", `Total (${list.length} loads)`, miles.toLocaleString("en-US"), "", $$(gross), $$(gross - fees), "", deps ? $$(deps) : ""], true);
+  footer();
+  return doc;
+}
+function openReport(){
+  const r = range("month");
+  if (!$("rpFrom").value && !$("rpTo").value) { $("rpFrom").value = r[0]; $("rpTo").value = r[1]; }
+  $("rpTruck").innerHTML = [["all", "Both trucks"], ...TRUCKS()].map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join("");
+  $("rpTruck").value = loadTruck;
+  const keep = $("rpBroker").value;
+  $("rpBroker").innerHTML = `<option value="">All brokers</option>` + [...new Set(loads.map(l => l.broker).filter(Boolean))].sort().map(b => `<option>${esc(b)}</option>`).join("");
+  $("rpBroker").value = keep;
+  $("rpCard").hidden = false; $("rpOpen").hidden = true; rpCount();
+}
+function rpCount(){ const n = reportLoads().length; $("rpCount").textContent = `${n} load${n === 1 ? "" : "s"} match`; }
+$("rpOpen").onclick = openReport;
+$("rpCancel").onclick = () => { $("rpCard").hidden = true; $("rpOpen").hidden = false; };
+["rpFrom", "rpTo", "rpTruck", "rpStatus", "rpBroker"].forEach(k => $(k).addEventListener("change", rpCount));
+$("rpMonth").onclick = () => { const r = range("month"); $("rpFrom").value = r[0]; $("rpTo").value = r[1]; rpCount(); };
+$("rpYear").onclick = () => { const r = range("year"); $("rpFrom").value = r[0]; $("rpTo").value = r[1]; rpCount(); };
+$("rpAll").onclick = () => { $("rpFrom").value = ""; $("rpTo").value = ""; rpCount(); };
+$("rpView").onclick = () => showPdf($("rpView"), "Loads", () => ({ doc: buildLoadsPdf(), title: "Loads report",
+  name: `${fileSafe(settings.company || "Dijla Trucking")}-loads-${$("rpFrom").value || "all"}${$("rpTo").value ? "-to-" + $("rpTo").value : ""}.pdf` }));
+
 function closePdf(){ $("pdfView").hidden = true; document.body.classList.remove("auth-lock"); }
 function downloadPdf(){ const a = document.createElement("a"); a.href = URL.createObjectURL(pdfBlob); a.download = pdfName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
 $("taxPdf").onclick = viewTaxPdf;
