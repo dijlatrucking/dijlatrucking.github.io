@@ -90,6 +90,11 @@
   .bar i{display:block;height:10px;border-radius:5px;background:var(--acc)}
   .bar .t{background:var(--panel2);border-radius:5px}
   .alert{border:1px solid rgba(224,164,88,.5);background:rgba(224,164,88,.08);border-radius:10px;padding:11px 13px;font-size:14px}
+  .scanbtn{position:relative;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--acc);border-radius:10px;padding:13px;color:var(--acc-hi);font-weight:700;font-size:15px;cursor:pointer}
+  .scanbtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .scanbtn.busy{opacity:.6;pointer-events:none}
+  .scanmsg{margin:-4px 0 0;font-size:12.5px;color:var(--muted)} .scanmsg.ok{color:var(--good)} .scanmsg.bad{color:var(--bad)}
+  .filled{border-color:var(--good) !important;box-shadow:0 0 0 1px var(--good) inset}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--acc);color:#141100;font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
   .toast.show{opacity:1}
   body.auth-lock{overflow:hidden}
@@ -148,6 +153,8 @@
     <button type="button" class="primary wide" id="loadNewBtn">+ New load</button>
     <form class="card stack" id="loadForm" hidden autocomplete="off">
       <h2 id="loadFormTitle">New load</h2>
+      <label class="scanbtn" id="scanWrap"><input type="file" id="rcFile" accept="application/pdf,.pdf,image/*"><span>📄 Scan rate con</span></label>
+      <p class="scanmsg" id="rcMsg" role="status">Fills in the load for you. The file is read on this phone and never uploaded or saved.</p>
       <div class="row2">
         <label>Truck<select id="lTruck"></select></label>
         <label>Rate ($)<input id="lRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label>
@@ -228,6 +235,184 @@
   </section>
 </div>
 
+<script>
+// ===== Rate con reader: runs entirely on this device. Nothing is uploaded or stored. =====
+window.RateCon = (() => {
+  const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+  const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const TESS = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+  const TESS_OPTS = {
+    workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js",
+    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
+    langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0"
+  };
+  const loaded = {};
+  const script = src => loaded[src] || (loaded[src] = new Promise((ok, bad) => {
+    const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => { delete loaded[src]; bad(new Error("load " + src)); };
+    document.head.appendChild(s);
+  }));
+
+  // ---- text out of a digital PDF, rebuilt into lines ----
+  async function pdfText(pdf){
+    let out = [];
+    for (let n = 1; n <= Math.min(pdf.numPages, 6); n++) {
+      const page = await pdf.getPage(n), tc = await page.getTextContent();
+      const rows = [];
+      tc.items.forEach(it => {
+        if (!it.str || !it.str.trim()) return;
+        const x = it.transform[4], y = it.transform[5], w = it.width || 0;
+        let r = rows.find(r => Math.abs(r.y - y) < 3);
+        if (!r) { r = { y, items: [] }; rows.push(r); }
+        r.items.push({ x, w, s: it.str });
+      });
+      rows.sort((a, b) => b.y - a.y).forEach(r => {
+        r.items.sort((a, b) => a.x - b.x);
+        let line = "", end = null;
+        r.items.forEach(i => { line += (end === null ? "" : (i.x - end > 12 ? "   " : i.x - end > 1.5 ? " " : "")) + i.s; end = i.x + i.w; });
+        out.push(line);
+      });
+      out.push("");
+    }
+    return out.join("\n");
+  }
+  // ---- OCR for scans and photos ----
+  let worker = null;
+  async function ocr(images, progress){
+    await script(TESS);
+    if (!worker) worker = await Tesseract.createWorker("eng", 1, TESS_OPTS);
+    let text = "";
+    for (let i = 0; i < images.length; i++) {
+      progress && progress(`Reading page ${i + 1} of ${images.length}…`);
+      const r = await worker.recognize(images[i]);
+      text += r.data.text + "\n";
+    }
+    return text;
+  }
+  async function pageImages(pdf, max){
+    const imgs = [];
+    for (let n = 1; n <= Math.min(pdf.numPages, max); n++) {
+      const page = await pdf.getPage(n), vp = page.getViewport({ scale: 2.2 });
+      const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
+      await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+      imgs.push(c);
+    }
+    return imgs;
+  }
+  async function readFile(file, progress){
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    if (!isPdf) { progress && progress("Reading photo…"); return { text: await ocr([file], progress), how: "photo" }; }
+    progress && progress("Opening PDF…");
+    await script(PDFJS);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    const text = await pdfText(pdf);
+    if (text.replace(/\s/g, "").length > 200 && /\$|rate|total|pay/i.test(text)) return { text, how: "pdf" };
+    progress && progress("This one is a scan. Reading it (first time takes ~20 sec)…");
+    return { text: await ocr(await pageImages(pdf, 4), progress), how: "scan" };
+  }
+
+  // ---- turn text into load fields ----
+  const STATES = "AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC".split(" ");
+  const BROKERS = [["TQL", /\bTQL\b|Total Quality Logistics/i], ["Scotlynn", /scotl[yv]nn/i], ["MegaCorp Logistics", /mega\s?corp/i], ["American Diamond Logistics", /american diamond/i], ["Silo", /shipsilo|simple\s*logistics/i], ["DMX Logistics", /DMX\s+LOGISTICS/i],
+    ["CH Robinson", /C\.?\s?H\.?\s+Robinson|chrobinson/i], ["Coyote", /\bcoyote\b/i], ["Echo Global", /echo global/i], ["RXO", /\bRXO\b/],
+    ["Uber Freight", /uber freight/i], ["Arrive Logistics", /arrive logistics/i], ["Landstar", /landstar/i], ["JB Hunt", /j\.?\s?b\.?\s+hunt/i],
+    ["Schneider", /schneider/i], ["Werner", /werner/i], ["Mode Transportation", /mode (global|transportation)/i], ["Nolan Transportation", /nolan transportation/i],
+    ["Allen Lund", /allen lund/i], ["Sunset Transportation", /sunset transportation/i], ["BlueGrace", /bluegrace/i], ["GlobalTranz", /globaltranz/i],
+    ["Worldwide Express", /worldwide express/i], ["Axle Logistics", /axle logistics/i], ["Integrity Express", /integrity express/i], ["England Logistics", /england logistics/i],
+    ["Covenant Logistics", /covenant logistics/i], ["Kirsch Transportation", /kirsch/i], ["Redwood", /redwood logistics/i], ["Transplace", /transplace|uber freight/i]];
+  const titleCase = s => s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+  const MONEY = /\$?\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.\d{2})?|[0-9]{3,6}(?:\.\d{2})?)/;
+  const DATE = /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/;
+  function toISO(m){ let [, mo, d, y] = m; y = y.length === 2 ? "20" + y : y; if (+mo > 12 || +d > 31) return ""; return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`; }
+  function cityIn(line, skip){
+    const tries = [
+      /([A-Za-z][A-Za-z .'-]{1,30}?),\s*([A-Z]{2})\b/g,                          // Katy, TX
+      /([A-Za-z][A-Za-z .'-]{1,30}?)\s+([A-Z]{2})\s+\d{5}(?:-\d{4})?\b/g          // HOUSTON TX 77028
+    ];
+    for (const re of tries) {
+      let m;
+      while ((m = re.exec(line))) {
+        const st = m[2], city = m[1].replace(/^.*\b(address|name|location|city)\s*:?\s*/i, "").replace(/\s{2,}.*$/, "").trim();
+        if (!STATES.includes(st) || city.length < 2 || /\d/.test(city)) continue;
+        const words = city.split(/\s+/); const c = titleCase(words.slice(-3).join(" "));
+        const val = `${c}, ${st}`;
+        if (skip && skip.test(val)) continue;
+        return val;
+      }
+    }
+    return "";
+  }
+  function parse(raw){
+    const text = raw.replace(/\r/g, "").replace(/[‐-―]/g, "-").replace(/[“”]/g, '"');
+    const lines = text.split("\n").map(l => l.replace(/\s+$/, ""));
+    const f = {}, found = [];
+    // broker
+    for (const [name, re] of BROKERS) if (re.test(text)) { f.broker = name; break; }
+    if (!f.broker) { const l = lines.find(l => /\b(logistics|brokerage|freight|transport(ation)?)\b/i.test(l) && !/dijla/i.test(l) && l.trim().length < 60); if (l) f.broker = titleCase(l.trim().replace(/\s{2,}.*/, "").replace(/[,.]?\s*(llc|inc|corp)\.?$/i, "").replace(/[,.]$/, "")); }
+    // rate: the most specific "total" wins
+    const RATE_KEYS = [/total\s+carrier\s+pay/i, /carrier\s+(freight\s+)?pay/i, /total\s+rate/i, /total\s+(amount|charges?|pay|comp)/i, /\btotal\s*:/i, /agreed\s+rate/i, /line\s*haul(\s+rate)?/i, /\brate\b/i];
+    const AMT = /\$\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})(?:\.\d{2})?|(?<![\d\/.:,])([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})\.\d{2}(?![\d\/])/;
+    const LEGAL = /not to exceed|advance|limited|\bfees?\b|penalt|\blate\b|per day|detention|deduct|\bfine|up to|reduction|quick\s*pay|\d+%/i;
+    const amountIn = str => { const m = str.match(AMT); if (!m) return 0; const v = parseFloat((m[1] || m[2]).replace(/,/g, "") + (m[0].match(/\.\d{2}$/) || [""])[0]); return v >= 100 && v <= 50000 ? v : 0; };
+    for (const key of RATE_KEYS) {
+      for (let i = 0; i < lines.length && !f.rate; i++) {
+        const l = lines[i], k = l.search(key); if (k < 0 || LEGAL.test(l)) continue;
+        let v = amountIn(l.slice(k));
+        if (!v && l.trim().length < 45) for (let j = i + 1; j <= i + 3 && j < lines.length && !v; j++) if (!LEGAL.test(lines[j])) v = amountIn(lines[j]);
+        if (v) f.rate = v;
+      }
+      if (f.rate) break;
+    }
+    // load / order number
+    // most specific first; a customer's own PO is not the broker's load number
+    const NO_KEYS = [/\border\s*:\s*([0-9]{5,})/i, /rate confirmation\s+(?:for\s+\w+#?\s*)?([0-9]{5,})/i,
+      /\b(?:load|order|pro|confirmation|shipment|trip)\s*(?:#|no\.?|number)\s*:?\s*([A-Z0-9-]*\d[A-Z0-9-]{3,})/i,
+      /(?<!customer\s)\bPO\s*#\s*([0-9]{5,})/i, /\b([0-9]{5,})\s*\n\s*(?:trip|load|order)\s*(?:number|#|no)/i];
+    for (const re of NO_KEYS) { const m = text.match(re); if (m) { f.loadNo = m[1]; break; } }
+    // pickup / delivery: find a section keyword, then the first City, ST and date after it
+    const SKIP = /boise, id|ogden, ut|milford, oh|exeter, nh|fort myers, fl/i;   // our address, broker and factoring offices
+    const PU = /(pick[\s-]*up\b|\bpickup\b|\bshipper\b|\borigin\b|^\s*PU\s+\d|\bPICK\s+\d|\bload at\b)/i;
+    const DEL = /(\bdelivery\b|\bdeliver to\b|\bconsignee\b|\breceiver\b|\bdestination\b|^\s*SO\s+\d|\bSTOP\s+\d|\bDEL\s+\d|\bdrop\b|\bunload at\b)/i;
+    const grab = (start, span) => {
+      let city = "", date = "";
+      for (let i = start; i < Math.min(lines.length, start + span); i++) {
+        if (!city) city = cityIn(lines[i], SKIP);
+        if (!date) { const m = lines[i].match(DATE); if (m) date = toISO(m); }
+        if (city && date) break;
+      }
+      return { city, date };
+    };
+    let puAt = -1;
+    for (let i = 0; i < lines.length; i++) if (PU.test(lines[i]) && grab(i, 8).city) { puAt = i; break; }
+    if (puAt >= 0) { const g = grab(puAt, 8); f.from = g.city; if (g.date) f.fromDate = g.date; }
+    for (let i = Math.max(puAt + 1, 0); i < lines.length; i++) {
+      if (DEL.test(lines[i])) { const g = grab(i, 8); if (g.city && g.city !== f.from) { f.to = g.city; if (g.date) f.toDate = g.date; break; } }
+    }
+    if (!f.to && puAt >= 0) {           // no delivery label found (blurry scan): take the next different city after the pickup
+      const head = new Set(lines.slice(0, puAt).map(l => cityIn(l)).filter(Boolean));
+      let seenPu = false;
+      for (let i = puAt; i < Math.min(lines.length, puAt + 30); i++) {
+        const c = cityIn(lines[i], SKIP); if (!c) continue;
+        if (c === f.from && !seenPu) { seenPu = true; continue; }
+        if (c !== f.from && !head.has(c)) { f.to = c; const g = grab(i - 1, 3); if (g.date && g.date !== f.fromDate) f.toDate = g.date; else { const g2 = grab(i, 2); if (g2.date) f.toDate = g2.date; } break; }
+      }
+    }
+    // miles, weight, commodity (nice to have)
+    const mi = text.match(/\b(?:total\s+)?miles?\s*:?\s*([0-9,]{2,6})\b/i); if (mi) f.miles = parseInt(mi[1].replace(/,/g, ""), 10);
+    const wt = text.match(/\b(?:estimated\s+)?weight\s*:?\s*([0-9,]{3,6}(?:\.\d+)?)/i); if (wt) f.weight = Math.round(parseFloat(wt[1].replace(/,/g, "")));
+    const cm = text.match(/commodit(?:y|ies)\s*:?\s*([A-Za-z][A-Za-z &/-]{2,30})/i) || text.match(/description\s*:\s*([A-Za-z][A-Za-z &/-]{2,30})/i);
+    const cleanC = s => s.trim().replace(/\s{2,}.*/, "").replace(/\s+(trailer|temp|weight|pieces|pcs|hazmat|size|type|mode|reefer|van|miles)\b.*$/i, "");
+    const junk = c => /\b(must|if|the|shall|will|be|of|to|any|all)\b/i.test(c) || /^(pick|quantity|unit|notes)/i.test(c);
+    const pr = text.match(/product\s*:\s*([A-Za-z][A-Za-z &/-]{2,30})/i);
+    if (cm && !junk(cleanC(cm[1]))) f.commodity = titleCase(cleanC(cm[1]));
+    else if (pr && !junk(cleanC(pr[1]))) f.commodity = titleCase(cleanC(pr[1]));
+    if (!f.commodity) { const m = text.match(/Truckload\s+([A-Za-z][A-Za-z ]{2,25})/); if (m) f.commodity = titleCase(m[1].trim().replace(/\s{2,}.*/, "")); }
+    return f;
+  }
+  return { readFile, parse };
+})();
+
+</script>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
@@ -395,6 +580,8 @@ function openLoadForm(l){
   $("lFrom").value = v.from || ""; $("lFromDate").value = v.fromDate || ""; $("lTo").value = v.to || ""; $("lToDate").value = v.toDate || "";
   $("lMiles").value = v.miles ?? ""; $("lEmpty").value = v.empty ?? ""; $("lFactored").checked = v.factored !== false;
   $("lNotes").value = v.notes || ""; $("lLink").value = v.link || "";
+  document.querySelectorAll("#loadForm .filled").forEach(el => el.classList.remove("filled"));
+  $("rcMsg").textContent = "Fills in the load for you. The file is read on this phone and never uploaded or saved."; $("rcMsg").className = "scanmsg";
   loadCalc(); $("loadForm").hidden = false; $("loadNewBtn").hidden = true;
   $("loadForm").scrollIntoView({ block: "start", behavior: "smooth" });
 }
@@ -431,6 +618,38 @@ $("loadList").addEventListener("click", e => {
   if (a === "nodel") card.querySelector(".confirm").hidden = true;
   if (a === "yesdel") { loads = loads.filter(x => x !== l); Sync.push("loads"); renderLoads(); toast("Load deleted"); }
 });
+
+// ----- Scan a rate con (read on the phone, never stored) -----
+$("rcFile").addEventListener("change", async e => {
+  const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+  const msg = $("rcMsg"), wrap = $("scanWrap");
+  const say = (t, cls) => { msg.textContent = t; msg.className = "scanmsg " + (cls || ""); };
+  wrap.classList.add("busy"); say("Reading…");
+  try {
+    const { text } = await RateCon.readFile(file, t => say(t));
+    const f = RateCon.parse(text);
+    const set = (id, v) => { if (v === undefined || v === "" || v === null) return false; $(id).value = v; $(id).classList.add("filled"); return true; };
+    document.querySelectorAll("#loadForm .filled").forEach(el => el.classList.remove("filled"));
+    const got = [];
+    if (set("lBroker", f.broker)) got.push("broker");
+    if (set("lNo", f.loadNo)) got.push("load #");
+    if (set("lRate", f.rate)) got.push("rate");
+    if (set("lFrom", f.from)) got.push("pickup");
+    set("lFromDate", f.fromDate);
+    if (set("lTo", f.to)) got.push("delivery");
+    set("lToDate", f.toDate);
+    if (f.miles) set("lMiles", f.miles);
+    const extra = [f.commodity, f.weight ? f.weight.toLocaleString("en-US") + " lb" : ""].filter(Boolean).join(" · ");
+    if (extra && !$("lNotes").value) set("lNotes", extra);
+    loadCalc();
+    if (!got.length) { say("Couldn't find the load details in that file. Fill it in by hand.", "bad"); return; }
+    const dup = f.loadNo && loads.find(l => l.loadNo === f.loadNo && l.id !== editingLoad);
+    say(`Filled in: ${got.join(", ")}. Check the green fields${f.miles ? "" : ", add the miles"} and pick the truck.` + (dup ? ` Heads up: load #${f.loadNo} is already saved.` : ""), dup ? "bad" : "ok");
+  } catch (err) {
+    console.warn(err); say("Couldn't read that file. Check your connection and try again, or fill it in by hand.", "bad");
+  } finally { wrap.classList.remove("busy"); }
+});
+document.getElementById("loadForm").addEventListener("input", e => e.target.classList.remove("filled"));
 
 // ----- Expenses -----
 let expTruck = "all", expPer = "month", editingExp = null;
