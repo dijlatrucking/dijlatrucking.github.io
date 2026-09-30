@@ -130,6 +130,7 @@
   .stagechips{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;overflow:visible}
   .stagechips .chip{padding:8px 2px;font-size:12.5px;text-align:center;white-space:nowrap}
   .stagechips .chip span{display:block;margin:1px 0 0;font-size:11.5px}
+  .stats4{grid-template-columns:1fr 1fr}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--acc);color:#141100;font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
   .toast.show{opacity:1}
   body.auth-lock{overflow:hidden}
@@ -253,8 +254,20 @@
 
   <!-- ===== EXPENSES ===== -->
   <section class="stack" id="tab-exp" hidden>
-    <div class="stats" id="expStats"></div>
-    <button type="button" class="primary wide" id="expNewBtn">+ Add expense</button>
+    <div class="stats stats4" id="expStats"></div>
+    <div class="row2"><button type="button" class="primary" id="expNewBtn">+ Add expense</button><button type="button" id="erOpen">📄 Report</button></div>
+    <div class="card stack" id="erCard" hidden>
+      <h2>Expenses report</h2>
+      <div class="chips"><button type="button" class="chip" id="erMonth">This month</button><button type="button" class="chip" id="erYear">This year</button><button type="button" class="chip" id="erAll">All time</button></div>
+      <div class="rangebar" style="grid-template-columns:1fr auto 1fr"><input type="date" id="erFrom" aria-label="From"><span class="muted">to</span><input type="date" id="erTo" aria-label="To"></div>
+      <div class="row3">
+        <label>Truck<select id="erTruck"></select></label>
+        <label>Category<select id="erCat"></select></label>
+        <label>Paid with<select id="erPaid"><option value="all">All</option><option value="gap">GAP card</option><option value="own">Own card / cash</option></select></label>
+      </div>
+      <p class="meta" id="erCount" style="margin:0"></p>
+      <div class="btns"><button type="button" class="ghost" id="erCancel">Close</button><button type="button" class="primary" id="erView" style="flex:1">📄 View PDF</button></div>
+    </div>
     <form class="card stack" id="expForm" hidden autocomplete="off">
       <h2 id="expFormTitle">New expense</h2>
       <label class="scanbtn" id="billWrap"><input type="file" id="billFile" accept="application/pdf,.pdf,image/*"><span>📄 Scan bill / receipt</span></label>
@@ -279,6 +292,11 @@
     </form>
     <div class="chips" id="expTruckChips" aria-label="Truck"></div>
     <div class="chips" id="expPerChips" aria-label="Period"></div>
+    <div class="rangebar" role="group" aria-label="Date range">
+      <input type="date" id="exFrom" aria-label="From date"><span class="muted">to</span><input type="date" id="exTo" aria-label="To date">
+      <button type="button" class="ghost" id="exClear" aria-label="Clear date range">✕</button>
+    </div>
+    <select id="exCat" aria-label="Category"></select>
     <div class="list" id="expList"></div>
   </section>
 
@@ -878,17 +896,26 @@ $("billPlan").addEventListener("click", e => {
 });
 
 // ----- Expenses -----
-let expTruck = "all", expPer = "month", editingExp = null;
+let expTruck = "all", expPer = "month", editingExp = null, exFrom = "", exTo = "", exCat = "";
+// this truck's share of an expense ("Both trucks" is split 50/50 when one truck is picked)
+const expShare = (e, truck) => truck === "all" || e.truck === truck ? num(e.amount) : e.truck === "shared" ? num(e.amount) / 2 : 0;
+const catOptions = (sel, allLabel) => { const used = [...new Set([...CATS, ...expenses.map(e => e.cat)])]; sel.innerHTML = `<option value="">${allLabel}</option>` + used.map(c => `<option>${esc(c)}</option>`).join(""); };
 function renderExp(){
-  const r = range(expPer);
-  const E = expenses.filter(e => inRange(e.date, r) && (expTruck === "all" || e.truck === expTruck || e.truck === "shared"));
-  const tot = E.reduce((s, e) => s + (expTruck !== "all" && e.truck === "shared" ? num(e.amount) / 2 : num(e.amount)), 0);
-  const fuel = E.filter(e => e.cat === "Fuel"), gal = fuel.reduce((s, e) => s + num(e.gallons), 0), fuelAmt = fuel.reduce((s, e) => s + num(e.amount), 0);
-  $("expStats").innerHTML = `<div><b>${money(tot)}</b><span>Total</span></div><div><b>${money(fuelAmt)}</b><span>Fuel</span></div><div><b>${gal ? "$" + (fuelAmt / gal).toFixed(2) : "–"}</b><span>Avg $/gallon</span></div>`;
+  const r = expPer === "custom" ? [exFrom || "0000-01-01", exTo || "9999-12-31"] : range(expPer);
+  const E = expenses.filter(e => inRange(e.date, r) && expShare(e, expTruck) > 0 && (!exCat || e.cat === exCat));
+  const sh = e => expShare(e, expTruck);
+  const tot = E.reduce((s, e) => s + sh(e), 0), gap = E.filter(isGap).reduce((s, e) => s + sh(e), 0);
+  const fuel = E.filter(e => e.cat === "Fuel"), gal = fuel.reduce((s, e) => s + num(e.gallons) * (sh(e) / (num(e.amount) || 1)), 0), fuelAmt = fuel.reduce((s, e) => s + sh(e), 0);
+  $("expStats").innerHTML = `<div><b>${money(tot)}</b><span>Total${exCat ? " · " + esc(exCat) : ""}</span></div><div><b>${money(gap)}</b><span>On GAP card</span></div>
+    <div><b>${money(tot - gap)}</b><span>Own card / cash</span></div><div><b>${gal ? "$" + (fuelAmt / gal).toFixed(2) : "–"}</b><span>Fuel $/gallon${gal ? ` · ${Math.round(gal).toLocaleString("en-US")} gal` : ""}</span></div>`;
   $("expTruckChips").innerHTML = chipsHtml([["all", "Both trucks"], ...TRUCKS()], expTruck, "t");
-  $("expPerChips").innerHTML = chipsHtml(PERIODS, expPer, "p");
+  $("expPerChips").innerHTML = chipsHtml(DASH_PERIODS, expPer, "p");
+  if (document.activeElement !== $("exFrom")) $("exFrom").value = expPer === "all" ? "" : (expPer === "custom" ? exFrom : r[0]);
+  if (document.activeElement !== $("exTo")) $("exTo").value = expPer === "all" ? "" : (expPer === "custom" ? exTo : r[1]);
+  $("exClear").hidden = expPer !== "custom";
+  if (document.activeElement !== $("exCat")) { catOptions($("exCat"), "All categories"); $("exCat").value = exCat; }
   const list = [...E].sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.created).localeCompare(String(a.created)));
-  if (!list.length) { $("expList").innerHTML = expenses.length ? `<div class="empty"><b>Nothing here</b>No expenses in this period.</div>` : `<div class="empty"><b>No expenses yet</b>Tap "Add expense" for fuel, repairs and the rest.</div>`; return; }
+  if (!list.length) { $("expList").innerHTML = expenses.length ? `<div class="empty"><b>Nothing here</b>No expenses match these filters.</div>` : `<div class="empty"><b>No expenses yet</b>Tap "Add expense" for fuel, repairs and the rest.</div>`; return; }
   $("expList").innerHTML = list.map(e => `<article class="item" data-id="${esc(e.id)}" style="border-left-color:${e.cat === "Fuel" ? "var(--acc)" : "var(--blue)"}">
       <div class="top2">
         <div style="min-width:0"><div class="big">${esc(e.cat)}</div><div class="meta">${niceDate(e.date)} · ${esc(truckName(e.truck))}${e.cat === "Fuel" && e.gallons ? ` · ${num(e.gallons)} gal${e.state ? " in " + esc(e.state) : ""}` : ""}${isGap(e) ? " · GAP card" : ""}</div></div>
@@ -934,6 +961,10 @@ $("expForm").onsubmit = e => {
 };
 $("expTruckChips").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) { expTruck = b.dataset.t; renderExp(); } });
 $("expPerChips").addEventListener("click", e => { const b = e.target.closest("[data-p]"); if (b) { expPer = b.dataset.p; renderExp(); } });
+const onExRange = () => { exFrom = $("exFrom").value; exTo = $("exTo").value; if (exFrom && exTo && exFrom > exTo) [exFrom, exTo] = [exTo, exFrom]; expPer = (exFrom || exTo) ? "custom" : "all"; renderExp(); };
+$("exFrom").addEventListener("change", onExRange); $("exTo").addEventListener("change", onExRange);
+$("exClear").onclick = () => { exFrom = exTo = ""; expPer = "month"; renderExp(); };
+$("exCat").addEventListener("change", () => { exCat = $("exCat").value; renderExp(); });
 $("expList").addEventListener("click", e => {
   const b = e.target.closest("[data-a]"); if (!b) return;
   const card = b.closest(".item"), x = expenses.find(y => y.id === card.dataset.id); if (!x) return;
@@ -1161,6 +1192,87 @@ function buildLoadsPdf(){
   footer();
   return doc;
 }
+// ----- Expenses report PDF -----
+function reportExps(){
+  const f = $("erFrom").value || "0000-01-01", t = $("erTo").value || "9999-12-31", tr = $("erTruck").value, c = $("erCat").value, pw = $("erPaid").value;
+  return expenses.filter(e => e.date >= f && e.date <= t && expShare(e, tr) > 0 && (!c || e.cat === c) && (pw === "all" || (pw === "gap") === isGap(e)))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+function buildExpPdf(){
+  const list = reportExps(), tr = $("erTruck").value, sh = e => expShare(e, tr);
+  const { jsPDF } = window.jspdf, doc = new jsPDF({ unit: "pt", format: "letter" });
+  const W = 612, M = 36, R = W - M, INK = [20, 22, 28], MUT = [110, 116, 128], LINE = [220, 223, 230], ACC = [245, 179, 1];
+  const $$ = n => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const clean = x => String(x ?? "").replace(/[–—]/g, "-").replace(/[^\x20-\x7E]/g, "");
+  const nd = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
+  const trTxt = tr === "all" ? "Both trucks" : truckName(tr), cTxt = $("erCat").value || "All categories", pTxt = $("erPaid").selectedOptions[0].textContent;
+  const rangeTxt = ($("erFrom").value || $("erTo").value) ? `${$("erFrom").value ? nd($("erFrom").value) : "Start"} - ${$("erTo").value ? nd($("erTo").value) : "today"}` : "All dates";
+  let y = 0, page = 1;
+  const header = () => {
+    doc.setFillColor(15, 17, 21); doc.rect(0, 0, W, 66, "F"); doc.setFillColor(...ACC); doc.rect(0, 66, W, 3, "F");
+    const LX = logoData ? M + 58 : M;
+    if (logoData) { try { doc.addImage(logoData, "PNG", M, 7, 51, 52); } catch (e) {} }
+    doc.setTextColor(255, 207, 77); doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.text(clean(settings.company || "Dijla Trucking"), LX, 30);
+    doc.setTextColor(230, 232, 238); doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+    doc.text(clean(`Expenses report  |  ${rangeTxt}  |  ${trTxt}  |  ${cTxt}  |  ${pTxt}`), LX, 48);
+    y = 92;
+  };
+  const footer = () => { doc.setFontSize(8); doc.setTextColor(...MUT); doc.setFont("helvetica", "normal");
+    doc.text(`Generated ${nd(today())}.${tr !== "all" ? " * = half of an expense shared by both trucks." : ""}`, M, 772); doc.text("Page " + page, R, 772, { align: "right" }); };
+  const need = h => { if (y + h > 750) { footer(); doc.addPage(); page++; header(); } };
+  const title = t => { need(40); doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...INK); doc.text(t.toUpperCase(), M, y); doc.setDrawColor(...ACC); doc.setLineWidth(1.5); doc.line(M, y + 5, M + 40, y + 5); y += 22; };
+  const table = (cols, head, rows, bold = []) => {
+    const drawHead = () => { doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...MUT); let x = M;
+      head.forEach((h, i) => { doc.text(h, cols[i].a === "r" ? x + cols[i].w - 3 : x + 2, y, { align: cols[i].a === "r" ? "right" : "left" }); x += cols[i].w; });
+      y += 5; doc.setDrawColor(...INK); doc.setLineWidth(.8); doc.line(M, y, R, y); y += 12; };
+    need(40); drawHead();
+    rows.forEach((r, ri) => {
+      if (y > 745) { footer(); doc.addPage(); page++; header(); drawHead(); }
+      doc.setFont("helvetica", bold.includes(ri) ? "bold" : "normal"); doc.setFontSize(9); doc.setTextColor(...INK); let x = M;
+      r.forEach((c, i) => { let t = clean(c); while (t.length > 1 && doc.getTextWidth(t) > cols[i].w - 5) t = t.slice(0, -1);
+        doc.text(t, cols[i].a === "r" ? x + cols[i].w - 3 : x + 2, y, { align: cols[i].a === "r" ? "right" : "left" }); x += cols[i].w; });
+      y += 5; doc.setDrawColor(...LINE); doc.setLineWidth(.5); doc.line(M, y, R, y); y += 11;
+    });
+    y += 10;
+  };
+  header();
+  const tot = list.reduce((s, e) => s + sh(e), 0), gap = list.filter(isGap).reduce((s, e) => s + sh(e), 0);
+  const fuel = list.filter(e => e.cat === "Fuel"), gal = fuel.reduce((s, e) => s + num(e.gallons) * (sh(e) / (num(e.amount) || 1)), 0), fuelAmt = fuel.reduce((s, e) => s + sh(e), 0);
+  const boxes = [["Total", $$(tot)], ["On GAP card", $$(gap)], ["Own card / cash", $$(tot - gap)], ["Fuel $/gallon", gal ? "$" + (fuelAmt / gal).toFixed(2) : "-"]];
+  const bw = (R - M - 24) / 4;
+  boxes.forEach(([lab, v], i) => { const x = M + i * (bw + 8); doc.setFillColor(246, 247, 249); doc.setDrawColor(...LINE); doc.roundedRect(x, y, bw, 46, 4, 4, "FD");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(13.5); doc.setTextColor(...INK); doc.text(clean(v), x + 9, y + 21);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUT); doc.text(lab, x + 9, y + 36); });
+  y += 66;
+  const cats = {}; list.forEach(e => cats[e.cat] = (cats[e.cat] || 0) + sh(e));
+  const catRows = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+  title("By category");
+  table([{ w: 300 }, { w: 80, a: "r" }, { w: R - M - 380, a: "r" }], ["Category", "Entries", "Amount"],
+    [...catRows.map(([k, v]) => [k, String(list.filter(e => e.cat === k).length), $$(v)]), ["Total", String(list.length), $$(tot)]], [catRows.length]);
+  title("All expenses");
+  if (!list.length) { doc.setFontSize(10); doc.setTextColor(...MUT); doc.text("No expenses match these filters.", M, y); y += 20; }
+  else table([{ w: 62 }, { w: 58 }, { w: 92 }, { w: 64, a: "r" }, { w: 56 }, { w: 58 }, { w: R - M - 390 }], ["Date", "Truck", "Category", "Amount", "Paid with", "Fuel", "Note"],
+    list.map(e => [e.date, truckName(e.truck), e.cat, $$(sh(e)) + (tr !== "all" && e.truck === "shared" ? "*" : ""), isGap(e) ? "GAP card" : "Own",
+      e.gallons ? `${num(e.gallons)} gal ${e.state || ""}` : "", e.note || ""]));
+  footer();
+  return doc;
+}
+function erCount(){ const l = reportExps(), tr = $("erTruck").value; $("erCount").textContent = `${l.length} expense${l.length === 1 ? "" : "s"} match · ${money2(l.reduce((s, e) => s + expShare(e, tr), 0))}`; }
+$("erOpen").onclick = () => {
+  const r = range("month");
+  if (!$("erFrom").value && !$("erTo").value) { $("erFrom").value = r[0]; $("erTo").value = r[1]; }
+  $("erTruck").innerHTML = [["all", "Both trucks"], ...TRUCKS()].map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join(""); $("erTruck").value = expTruck;
+  const keep = $("erCat").value; catOptions($("erCat"), "All categories"); $("erCat").value = keep || exCat;
+  $("erCard").hidden = false; $("erOpen").hidden = true; erCount();
+};
+$("erCancel").onclick = () => { $("erCard").hidden = true; $("erOpen").hidden = false; };
+["erFrom", "erTo", "erTruck", "erCat", "erPaid"].forEach(k => $(k).addEventListener("change", erCount));
+$("erMonth").onclick = () => { const r = range("month"); $("erFrom").value = r[0]; $("erTo").value = r[1]; erCount(); };
+$("erYear").onclick = () => { const r = range("year"); $("erFrom").value = r[0]; $("erTo").value = r[1]; erCount(); };
+$("erAll").onclick = () => { $("erFrom").value = ""; $("erTo").value = ""; erCount(); };
+$("erView").onclick = () => showPdf($("erView"), "Expenses", () => ({ doc: buildExpPdf(), title: "Expenses report",
+  name: `${fileSafe(settings.company || "Dijla Trucking")}-expenses-${$("erFrom").value || "all"}${$("erTo").value ? "-to-" + $("erTo").value : ""}.pdf` }));
+
 function openReport(){
   const r = range("month");
   if (!$("rpFrom").value && !$("rpTo").value) { $("rpFrom").value = r[0]; $("rpTo").value = r[1]; }
