@@ -114,6 +114,14 @@
     table.sum th,table.sum td{border-color:#ccc;color:#000} table.sum thead th{color:#000} .taxbig div{background:#f3f3f3} .taxbig b{color:#000}
     .meta{color:#333} .pos{color:#000} .neg{color:#000}
   }
+  .pdfview{position:fixed;inset:0;z-index:150;background:#0b0c0f;display:flex;flex-direction:column}
+  .pv-top{display:flex;justify-content:space-between;align-items:center;padding:max(10px,env(safe-area-inset-top)) 16px 10px;color:var(--acc-hi)}
+  .pv-top button{padding:8px 12px}
+  .pv-pages{flex:1;overflow-y:auto;padding:0 12px 16px;display:grid;gap:12px;align-content:start;justify-items:center}
+  .pv-pages canvas{max-width:760px;background:#fff;border-radius:4px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .pv-bar{display:flex;flex-wrap:wrap;gap:10px;padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--ink)}
+  .pv-bar button{flex:1;padding:14px;font-size:16px}
+  .pv-msg{flex-basis:100%;margin:0;text-align:center;font-size:13px;color:var(--good)} .pv-msg:empty{display:none}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--acc);color:#141100;font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
   .toast.show{opacity:1}
   body.auth-lock{overflow:hidden}
@@ -138,6 +146,12 @@
     <p class="authnote">Only approved accounts can open Truck Ops.</p>
   </div>
   <p class="muted" id="authWait">Connecting…</p>
+</div>
+
+<div class="pdfview" id="pdfView" role="dialog" aria-modal="true" aria-labelledby="pvTitle" hidden>
+  <div class="pv-top"><b id="pvTitle">PDF</b><button type="button" class="ghost" id="pvClose" aria-label="Close">✕</button></div>
+  <div class="pv-pages" id="pvPages"></div>
+  <div class="pv-bar"><p class="pv-msg" id="pvMsg" role="status"></p><button type="button" id="pvDownload">Download</button><button type="button" class="primary" id="pvShare">Share</button></div>
 </div>
 
 <div class="wrap">
@@ -254,7 +268,7 @@
       <p class="meta" style="margin:8px 0 0">Counted when paid (the date a load was marked Paid). <span id="taxUnpaid"></span></p></div>
     <div class="card"><h2>Expenses by category</h2><div class="scroll"><table class="sum" id="taxCats"></table></div>
       <p class="meta" style="margin:8px 0 0">Expenses tagged "Both trucks" are split 50/50. Truck payments: your accountant may only deduct the interest part, plus depreciation.</p></div>
-    <div class="btns noprint"><button type="button" class="primary" id="taxCsv">Download for accountant (CSV)</button><button type="button" id="taxPrint">Print / Save as PDF</button></div>
+    <button type="button" class="primary wide noprint" id="taxPdf">📄 View PDF</button>
     <p class="meta noprint" style="margin:0">This is a record-keeping summary, not tax advice. Have your accountant check it before filing.</p>
   </section>
 
@@ -949,24 +963,118 @@ function renderTax(){
 }
 $("taxYearChips").addEventListener("click", e => { const b = e.target.closest("[data-y]"); if (b) { taxYear = +b.dataset.y; renderTax(); } });
 $("taxTruckChips").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) { taxTruck = b.dataset.t; renderTax(); } });
-$("taxPrint").onclick = () => window.print();
-$("taxCsv").onclick = () => {
-  const d = taxData(taxYear, taxTruck), T = d.T, q = v => `"${String(v ?? "").replace(/"/g, '""')}"`, m = v => (Math.round(num(v) * 100) / 100).toFixed(2);
-  const L = [];
-  L.push([q(`${settings.company || "Truck Ops"} - ${truckName(taxTruck)} - ${taxYear} summary`)].join(","), "");
-  L.push("Summary,Amount", `Paid to truck (1099),${m(T.paid)}`, `Gross,${m(T.gross)}`, `${q((settings.factor || "GAP") + " fees")},${m(T.fees)}`,
-    `${q((settings.factor || "GAP") + " fuel & deductions")},${m(T.gapOut)}`, `Other expenses,${m(T.other)}`, `Net profit,${m(T.net)}`, `Miles,${Math.round(T.miles || 0)}`, `Fuel gallons,${m(T.gallons)}`, "");
-  L.push("Quarter,Loads paid,Gross,Fees,Fuel & deductions,Paid to truck,Other expenses,Net");
-  d.Q.forEach((x, i) => L.push([`Q${i + 1}`, x.n, m(x.gross), m(x.fees), m(x.gapOut), m(x.paid), m(x.other), m(x.net)].join(",")));
-  L.push("", "Expense category,Amount"); d.catRows.forEach(([k, v]) => L.push([q(k), m(v)].join(",")));
-  L.push("", "Paid loads", "Paid date,Broker,Load #,Pickup,Delivery,Rate,Fee,GAP deposit,Miles,Weight (lb)");
-  d.paid.slice().sort((a, b) => paidDate(a).localeCompare(paidDate(b))).forEach(l => L.push([paidDate(l), q(l.broker), q(l.loadNo), q(l.from), q(l.to), m(l.rate), m(lFee(l)), hasDep(l) ? m(l.deposit) : "", lMiles(l), num(l.weight) || ""].join(",")));
-  L.push("", "Expenses", "Date,Category,Amount (this truck's share),Paid with,Gallons,State,Note");
-  d.exps.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(e => L.push([e.date, q(e.cat), m(e.truck === "shared" ? num(e.amount) / 2 : e.amount) , isGap(e) ? "GAP card" : "Own", num(e.gallons) || "", e.state || "", q(e.note)].join(",")));
-  const blob = new Blob([L.join("\r\n")], { type: "text/csv" }), a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = `${(settings.company || "truck-ops").replace(/[^A-Za-z0-9]+/g, "-")}-${truckName(taxTruck).replace(/[^A-Za-z0-9]+/g, "-")}-${taxYear}.csv`;
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast("Downloaded");
+// ----- 1099 PDF: build it, show it, then download or share -----
+const loadJs = (() => { const c = {}; return src => c[src] || (c[src] = new Promise((ok, bad) => { const el = document.createElement("script"); el.src = src; el.onload = ok; el.onerror = () => { delete c[src]; bad(new Error("load")); }; document.head.appendChild(el); })); })();
+const JSPDF = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", PDFJS_W = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+function buildTaxPdf(year, truck){
+  const d = taxData(year, truck), T = d.T, fac = settings.factor || "GAP";
+  const { jsPDF } = window.jspdf, doc = new jsPDF({ unit: "pt", format: "letter" });
+  const W = 612, M = 40, R = W - M, INK = [20, 22, 28], MUT = [110, 116, 128], LINE = [220, 223, 230], ACC = [245, 179, 1];
+  const $$ = n => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const clean = t => String(t ?? "").replace(/[–—]/g, "-").replace(/[^\x20-\x7E]/g, "");
+  let y = 0, page = 1;
+  const header = () => {
+    doc.setFillColor(15, 17, 21); doc.rect(0, 0, W, 70, "F"); doc.setFillColor(...ACC); doc.rect(0, 70, W, 3, "F");
+    doc.setTextColor(255, 207, 77); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text(clean(settings.company || "Truck Ops"), M, 32);
+    doc.setTextColor(230, 232, 238); doc.setFont("helvetica", "normal"); doc.setFontSize(11);
+    doc.text(clean(`1099 summary  |  ${truckName(truck)}${settings[truck === "t1" ? "u1" : "u2"] ? " (unit " + settings[truck === "t1" ? "u1" : "u2"] + ")" : ""}  |  ${year}`), M, 52);
+    doc.setFontSize(9); doc.setTextColor(170, 176, 188); doc.text("Generated " + new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), R, 52, { align: "right" });
+    y = 96;
+  };
+  const footer = () => { doc.setFontSize(8); doc.setTextColor(...MUT); doc.setFont("helvetica", "normal");
+    doc.text("Record-keeping summary for your accountant, not tax advice. Income counted when paid (cash basis). Shared expenses split 50/50.", M, 772);
+    doc.text("Page " + page, R, 772, { align: "right" }); };
+  const need = h => { if (y + h > 750) { footer(); doc.addPage(); page++; header(); } };
+  const title = t => { need(40); doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...INK); doc.text(t.toUpperCase(), M, y); doc.setDrawColor(...ACC); doc.setLineWidth(1.5); doc.line(M, y + 5, M + 40, y + 5); y += 22; };
+  // table: cols = [{w, a:'l'|'r'}], rows = arrays of strings; bold row indexes
+  const table = (cols, head, rows, bold = []) => {
+    const x0 = M, rowH = 17;
+    const drawHead = () => { doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(...MUT); let x = x0;
+      head.forEach((h, i) => { doc.text(clean(h), cols[i].a === "r" ? x + cols[i].w - 4 : x + 2, y, { align: cols[i].a === "r" ? "right" : "left" }); x += cols[i].w; });
+      y += 6; doc.setDrawColor(...INK); doc.setLineWidth(.8); doc.line(x0, y, R, y); y += 12; };
+    need(rowH * 2 + 20); drawHead();
+    rows.forEach((r, ri) => {
+      if (y + rowH > 750) { footer(); doc.addPage(); page++; header(); drawHead(); }
+      doc.setFont("helvetica", bold.includes(ri) ? "bold" : "normal"); doc.setFontSize(9.5); doc.setTextColor(...INK); let x = x0;
+      r.forEach((c, i) => { let t = clean(c); const maxW = cols[i].w - 6; while (t.length > 1 && doc.getTextWidth(t) > maxW) t = t.slice(0, -2) + "…".replace("…", "");
+        doc.text(t, cols[i].a === "r" ? x + cols[i].w - 4 : x + 2, y, { align: cols[i].a === "r" ? "right" : "left" }); x += cols[i].w; });
+      y += 5; doc.setDrawColor(...LINE); doc.setLineWidth(.5); doc.line(x0, y, R, y); y += 12;
+    });
+    y += 10;
+  };
+  header();
+  // big numbers
+  const boxes = [["Paid to truck (1099)", T.paid || 0], ["Expenses incl. fees", d.deductible], ["Net profit", T.net || 0]];
+  const bw = (R - M - 20) / 3;
+  boxes.forEach(([lab, v], i) => { const x = M + i * (bw + 10); doc.setFillColor(246, 247, 249); doc.setDrawColor(...LINE); doc.roundedRect(x, y, bw, 54, 4, 4, "FD");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(...INK); doc.text($$(v), x + 10, y + 26);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...MUT); doc.text(lab, x + 10, y + 42); });
+  y += 72;
+  doc.setFontSize(9.5); doc.setTextColor(...MUT);
+  doc.text(clean(`${T.n || 0} paid loads  |  ${Math.round(T.miles || 0).toLocaleString("en-US")} miles  |  ${Math.round(T.gallons || 0).toLocaleString("en-US")} gallons of fuel logged`), M, y); y += 24;
+  if (d.unpaid.length) { doc.text(clean(`Not included: ${d.unpaid.length} load(s) from ${year} not paid yet (${$$(d.unpaid.reduce((s, l) => s + lNet(l), 0))} after fees).`), M, y - 8); y += 8; }
+  title("Income by quarter");
+  const qc = [{ w: 150, a: "l" }, ...Array(5).fill({ w: (R - M - 150) / 5, a: "r" })];
+  const Q = d.Q, rowsQ = [["Loads paid", q => String(q.n)], ["Gross", q => $$(q.gross)], [`${fac} fees`, q => $$(-q.fees)], [`${fac} fuel & deductions`, q => $$(-q.gapOut)],
+    ["Paid to truck", q => $$(q.paid)], ["Other expenses", q => $$(-q.other)], ["Net", q => $$(q.net)]];
+  table(qc, ["", "Q1", "Q2", "Q3", "Q4", "Year"], rowsQ.map(([lab, f]) => [lab, ...Q.map(f), f(T)]), [4, 6]);
+  title("Expenses by category");
+  table([{ w: 360, a: "l" }, { w: R - M - 360, a: "r" }], ["Category", "Amount"], [...d.catRows.map(([k, v]) => [k, $$(v)]), ["Total", $$(d.deductible)]], [d.catRows.length]);
+  if (d.paid.length) {
+    title("Paid loads");
+    table([{ w: 62, a: "l" }, { w: 92, a: "l" }, { w: 70, a: "l" }, { w: 150, a: "l" }, { w: 60, a: "r" }, { w: 44, a: "r" }, { w: R - M - 478, a: "r" }],
+      ["Paid", "Broker", "Load #", "Lane", "Rate", "Fee", "Deposit"],
+      d.paid.slice().sort((a, b) => paidDate(a).localeCompare(paidDate(b))).map(l => [paidDate(l), l.broker || "", l.loadNo || "", `${l.from || "?"} > ${l.to || "?"}`, $$(num(l.rate)), $$(lFee(l)), hasDep(l) ? $$(num(l.deposit)) : "-"]));
+  }
+  if (d.exps.length) {
+    title("Expenses");
+    table([{ w: 62, a: "l" }, { w: 100, a: "l" }, { w: 70, a: "r" }, { w: 60, a: "l" }, { w: R - M - 292, a: "l" }],
+      ["Date", "Category", "Amount", "Paid with", "Note"],
+      d.exps.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(e => [e.date, e.cat, $$(e.truck === "shared" ? num(e.amount) / 2 : num(e.amount)) + (e.truck === "shared" ? "*" : ""), isGap(e) ? "GAP card" : "Own", e.note || (e.gallons ? `${num(e.gallons)} gal ${e.state || ""}` : "")]));
+    doc.setFontSize(8); doc.setTextColor(...MUT); doc.text("* half of a shared expense", M, y - 4); y += 8;
+  }
+  footer();
+  return doc;
+}
+let pdfBlob = null, pdfName = "";
+async function viewTaxPdf(){
+  const btn = $("taxPdf"); btn.disabled = true; btn.textContent = "Making PDF…";
+  try {
+    await loadJs(JSPDF);
+    const doc = buildTaxPdf(taxYear, taxTruck);
+    pdfName = `${(settings.company || "Truck-Ops").replace(/[^A-Za-z0-9]+/g, "-")}-${truckName(taxTruck).replace(/[^A-Za-z0-9]+/g, "-")}-${taxYear}-1099.pdf`;
+    pdfBlob = doc.output("blob");
+    $("pvTitle").textContent = `${truckName(taxTruck)} · ${taxYear}`; $("pvPages").innerHTML = '<p class="muted" style="text-align:center">Loading…</p>'; $("pvMsg").textContent = "";
+    $("pdfView").hidden = false; document.body.classList.add("auth-lock");
+    await loadJs(PDFJS); pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_W;
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await pdfBlob.arrayBuffer()) }).promise;
+    $("pvPages").innerHTML = "";
+    const width = Math.min(760, $("pvPages").clientWidth || 360);
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const pg = await pdf.getPage(n), vp0 = pg.getViewport({ scale: 1 }), scale = width / vp0.width * (window.devicePixelRatio || 1);
+      const vp = pg.getViewport({ scale }), c = document.createElement("canvas");
+      c.width = vp.width; c.height = vp.height; c.style.width = "100%";
+      await pg.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+      $("pvPages").appendChild(c);
+    }
+  } catch (err) { console.warn(err); toast("Couldn't make the PDF. Check your connection and try again."); closePdf(); }
+  finally { btn.disabled = false; btn.textContent = "📄 View PDF"; }
+}
+function closePdf(){ $("pdfView").hidden = true; document.body.classList.remove("auth-lock"); }
+function downloadPdf(){ const a = document.createElement("a"); a.href = URL.createObjectURL(pdfBlob); a.download = pdfName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+$("taxPdf").onclick = viewTaxPdf;
+$("pvClose").onclick = closePdf;
+$("pvDownload").onclick = () => { if (!pdfBlob) return; downloadPdf(); $("pvMsg").textContent = "Downloaded. Check your Downloads folder."; };
+$("pvShare").onclick = async () => {
+  if (!pdfBlob) return;
+  const file = new File([pdfBlob], pdfName, { type: "application/pdf" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: pdfName }); $("pvMsg").textContent = ""; }
+    catch (e) { if (e && e.name !== "AbortError") { downloadPdf(); $("pvMsg").textContent = "Sharing didn't open, so it was downloaded instead."; } }
+  } else { downloadPdf(); $("pvMsg").textContent = "This browser can't share files, so it was downloaded. Open the site in Chrome to share."; }
 };
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("pdfView").hidden) closePdf(); });
 
 // ----- Settings -----
 function fillSettings(){
