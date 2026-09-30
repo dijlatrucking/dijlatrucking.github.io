@@ -73,6 +73,7 @@
   .applywrap .head h2{color:var(--sky)}
   .applywrap .head h3.big{color:#fff;margin-bottom:6px}
   .applywrap .head p{margin:0;opacity:.85}
+  .applywrap .head p.elig{margin-top:12px;padding-left:12px;border-left:2px solid var(--sky);font-size:14px;line-height:1.5;opacity:.78}
   form{display:grid;gap:14px}
   .card{background:var(--panel);border-radius:18px;padding:20px 16px;box-shadow:0 18px 40px rgba(0,0,0,.25)}
   label{display:grid;gap:5px;font-size:14px;font-weight:600;color:var(--text)}
@@ -124,12 +125,13 @@
   <section class="about wrap" id="about"><h2>About us</h2><h3 class="big">Trucking run by people who actually truck.</h3><p>Dijla Trucking is a small, owner-operated reefer carrier based in Boise, Idaho. We drive too, so we understand the job from the driver&#x27;s seat, not a corporate office.</p><p>We keep things simple: dependable equipment, clear communication, realistic expectations, and respect for the driver doing the work.</p><p>We&#x27;re looking for an experienced, safety-minded driver who wants steady OTR work with a company small enough to know their name.</p>
     <figure class="photo"><img src="img/fleet.jpg" alt="Semi trucks lined up at sunset" loading="lazy" width="900" height="651"><figcaption>Built for the long haul.</figcaption></figure>
   </section>
-  <section class="wrap"><h2>What we offer</h2><h3 class="big">The things that actually matter.</h3><div class="offer"><div class="box"><div class="ic" aria-hidden="true">💵</div><div class="t">Pay</div><div class="x">Competitive pay with the details discussed upfront.</div></div><div class="box"><div class="ic" aria-hidden="true">🏠</div><div class="t">Home Time</div><div class="x">Approximately three weeks out followed by four days home.</div></div><div class="box"><div class="ic" aria-hidden="true">🚛</div><div class="t">Equipment</div><div class="x">Dependable, properly maintained equipment built for OTR reefer work.</div></div><div class="box"><div class="ic" aria-hidden="true">❄️</div><div class="t">Freight</div><div class="x">Consistent temperature-controlled freight and long-haul operations.</div></div><div class="box"><div class="ic" aria-hidden="true">💬</div><div class="t">Communication</div><div class="x">Work directly with ownership instead of navigating layers of management.</div></div><div class="box"><div class="ic" aria-hidden="true">👥</div><div class="t">Small Fleet</div><div class="x">Small enough that ownership knows who&#x27;s behind the wheel.</div></div></div></section>
+  <section class="wrap"><h2>What we offer</h2><h3 class="big">The things that actually matter.</h3><div class="offer"><div class="box"><div class="ic" aria-hidden="true">💵</div><div class="t">Pay</div><div class="x">Compensation is based on verified driving experience, qualifications, and insurance eligibility. Final terms are discussed after reviewing your driving history.</div></div><div class="box"><div class="ic" aria-hidden="true">🏠</div><div class="t">Home Time</div><div class="x">Approximately three weeks out followed by four days home.</div></div><div class="box"><div class="ic" aria-hidden="true">🚛</div><div class="t">Equipment</div><div class="x">Dependable, properly maintained equipment built for OTR reefer work.</div></div><div class="box"><div class="ic" aria-hidden="true">❄️</div><div class="t">Freight</div><div class="x">Consistent temperature-controlled freight and long-haul operations.</div></div><div class="box"><div class="ic" aria-hidden="true">💬</div><div class="t">Communication</div><div class="x">Work directly with ownership instead of navigating layers of management.</div></div><div class="box"><div class="ic" aria-hidden="true">👥</div><div class="t">Small Fleet</div><div class="x">Small enough that ownership knows who&#x27;s behind the wheel.</div></div></div></section>
   <div class="band" role="img" aria-label="Semi trucks on the highway"><div class="wrap"><q>You&#x27;ll always know who you&#x27;re dealing with.</q><p>Questions go straight to ownership, not through layers of management.</p></div></div>
-  <section class="wrap"><h2>What you need</h2><h3 class="big">What we look for</h3><ul class="req"><li>Class A CDL</li><li>At least 2 years of CDL-A driving experience</li><li>Current DOT medical card</li><li>Able to pass a DOT drug screen</li></ul></section>
+  <section class="wrap"><h2>What you need</h2><h3 class="big">What we look for</h3><ul class="req"><li>Class A CDL</li><li>At least 2 years of CDL-A driving experience</li><li>Current DOT medical card</li><li>Able to pass a DOT drug screen</li><li>Acceptable MVR and insurability under our commercial insurance requirements</li></ul></section>
   <section id="apply" class="applywrap" style="padding-top:44px">
    <div class="wrap">
-    <div class="head"><h2>Apply</h2><h3 class="big">Driver application</h3><p>About 2 minutes. If it looks like a fit, we'll call you, then send the full DOT application.</p></div>
+    <div class="head"><h2>Apply</h2><h3 class="big">Driver application</h3><p>About 2 minutes. If it looks like a fit, we'll call you, then send the full DOT application.</p>
+      <p class="elig">All applicants are reviewed individually. Employment and compensation are subject to driving history, safety record, required qualifications, and approval under our commercial insurance requirements.</p></div>
     <div class="card" id="formCard">
       <form id="appForm" novalidate autocomplete="on">
         <label>Full name<input id="aName" name="name" autocomplete="name" maxlength="80" required></label>
@@ -176,6 +178,7 @@
         <label class="consent"><input type="checkbox" id="aOk"><span>Dijla Trucking LLC can contact me by phone, text or email about this job.</span></label>
         <p class="err" id="aErr" role="alert"></p>
         <button type="submit" class="go" id="aGo">Send application</button>
+        <p class="note">All employment offers are contingent on review of driving history, safety record, qualifications, and insurance approval.</p>
         <p class="note">Please don't include your SSN, date of birth or license number here. We'll collect those on the official DOT application later.</p>
       </form>
     </div>
