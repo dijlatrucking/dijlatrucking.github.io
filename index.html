@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#0f1115">
-<title>Truck Ops</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f5b301'/%3E%3Cpath d='M10 20h26v20H10zM36 27h9l7 7v6H36z' fill='%23111'/%3E%3Ccircle cx='19' cy='43' r='5' fill='%23111' stroke='%23f5b301' stroke-width='2'/%3E%3Ccircle cx='44' cy='43' r='5' fill='%23111' stroke='%23f5b301' stroke-width='2'/%3E%3C/svg%3E">
+<title>Dijla Trucking</title>
+<link rel="icon" type="image/png" href="favicon-64.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <style>
   :root{color-scheme:dark;--ink:#0f1115;--panel:#181b22;--panel2:#1f232c;--line:#2a2f3a;--acc:#f5b301;--acc-hi:#ffcf4d;--text:#e8eaf0;--muted:#9aa3b2;
     --good:#5fbf8a;--warn:#e0a458;--bad:#e07a7a;--blue:#7fb2ec;--violet:#b59be8;
@@ -30,7 +32,7 @@
   .mono{font-family:var(--mono)}
   .muted{color:var(--muted)}
   header.top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
-  header.top .logo{width:42px;height:42px;flex:none}
+  header.top .logo{width:50px;height:auto;flex:none}
   header.top h1{margin:0;font-size:20px;letter-spacing:.02em}
   header.top p{margin:0;font-size:12.5px;color:var(--muted)}
   .sync{font-weight:600} .sync.ok{color:var(--good)} .sync.warn{color:var(--warn)} .sync.bad{color:var(--bad)}
@@ -130,7 +132,7 @@
   body.auth-lock{overflow:hidden}
   .authgate{position:fixed;inset:0;z-index:200;background:var(--ink);display:grid;place-items:center;padding:24px 16px}
   .authbox{width:100%;max-width:320px;display:grid;gap:12px;text-align:center}
-  .authbox .logo{width:72px;height:72px;justify-self:center}
+  .authbox .logo{width:150px;height:auto;justify-self:center;margin-bottom:4px}
   .authbox h1{margin:0 0 6px;font-size:22px;letter-spacing:.12em}
   .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px;font-weight:600;font-size:16px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:10px}
   .gbtn svg{width:22px;height:22px}
@@ -142,11 +144,11 @@
 <body class="auth-lock">
 <div class="authgate" id="authGate">
   <div class="authbox" id="authForm" hidden>
-    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#f5b301"/><path d="M10 20h26v20H10zM36 27h9l7 7v6H36z" fill="#111"/><circle cx="19" cy="43" r="5" fill="#111" stroke="#f5b301" stroke-width="2"/><circle cx="44" cy="43" r="5" fill="#111" stroke="#f5b301" stroke-width="2"/></svg>
-    <h1>TRUCK OPS</h1>
+    <img class="logo" src="logo.png" alt="Dijla Trucking">
+    <h1 style="font-size:15px;letter-spacing:.3em;color:var(--muted)">OPS</h1>
     <button type="button" class="gbtn" id="authBtn"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</button>
     <p class="authmsg" id="authMsg" role="status"></p>
-    <p class="authnote">Only approved accounts can open Truck Ops.</p>
+    <p class="authnote">Only approved accounts can sign in.</p>
   </div>
   <p class="muted" id="authWait">Connecting…</p>
 </div>
@@ -159,9 +161,9 @@
 
 <div class="wrap">
   <header class="top">
-    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#f5b301"/><path d="M10 20h26v20H10zM36 27h9l7 7v6H36z" fill="#111"/><circle cx="19" cy="43" r="5" fill="#111" stroke="#f5b301" stroke-width="2"/><circle cx="44" cy="43" r="5" fill="#111" stroke="#f5b301" stroke-width="2"/></svg>
+    <img class="logo" src="logo.png" alt="Dijla Trucking">
     <div style="flex:1;min-width:0">
-      <h1 id="coName">Truck Ops</h1>
+      <h1 id="coName">Dijla Trucking</h1>
       <p><span class="sync" id="syncState">Connecting…</span></p>
     </div>
     <button type="button" class="ghost" id="signOutBtn">Sign out</button>
@@ -584,8 +586,8 @@ function showTab(name){
 }
 document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function render(){
-  $("coName").textContent = settings.company || "Truck Ops";
-  document.title = settings.company || "Truck Ops";
+  $("coName").textContent = settings.company || "Dijla Trucking";
+  document.title = settings.company || "Dijla Trucking";
   if (tab === "dash") renderDash();
   if (tab === "loads") renderLoads();
   if (tab === "exp") renderExp();
@@ -982,6 +984,12 @@ $("taxTruckChips").addEventListener("click", e => { const b = e.target.closest("
 const loadJs = (() => { const c = {}; return src => c[src] || (c[src] = new Promise((ok, bad) => { const el = document.createElement("script"); el.src = src; el.onload = ok; el.onerror = () => { delete c[src]; bad(new Error("load")); }; document.head.appendChild(el); })); })();
 const JSPDF = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
 const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", PDFJS_W = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+let logoData = null;
+async function getLogo(){
+  if (logoData) return logoData;
+  try { const b = await (await fetch("logo.png")).blob(); logoData = await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); }); } catch (e) { logoData = ""; }
+  return logoData;
+}
 function buildTaxPdf(year, truck){
   const d = taxData(year, truck), T = d.T, fac = settings.factor || "GAP";
   const { jsPDF } = window.jspdf, doc = new jsPDF({ unit: "pt", format: "letter" });
@@ -991,9 +999,11 @@ function buildTaxPdf(year, truck){
   let y = 0, page = 1;
   const header = () => {
     doc.setFillColor(15, 17, 21); doc.rect(0, 0, W, 70, "F"); doc.setFillColor(...ACC); doc.rect(0, 70, W, 3, "F");
-    doc.setTextColor(255, 207, 77); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text(clean(settings.company || "Truck Ops"), M, 32);
+    const LX = logoData ? M + 62 : M;
+    if (logoData) { try { doc.addImage(logoData, "PNG", M, 7, 55, 56); } catch (e) {} }
+    doc.setTextColor(255, 207, 77); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text(clean(settings.company || "Dijla Trucking"), LX, 32);
     doc.setTextColor(230, 232, 238); doc.setFont("helvetica", "normal"); doc.setFontSize(11);
-    doc.text(clean(`1099 summary  |  ${truckName(truck)}${settings[truck === "t1" ? "u1" : "u2"] ? " (unit " + settings[truck === "t1" ? "u1" : "u2"] + ")" : ""}  |  ${year}`), M, 52);
+    doc.text(clean(`1099 summary  |  ${truckName(truck)}${settings[truck === "t1" ? "u1" : "u2"] ? " (unit " + settings[truck === "t1" ? "u1" : "u2"] + ")" : ""}  |  ${year}`), LX, 52);
     doc.setFontSize(9); doc.setTextColor(170, 176, 188); doc.text("Generated " + new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), R, 52, { align: "right" });
     y = 96;
   };
@@ -1050,9 +1060,9 @@ let pdfBlob = null, pdfName = "";
 async function viewTaxPdf(){
   const btn = $("taxPdf"); btn.disabled = true; btn.textContent = "Making PDF…";
   try {
-    await loadJs(JSPDF);
+    await loadJs(JSPDF); await getLogo();
     const doc = buildTaxPdf(taxYear, taxTruck);
-    pdfName = `${(settings.company || "Truck-Ops").replace(/[^A-Za-z0-9]+/g, "-")}-${truckName(taxTruck).replace(/[^A-Za-z0-9]+/g, "-")}-${taxYear}-1099.pdf`;
+    pdfName = `${(settings.company || "Dijla-Trucking").replace(/[^A-Za-z0-9]+/g, "-")}-${truckName(taxTruck).replace(/[^A-Za-z0-9]+/g, "-")}-${taxYear}-1099.pdf`;
     pdfBlob = doc.output("blob");
     $("pvTitle").textContent = `${truckName(taxTruck)} · ${taxYear}`; $("pvPages").innerHTML = '<p class="muted" style="text-align:center">Loading…</p>'; $("pvMsg").textContent = "";
     $("pdfView").hidden = false; document.body.classList.add("auth-lock");
@@ -1163,7 +1173,7 @@ window.Sync = (() => {
     if (err && err.code === "permission-denied" && !gotData) {
       if (!on) return; on = false;
       if (window.Cloud) await Cloud.signOutOnly();
-      signedOut(); $("authMsg").textContent = `${userEmail || "That account"} isn't approved for Truck Ops.`; return;
+      signedOut(); $("authMsg").textContent = `${userEmail || "That account"} isn't approved for Dijla Trucking.`; return;
     }
     fail(err);
   }
