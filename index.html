@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f1115">
+<title>Truck Ops</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f5b301'/%3E%3Cpath d='M10 20h26v20H10zM36 27h9l7 7v6H36z' fill='%23111'/%3E%3Ccircle cx='19' cy='43' r='5' fill='%23111' stroke='%23f5b301' stroke-width='2'/%3E%3Ccircle cx='44' cy='43' r='5' fill='%23111' stroke='%23f5b301' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+  :root{color-scheme:dark;--ink:#0f1115;--panel:#181b22;--panel2:#1f232c;--line:#2a2f3a;--acc:#f5b301;--acc-hi:#ffcf4d;--text:#e8eaf0;--muted:#9aa3b2;
+    --good:#5fbf8a;--warn:#e0a458;--bad:#e07a7a;--blue:#7fb2ec;--violet:#b59be8;
+    --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0;background:var(--ink)}
+  body{color:var(--text);font:15px/1.45 var(--body);padding-bottom:40px}
+  .wrap{max-width:760px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) 16px 20px}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 14px}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#141100;font-weight:700}
+  button.ghost{background:transparent}
+  button.danger{border-color:rgba(224,122,122,.55);color:var(--bad);background:transparent}
+  button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc-hi);outline-offset:1px}
+  input,select,textarea{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 11px;font-size:16px}
+  textarea{resize:vertical}
+  label{display:grid;gap:4px;font-size:12.5px;color:var(--muted)}
+  label.chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text)}
+  label.chk input{width:20px;height:20px;accent-color:var(--acc)}
+  .mono{font-family:var(--mono)}
+  .muted{color:var(--muted)}
+  header.top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  header.top .logo{width:42px;height:42px;flex:none}
+  header.top h1{margin:0;font-size:20px;letter-spacing:.02em}
+  header.top p{margin:0;font-size:12.5px;color:var(--muted)}
+  .sync{font-weight:600} .sync.ok{color:var(--good)} .sync.warn{color:var(--warn)} .sync.bad{color:var(--bad)}
+  nav.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:14px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
+  nav.tabs button{border:none;background:transparent;color:var(--muted);padding:11px 4px;border-radius:8px;font-weight:600;font-size:14px}
+  nav.tabs button[aria-selected="true"]{background:var(--acc);color:#141100}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .card h2{margin:0 0 10px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--acc-hi)}
+  .stack{display:grid;gap:12px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  @media (max-width:430px){.row3{grid-template-columns:1fr 1fr}.row3>:last-child{grid-column:1/-1}}
+  .btns{display:flex;flex-wrap:wrap;gap:8px}
+  .wide{width:100%}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .stats div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid}
+  .stats b{font:600 19px/1.2 var(--mono);color:var(--acc-hi);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stats span{font-size:11.5px;color:var(--muted)}
+  .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+  .chip{flex:none;border-radius:999px;padding:7px 12px;font-size:13px;color:var(--muted);background:var(--panel)}
+  .chip span{opacity:.7;margin-left:3px}
+  .chip[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#141100}
+  .list{display:grid;gap:10px}
+  .item{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:10px;padding:13px;display:grid;gap:8px}
+  .top2{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .top2 .r{display:grid;justify-items:end;gap:4px;text-align:right}
+  .big{font-weight:700;font-size:16px}
+  .lane{font-size:14.5px}
+  .meta{font-size:12.5px;color:var(--muted)}
+  .pill{font:700 10.5px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;border-radius:4px;padding:4px 7px;background:#2a2f3a;color:var(--muted);white-space:nowrap}
+  .st-booked{--c:var(--muted)} .st-dispatched{--c:var(--blue)} .st-pickedup{--c:var(--violet)} .st-delivered{--c:var(--warn)}
+  .st-submitted{--c:var(--acc)} .st-funded{--c:var(--good)} .st-cancelled{--c:#666}
+  .item[class*="st-"]{border-left-color:var(--c)} .pill[class*="st-"]{color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent)}
+  .item.st-cancelled{opacity:.7}
+  .steps{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px}
+  .steps button{flex:none;padding:8px 10px;font-size:12.5px;color:var(--muted)}
+  .steps button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#141100}
+  .acts{display:flex;gap:6px;flex-wrap:wrap}
+  .acts button{padding:8px 12px;font-size:13px}
+  .confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13.5px}
+  .confirm span{flex:1;min-width:150px}
+  .hist{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:12px;color:var(--muted)} .hist b{color:var(--text);font-weight:600}
+  .money{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .pos{color:var(--good)} .neg{color:var(--bad)}
+  .empty{border:1px dashed var(--line);border-radius:12px;padding:24px 16px;text-align:center;color:var(--muted)}
+  .empty b{display:block;color:var(--text);margin-bottom:4px}
+  .calc{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);background:var(--ink);border-radius:8px;padding:9px 11px}
+  .calc b{color:var(--text)}
+  table.sum{width:100%;border-collapse:collapse;font-size:14px}
+  table.sum th,table.sum td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  table.sum th:first-child,table.sum td:first-child{text-align:left;color:var(--muted);font-weight:500}
+  table.sum thead th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc-hi)}
+  table.sum tr.key td{font-weight:700}
+  .scroll{overflow-x:auto}
+  .bars{display:grid;gap:7px}
+  .bar{display:grid;grid-template-columns:110px 1fr auto;gap:8px;align-items:center;font-size:13px}
+  .bar i{display:block;height:10px;border-radius:5px;background:var(--acc)}
+  .bar .t{background:var(--panel2);border-radius:5px}
+  .alert{border:1px solid rgba(224,164,88,.5);background:rgba(224,164,88,.08);border-radius:10px;padding:11px 13px;font-size:14px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--acc);color:#141100;font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
+  .toast.show{opacity:1}
+  body.auth-lock{overflow:hidden}
+  .authgate{position:fixed;inset:0;z-index:200;background:var(--ink);display:grid;place-items:center;padding:24px 16px}
+  .authbox{width:100%;max-width:320px;display:grid;gap:12px;text-align:center}
+  .authbox .logo{width:72px;height:72px;justify-self:center}
+  .authbox h1{margin:0 0 6px;font-size:22px;letter-spacing:.12em}
+  .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px;font-weight:600;font-size:16px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:10px}
+  .gbtn svg{width:22px;height:22px}
+  .authmsg{min-height:20px;margin:0;font-size:14px;color:var(--bad)}
+  .authnote{margin:0;font-size:12.5px;color:var(--muted)}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body class="auth-lock">
+<div class="authgate" id="authGate">
+  <div class="authbox" id="authForm" hidden>
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#f5b301"/><path d="M10 20h26v20H10zM36 27h9l7 7v6H36z" fill="#111"/><circle cx="19" cy="43" r="5" fill="#111" stroke="#f5b301" stroke-width="2"/><circle cx="44" cy="43" r="5" fill="#111" stroke="#f5b301" stroke-width="2"/></svg>
+    <h1>TRUCK OPS</h1>
+    <button type="button" class="gbtn" id="authBtn"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</button>
+    <p class="authmsg" id="authMsg" role="status"></p>
+    <p class="authnote">Only approved accounts can open Truck Ops.</p>
+  </div>
+  <p class="muted" id="authWait">Connecting…</p>
+</div>
+
+<div class="wrap">
+  <header class="top">
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#f5b301"/><path d="M10 20h26v20H10zM36 27h9l7 7v6H36z" fill="#111"/><circle cx="19" cy="43" r="5" fill="#111" stroke="#f5b301" stroke-width="2"/><circle cx="44" cy="43" r="5" fill="#111" stroke="#f5b301" stroke-width="2"/></svg>
+    <div style="flex:1;min-width:0">
+      <h1 id="coName">Truck Ops</h1>
+      <p><span class="sync" id="syncState">Connecting…</span></p>
+    </div>
+    <button type="button" class="ghost" id="signOutBtn">Sign out</button>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button type="button" role="tab" data-tab="dash" aria-selected="true">Dashboard</button>
+    <button type="button" role="tab" data-tab="loads" aria-selected="false">Loads</button>
+    <button type="button" role="tab" data-tab="exp" aria-selected="false">Expenses</button>
+    <button type="button" role="tab" data-tab="set" aria-selected="false">Settings</button>
+  </nav>
+
+  <!-- ===== DASHBOARD ===== -->
+  <section class="stack" id="tab-dash">
+    <div class="chips" id="perChips" aria-label="Period"></div>
+    <div class="alert" id="waitAlert" hidden></div>
+    <div class="card"><h2 id="sumTitle">Summary</h2><div class="scroll"><table class="sum" id="sumTable"></table></div></div>
+    <div class="card"><h2>Expenses by category</h2><div class="bars" id="catBars"></div></div>
+    <div class="card"><h2>Top brokers</h2><div class="scroll"><table class="sum" id="brokerTable"></table></div></div>
+  </section>
+
+  <!-- ===== LOADS ===== -->
+  <section class="stack" id="tab-loads" hidden>
+    <div class="stats" id="loadStats"></div>
+    <button type="button" class="primary wide" id="loadNewBtn">+ New load</button>
+    <form class="card stack" id="loadForm" hidden autocomplete="off">
+      <h2 id="loadFormTitle">New load</h2>
+      <div class="row2">
+        <label>Truck<select id="lTruck"></select></label>
+        <label>Rate ($)<input id="lRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label>
+      </div>
+      <div class="row2">
+        <label>Broker<input id="lBroker" list="brokerList" placeholder="Broker name"></label>
+        <label>Load #<input id="lNo" class="mono" placeholder="Optional"></label>
+      </div>
+      <datalist id="brokerList"></datalist>
+      <div class="row2">
+        <label>Pickup (City, ST)<input id="lFrom" placeholder="Boise, ID"></label>
+        <label>Pickup date<input id="lFromDate" type="date"></label>
+      </div>
+      <div class="row2">
+        <label>Delivery (City, ST)<input id="lTo" placeholder="Denver, CO"></label>
+        <label>Delivery date<input id="lToDate" type="date"></label>
+      </div>
+      <div class="row2">
+        <label>Loaded miles<input id="lMiles" type="number" min="0" inputmode="numeric" placeholder="0"></label>
+        <label>Empty miles (deadhead)<input id="lEmpty" type="number" min="0" inputmode="numeric" placeholder="0"></label>
+      </div>
+      <label class="chk"><input type="checkbox" id="lFactored" checked> <span id="lFactoredLbl">Factored</span></label>
+      <div class="calc" id="lCalc"></div>
+      <label>Notes<input id="lNotes" placeholder="Optional"></label>
+      <label>Paperwork link (rate con, BOL in Google Drive)<input id="lLink" type="url" inputmode="url" placeholder="Optional"></label>
+      <div class="btns"><button type="button" class="ghost" id="loadCancel">Cancel</button><button type="submit" class="primary">Save load</button></div>
+    </form>
+    <div class="chips" id="loadTruckChips" aria-label="Truck"></div>
+    <div class="chips" id="loadFilters" aria-label="Stage"></div>
+    <input type="search" id="loadSearch" placeholder="Search broker, load #, city" aria-label="Search loads" autocomplete="off">
+    <div class="list" id="loadList"></div>
+  </section>
+
+  <!-- ===== EXPENSES ===== -->
+  <section class="stack" id="tab-exp" hidden>
+    <div class="stats" id="expStats"></div>
+    <button type="button" class="primary wide" id="expNewBtn">+ Add expense</button>
+    <form class="card stack" id="expForm" hidden autocomplete="off">
+      <h2 id="expFormTitle">New expense</h2>
+      <div class="row2">
+        <label>Category<select id="eCat"></select></label>
+        <label>Amount ($)<input id="eAmt" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label>
+      </div>
+      <div class="row2">
+        <label>Truck<select id="eTruck"></select></label>
+        <label>Date<input id="eDate" type="date"></label>
+      </div>
+      <div class="row2" id="fuelRow">
+        <label>Gallons<input id="eGal" type="number" min="0" step="0.001" inputmode="decimal" placeholder="0"></label>
+        <label>State<input id="eState" maxlength="2" placeholder="ID" style="text-transform:uppercase"></label>
+      </div>
+      <label>Where / note<input id="eNote" placeholder="e.g. Pilot #123, oil change"></label>
+      <label>Receipt link (Google Drive)<input id="eLink" type="url" inputmode="url" placeholder="Optional"></label>
+      <div class="btns"><button type="button" class="ghost" id="expCancel">Cancel</button><button type="submit" class="primary">Save expense</button></div>
+    </form>
+    <div class="chips" id="expTruckChips" aria-label="Truck"></div>
+    <div class="chips" id="expPerChips" aria-label="Period"></div>
+    <div class="list" id="expList"></div>
+  </section>
+
+  <!-- ===== SETTINGS ===== -->
+  <section class="stack" id="tab-set" hidden>
+    <form class="card stack" id="setForm" autocomplete="off">
+      <h2>Company</h2>
+      <label>Company name<input id="sCo" placeholder="Truck Ops"></label>
+      <div class="row2">
+        <label>Truck 1 name<input id="sT1" placeholder="Truck 1"></label>
+        <label>Truck 2 name<input id="sT2" placeholder="Truck 2"></label>
+      </div>
+      <div class="row2">
+        <label>Factoring company<input id="sFac" placeholder="GAP"></label>
+        <label>Factoring fee (%)<input id="sPct" type="number" min="0" max="20" step="0.01" inputmode="decimal"></label>
+      </div>
+      <label>Loads unpaid alert after (days)<input id="sAge" type="number" min="1" inputmode="numeric"></label>
+      <div class="btns"><button type="submit" class="primary">Save settings</button></div>
+    </form>
+    <p class="muted" style="font-size:13px;margin:0">Everything saves to the cloud and shows up on every device signed in with an approved account.</p>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
+const money2 = n => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const niceDate = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month:"short", day:"numeric" }) : "";
+const daysSince = d => d ? Math.max(0, Math.round((new Date(today() + "T12:00:00") - new Date(d + "T12:00:00")) / 864e5)) : 0;
+const newId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+function toast(msg){
+  let t = document.querySelector(".toast");
+  if (!t) { t = document.createElement("div"); t.className = "toast"; t.setAttribute("role","status"); document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2400);
+}
+
+// ----- State (filled from the cloud) -----
+let loads = [], expenses = [];
+const DEFAULTS = { company: "", t1: "Truck 1", t2: "Truck 2", factor: "GAP", pct: 2, ageDays: 30 };
+let settings = { ...DEFAULTS };
+const TRUCKS = () => [["t1", settings.t1 || "Truck 1"], ["t2", settings.t2 || "Truck 2"]];
+const truckName = id => id === "shared" ? "Both trucks" : (TRUCKS().find(t => t[0] === id) || [0, "?"])[1];
+const STAGES = () => [
+  ["booked", "Booked"], ["dispatched", "Dispatched"], ["pickedup", "Picked up"], ["delivered", "Delivered"],
+  ["submitted", `Sent to ${settings.factor || "factoring"}`], ["funded", "Paid"], ["cancelled", "Cancelled"]
+];
+const stLabel = id => (STAGES().find(s => s[0] === id) || [0, id])[1];
+const OPEN = ["booked", "dispatched", "pickedup", "delivered", "submitted"];
+const CATS = ["Fuel", "DEF", "Tolls", "Repairs", "Tires", "Maintenance", "Insurance", "Truck payment", "Trailer", "Permits & plates", "Parking", "Lumper", "Scale", "Phone & ELD", "Other"];
+
+// ----- Load math -----
+const lMiles = l => num(l.miles) + num(l.empty);
+const lFee = l => l.factored === false ? 0 : num(l.rate) * num(settings.pct) / 100;
+const lNet = l => num(l.rate) - lFee(l);
+const lDate = l => l.toDate || l.fromDate || (l.created || "").slice(0, 10);
+const rpm = (g, m) => m ? "$" + (g / m).toFixed(2) : "–";
+
+// ----- Tabs (refresh stays on the same tab) -----
+let tab = "dash";
+function showTab(name){
+  tab = name;
+  document.querySelectorAll("section[id^=tab-]").forEach(s => s.hidden = s.id !== "tab-" + name);
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+  try { history.replaceState(null, "", name === "dash" ? location.pathname : "#" + name); } catch (e) {}
+  render(); window.scrollTo(0, 0);
+}
+document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+function render(){
+  $("coName").textContent = settings.company || "Truck Ops";
+  document.title = settings.company || "Truck Ops";
+  if (tab === "dash") renderDash();
+  if (tab === "loads") renderLoads();
+  if (tab === "exp") renderExp();
+  if (tab === "set") fillSettings();
+}
+
+// ----- Periods -----
+const PERIODS = [["week","This week"],["month","This month"],["last","Last month"],["year","This year"],["all","All time"]];
+function range(p){
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+  const f = x => x.getFullYear() + "-" + String(x.getMonth()+1).padStart(2,"0") + "-" + String(x.getDate()).padStart(2,"0");
+  if (p === "week") { const s = new Date(d); s.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return [f(s), f(d)]; }
+  if (p === "month") return [f(new Date(y, m, 1)), f(new Date(y, m + 1, 0))];
+  if (p === "last") return [f(new Date(y, m - 1, 1)), f(new Date(y, m, 0))];
+  if (p === "year") return [y + "-01-01", y + "-12-31"];
+  return ["0000", "9999"];
+}
+const inRange = (d, r) => d && d >= r[0] && d <= r[1];
+const chipsHtml = (items, cur, attr) => items.map(([id, lab, n]) => `<button type="button" class="chip" data-${attr}="${id}" aria-pressed="${cur === id}">${esc(lab)}${n !== undefined ? ` <span>${n}</span>` : ""}</button>`).join("");
+
+// ----- Dashboard -----
+let dashPer = "month";
+function renderDash(){
+  $("perChips").innerHTML = chipsHtml(PERIODS, dashPer, "p");
+  const r = range(dashPer);
+  const L = loads.filter(l => l.stage !== "cancelled" && inRange(lDate(l), r));
+  const E = expenses.filter(e => inRange(e.date, r));
+  const cols = [...TRUCKS(), ["all", "Total"]];
+  const calc = id => {
+    const ls = id === "all" ? L : L.filter(l => l.truck === id);
+    const ex = E.reduce((s, e) => s + (id === "all" || e.truck === id ? num(e.amount) : e.truck === "shared" ? num(e.amount) / 2 : 0), 0);
+    const gross = ls.reduce((s, l) => s + num(l.rate), 0), fees = ls.reduce((s, l) => s + lFee(l), 0);
+    const miles = ls.reduce((s, l) => s + lMiles(l), 0);
+    return { n: ls.length, gross, fees, net: gross - fees, ex, profit: gross - fees - ex, miles };
+  };
+  const c = cols.map(([id]) => calc(id));
+  const rows = [
+    ["Loads", x => x.n], ["Gross", x => money(x.gross)], [`${esc(settings.factor || "Factoring")} fees`, x => money(-x.fees)],
+    ["Net pay", x => money(x.net)], ["Expenses", x => money(-x.ex)],
+    ["Profit", x => `<span class="${x.profit >= 0 ? "pos" : "neg"}">${money(x.profit)}</span>`, "key"],
+    ["Miles", x => x.miles.toLocaleString("en-US")], ["Revenue / mile", x => rpm(x.gross, x.miles)], ["Cost / mile", x => rpm(x.ex, x.miles)]
+  ];
+  $("sumTitle").textContent = `Summary · ${PERIODS.find(p => p[0] === dashPer)[1]}`;
+  $("sumTable").innerHTML = `<thead><tr><th></th>${cols.map(([, n]) => `<th>${esc(n)}</th>`).join("")}</tr></thead><tbody>` +
+    rows.map(([lab, f, cls]) => `<tr class="${cls || ""}"><td>${lab}</td>${c.map(x => `<td class="money">${f(x)}</td>`).join("")}</tr>`).join("") + "</tbody>";
+  // waiting on money (any date)
+  const wait = loads.filter(l => l.stage === "delivered" || l.stage === "submitted");
+  const late = wait.filter(l => daysSince(lDate(l)) >= num(settings.ageDays || 30));
+  $("waitAlert").hidden = !wait.length;
+  $("waitAlert").innerHTML = `<b>${money(wait.reduce((s, l) => s + lNet(l), 0))}</b> still to be paid on ${wait.length} delivered load${wait.length === 1 ? "" : "s"}.` +
+    (late.length ? ` <span class="neg">${late.length} older than ${settings.ageDays || 30} days.</span>` : "");
+  // categories
+  const cats = {}; E.forEach(e => cats[e.cat] = (cats[e.cat] || 0) + num(e.amount));
+  const top = Object.entries(cats).sort((a, b) => b[1] - a[1]), max = top.length ? top[0][1] : 1;
+  $("catBars").innerHTML = top.length ? top.map(([k, v]) => `<div class="bar"><span>${esc(k)}</span><span class="t"><i style="width:${Math.max(3, v / max * 100)}%"></i></span><span class="money">${money(v)}</span></div>`).join("")
+    : `<p class="muted" style="margin:0">No expenses in this period.</p>`;
+  // brokers
+  const br = {}; L.forEach(l => { const k = (l.broker || "(no broker)").trim(); br[k] = br[k] || { n: 0, g: 0, m: 0 }; br[k].n++; br[k].g += num(l.rate); br[k].m += lMiles(l); });
+  const bl = Object.entries(br).sort((a, b) => b[1].g - a[1].g).slice(0, 8);
+  $("brokerTable").innerHTML = bl.length ? `<thead><tr><th>Broker</th><th>Loads</th><th>Gross</th><th>$/mile</th></tr></thead><tbody>` +
+    bl.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v.n}</td><td class="money">${money(v.g)}</td><td class="money">${rpm(v.g, v.m)}</td></tr>`).join("") + "</tbody>"
+    : `<tbody><tr><td style="color:var(--muted)">No loads in this period.</td></tr></tbody>`;
+}
+$("perChips").addEventListener("click", e => { const b = e.target.closest("[data-p]"); if (b) { dashPer = b.dataset.p; renderDash(); } });
+
+// ----- Loads -----
+let loadTruck = "all", loadFilter = "open", loadQuery = "", editingLoad = null;
+function renderLoads(){
+  const open = loads.filter(l => OPEN.includes(l.stage));
+  const wait = loads.filter(l => l.stage === "delivered" || l.stage === "submitted");
+  const mr = range("month"), monthNet = loads.filter(l => l.stage !== "cancelled" && inRange(lDate(l), mr)).reduce((s, l) => s + lNet(l), 0);
+  $("loadStats").innerHTML = `<div><b>${open.length}</b><span>Open loads</span></div><div><b>${money(wait.reduce((s, l) => s + lNet(l), 0))}</b><span>Waiting on pay</span></div><div><b>${money(monthNet)}</b><span>Net this month</span></div>`;
+  $("loadTruckChips").innerHTML = chipsHtml([["all", "Both trucks"], ...TRUCKS()], loadTruck, "t");
+  const byTruck = loads.filter(l => loadTruck === "all" || l.truck === loadTruck);
+  $("loadFilters").innerHTML = chipsHtml([["open", "Open", byTruck.filter(l => OPEN.includes(l.stage)).length], ["all", "All", byTruck.length],
+    ...STAGES().map(([id, lab]) => [id, lab, byTruck.filter(l => l.stage === id).length])], loadFilter, "f");
+  const q = loadQuery.toLowerCase();
+  const list = byTruck.filter(l => loadFilter === "all" || (loadFilter === "open" ? OPEN.includes(l.stage) : l.stage === loadFilter))
+    .filter(l => !q || [l.broker, l.loadNo, l.from, l.to, l.notes].join(" ").toLowerCase().includes(q));
+  if (!list.length) { $("loadList").innerHTML = loads.length ? `<div class="empty"><b>Nothing here</b>Try another filter.</div>` : `<div class="empty"><b>No loads yet</b>Tap "New load" when you book one.</div>`; return; }
+  $("loadList").innerHTML = list.map(l => {
+    const last = (l.hist && l.hist.length) ? l.hist[l.hist.length - 1].d : lDate(l);
+    const ds = daysSince(last);
+    return `<article class="item st-${l.stage}" data-id="${esc(l.id)}">
+      <div class="top2">
+        <div style="min-width:0"><div class="big">${esc(l.broker || "No broker")}${l.loadNo ? ` <span class="mono muted" style="font-weight:500;font-size:13px">#${esc(l.loadNo)}</span>` : ""}</div>
+          <div class="lane">${esc(l.from || "?")} → ${esc(l.to || "?")}</div></div>
+        <div class="r"><span class="pill st-${l.stage}">${esc(stLabel(l.stage))}</span><b class="money">${money2(num(l.rate))}</b></div>
+      </div>
+      <div class="meta">${esc(truckName(l.truck))} · ${niceDate(l.fromDate) || "?"} → ${niceDate(l.toDate) || "?"} · ${lMiles(l).toLocaleString("en-US")} mi · ${rpm(num(l.rate), lMiles(l))}/mi${l.factored === false ? " · not factored" : ` · net ${money2(lNet(l))}`}</div>
+      ${OPEN.includes(l.stage) ? `<div class="meta">${ds} day${ds === 1 ? "" : "s"} in this stage</div>` : ""}
+      ${l.hist && l.hist.length ? `<div class="hist">${l.hist.map(h => `<span>${esc(stLabel(h.s))} <b>${niceDate(h.d)}</b></span>`).join("")}</div>` : ""}
+      ${l.notes ? `<div class="meta" style="color:var(--text)">${esc(l.notes)}</div>` : ""}
+      <div class="steps" role="group" aria-label="Set stage">${STAGES().map(([id, lab]) => `<button type="button" data-a="stage" data-st="${id}" aria-pressed="${l.stage === id}">${esc(lab)}</button>`).join("")}</div>
+      <div class="acts"><button type="button" data-a="edit">Edit</button>${l.link ? `<button type="button" data-a="link">Paperwork</button>` : ""}<button type="button" data-a="del" class="danger">Delete</button></div>
+      <div class="confirm" hidden><span>Delete this load for good?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
+    </article>`;
+  }).join("");
+}
+function fillTruckSelect(sel, withShared){ sel.innerHTML = TRUCKS().map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join("") + (withShared ? `<option value="shared">Both trucks (split)</option>` : ""); }
+function loadCalc(){
+  const l = { rate: $("lRate").value, miles: $("lMiles").value, empty: $("lEmpty").value, factored: $("lFactored").checked };
+  $("lCalc").innerHTML = `Rate/mile <b>${rpm(num(l.rate), lMiles(l))}</b> · Loaded/mile <b>${rpm(num(l.rate), num(l.miles))}</b>` +
+    (l.factored ? ` · ${esc(settings.factor || "Factoring")} ${num(settings.pct)}% <b>-${money2(lFee(l))}</b> · You get <b>${money2(lNet(l))}</b>` : ` · You get <b>${money2(num(l.rate))}</b>`);
+}
+["lRate", "lMiles", "lEmpty", "lFactored"].forEach(k => $(k).addEventListener("input", loadCalc));
+function openLoadForm(l){
+  editingLoad = l ? l.id : null;
+  $("loadFormTitle").textContent = l ? "Edit load" : "New load";
+  fillTruckSelect($("lTruck"));
+  $("brokerList").innerHTML = [...new Set(loads.map(x => x.broker).filter(Boolean))].map(b => `<option value="${esc(b)}">`).join("");
+  $("lFactoredLbl").textContent = `Factored with ${settings.factor || "factoring"} (${num(settings.pct)}%)`;
+  const v = l || { truck: loadTruck !== "all" ? loadTruck : "t1", fromDate: today(), factored: true };
+  $("lTruck").value = v.truck || "t1"; $("lRate").value = v.rate ?? ""; $("lBroker").value = v.broker || ""; $("lNo").value = v.loadNo || "";
+  $("lFrom").value = v.from || ""; $("lFromDate").value = v.fromDate || ""; $("lTo").value = v.to || ""; $("lToDate").value = v.toDate || "";
+  $("lMiles").value = v.miles ?? ""; $("lEmpty").value = v.empty ?? ""; $("lFactored").checked = v.factored !== false;
+  $("lNotes").value = v.notes || ""; $("lLink").value = v.link || "";
+  loadCalc(); $("loadForm").hidden = false; $("loadNewBtn").hidden = true;
+  $("loadForm").scrollIntoView({ block: "start", behavior: "smooth" });
+}
+function closeLoadForm(){ $("loadForm").hidden = true; $("loadNewBtn").hidden = false; editingLoad = null; }
+$("loadNewBtn").onclick = () => openLoadForm(null);
+$("loadCancel").onclick = closeLoadForm;
+$("loadForm").onsubmit = e => {
+  e.preventDefault();
+  if (!$("lRate").value) { toast("Add the rate"); $("lRate").focus(); return; }
+  const f = { truck: $("lTruck").value, rate: Math.round(num($("lRate").value) * 100) / 100, broker: $("lBroker").value.trim(), loadNo: $("lNo").value.trim(),
+    from: $("lFrom").value.trim(), fromDate: $("lFromDate").value, to: $("lTo").value.trim(), toDate: $("lToDate").value,
+    miles: Math.round(num($("lMiles").value)), empty: Math.round(num($("lEmpty").value)), factored: $("lFactored").checked,
+    notes: $("lNotes").value.trim(), link: $("lLink").value.trim() };
+  const was = editingLoad;
+  if (was) Object.assign(loads.find(x => x.id === was), f);
+  else loads.unshift({ id: newId("ld"), stage: "booked", hist: [{ s: "booked", d: today() }], created: new Date().toISOString(), ...f });
+  Sync.push("loads"); closeLoadForm(); renderLoads(); toast(was ? "Load saved" : "Load added");
+};
+$("loadTruckChips").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) { loadTruck = b.dataset.t; renderLoads(); } });
+$("loadFilters").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (b) { loadFilter = b.dataset.f; renderLoads(); } });
+$("loadSearch").addEventListener("input", e => { loadQuery = e.target.value; renderLoads(); });
+$("loadList").addEventListener("click", e => {
+  const b = e.target.closest("[data-a]"); if (!b) return;
+  const card = b.closest(".item"), l = loads.find(x => x.id === card.dataset.id); if (!l) return;
+  const a = b.dataset.a;
+  if (a === "stage" && l.stage !== b.dataset.st) {
+    l.stage = b.dataset.st; l.hist = (l.hist || []).filter(h => h.s !== l.stage); l.hist.push({ s: l.stage, d: today() });
+    if (l.stage === "delivered" && !l.toDate) l.toDate = today();
+    Sync.push("loads"); renderLoads(); toast(`Marked ${stLabel(l.stage)}`);
+  }
+  if (a === "edit") openLoadForm(l);
+  if (a === "link") window.open(l.link, "_blank", "noopener");
+  if (a === "del") card.querySelector(".confirm").hidden = false;
+  if (a === "nodel") card.querySelector(".confirm").hidden = true;
+  if (a === "yesdel") { loads = loads.filter(x => x !== l); Sync.push("loads"); renderLoads(); toast("Load deleted"); }
+});
+
+// ----- Expenses -----
+let expTruck = "all", expPer = "month", editingExp = null;
+function renderExp(){
+  const r = range(expPer);
+  const E = expenses.filter(e => inRange(e.date, r) && (expTruck === "all" || e.truck === expTruck || e.truck === "shared"));
+  const tot = E.reduce((s, e) => s + (expTruck !== "all" && e.truck === "shared" ? num(e.amount) / 2 : num(e.amount)), 0);
+  const fuel = E.filter(e => e.cat === "Fuel"), gal = fuel.reduce((s, e) => s + num(e.gallons), 0), fuelAmt = fuel.reduce((s, e) => s + num(e.amount), 0);
+  $("expStats").innerHTML = `<div><b>${money(tot)}</b><span>Total</span></div><div><b>${money(fuelAmt)}</b><span>Fuel</span></div><div><b>${gal ? "$" + (fuelAmt / gal).toFixed(2) : "–"}</b><span>Avg $/gallon</span></div>`;
+  $("expTruckChips").innerHTML = chipsHtml([["all", "Both trucks"], ...TRUCKS()], expTruck, "t");
+  $("expPerChips").innerHTML = chipsHtml(PERIODS, expPer, "p");
+  const list = [...E].sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.created).localeCompare(String(a.created)));
+  if (!list.length) { $("expList").innerHTML = expenses.length ? `<div class="empty"><b>Nothing here</b>No expenses in this period.</div>` : `<div class="empty"><b>No expenses yet</b>Tap "Add expense" for fuel, repairs and the rest.</div>`; return; }
+  $("expList").innerHTML = list.map(e => `<article class="item" data-id="${esc(e.id)}" style="border-left-color:${e.cat === "Fuel" ? "var(--acc)" : "var(--blue)"}">
+      <div class="top2">
+        <div style="min-width:0"><div class="big">${esc(e.cat)}</div><div class="meta">${niceDate(e.date)} · ${esc(truckName(e.truck))}${e.cat === "Fuel" && e.gallons ? ` · ${num(e.gallons)} gal${e.state ? " in " + esc(e.state) : ""}` : ""}</div></div>
+        <div class="r"><b class="money">${money2(num(e.amount))}</b></div>
+      </div>
+      ${e.note ? `<div class="meta" style="color:var(--text)">${esc(e.note)}</div>` : ""}
+      <div class="acts"><button type="button" data-a="edit">Edit</button>${e.link ? `<button type="button" data-a="link">Receipt</button>` : ""}<button type="button" data-a="del" class="danger">Delete</button></div>
+      <div class="confirm" hidden><span>Delete this expense?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
+    </article>`).join("");
+}
+$("eCat").innerHTML = CATS.map(c => `<option>${c}</option>`).join("");
+const fuelToggle = () => { $("fuelRow").hidden = !["Fuel", "DEF"].includes($("eCat").value); };
+$("eCat").addEventListener("change", fuelToggle);
+function openExpForm(x){
+  editingExp = x ? x.id : null;
+  $("expFormTitle").textContent = x ? "Edit expense" : "New expense";
+  fillTruckSelect($("eTruck"), true);
+  const v = x || { cat: "Fuel", truck: expTruck !== "all" ? expTruck : "t1", date: today() };
+  $("eCat").value = v.cat; $("eAmt").value = v.amount ?? ""; $("eTruck").value = v.truck; $("eDate").value = v.date || today();
+  $("eGal").value = v.gallons ?? ""; $("eState").value = v.state || ""; $("eNote").value = v.note || ""; $("eLink").value = v.link || "";
+  fuelToggle(); $("expForm").hidden = false; $("expNewBtn").hidden = true;
+  $("expForm").scrollIntoView({ block: "start", behavior: "smooth" });
+}
+function closeExpForm(){ $("expForm").hidden = true; $("expNewBtn").hidden = false; editingExp = null; }
+$("expNewBtn").onclick = () => openExpForm(null);
+$("expCancel").onclick = closeExpForm;
+$("expForm").onsubmit = e => {
+  e.preventDefault();
+  if (!$("eAmt").value) { toast("Add the amount"); $("eAmt").focus(); return; }
+  const fuel = ["Fuel", "DEF"].includes($("eCat").value);
+  const f = { cat: $("eCat").value, amount: Math.round(num($("eAmt").value) * 100) / 100, truck: $("eTruck").value, date: $("eDate").value || today(),
+    gallons: fuel ? num($("eGal").value) : 0, state: fuel ? $("eState").value.trim().toUpperCase().slice(0, 2) : "", note: $("eNote").value.trim(), link: $("eLink").value.trim() };
+  const was = editingExp;
+  if (was) Object.assign(expenses.find(x => x.id === was), f);
+  else expenses.push({ id: newId("ex"), created: new Date().toISOString(), ...f });
+  Sync.push("expenses"); closeExpForm(); renderExp(); toast(was ? "Expense saved" : "Expense added");
+};
+$("expTruckChips").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) { expTruck = b.dataset.t; renderExp(); } });
+$("expPerChips").addEventListener("click", e => { const b = e.target.closest("[data-p]"); if (b) { expPer = b.dataset.p; renderExp(); } });
+$("expList").addEventListener("click", e => {
+  const b = e.target.closest("[data-a]"); if (!b) return;
+  const card = b.closest(".item"), x = expenses.find(y => y.id === card.dataset.id); if (!x) return;
+  const a = b.dataset.a;
+  if (a === "edit") openExpForm(x);
+  if (a === "link") window.open(x.link, "_blank", "noopener");
+  if (a === "del") card.querySelector(".confirm").hidden = false;
+  if (a === "nodel") card.querySelector(".confirm").hidden = true;
+  if (a === "yesdel") { expenses = expenses.filter(y => y !== x); Sync.push("expenses"); renderExp(); toast("Expense deleted"); }
+});
+
+// ----- Settings -----
+function fillSettings(){
+  if (document.activeElement && document.activeElement.closest("#setForm")) return;
+  $("sCo").value = settings.company || ""; $("sT1").value = settings.t1 || ""; $("sT2").value = settings.t2 || "";
+  $("sFac").value = settings.factor || ""; $("sPct").value = settings.pct ?? 2; $("sAge").value = settings.ageDays ?? 30;
+}
+$("setForm").onsubmit = e => {
+  e.preventDefault();
+  settings = { company: $("sCo").value.trim(), t1: $("sT1").value.trim() || "Truck 1", t2: $("sT2").value.trim() || "Truck 2",
+    factor: $("sFac").value.trim() || "Factoring", pct: Math.max(0, num($("sPct").value)), ageDays: Math.max(1, Math.round(num($("sAge").value)) || 30) };
+  Sync.push("settings"); document.activeElement.blur(); render(); toast("Settings saved");
+};
+
+// ===== Cloud sync (talks to the Firebase module through window.Cloud) =====
+window.Sync = (() => {
+  const stable = v => Array.isArray(v) ? "[" + v.map(stable).join(",") + "]"
+    : v && typeof v === "object" ? "{" + Object.keys(v).sort().filter(k => v[k] !== undefined).map(k => JSON.stringify(k) + ":" + stable(v[k])).join(",") + "}"
+    : JSON.stringify(v ?? null);
+  const plain = v => JSON.parse(JSON.stringify(v));
+  const K = {
+    loads: { all: () => loads.map(x => [x.id, plain(x)]), set: list => { loads = list.map(([, v]) => v).sort((a, b) => String(b.created || "").localeCompare(String(a.created || ""))); } },
+    expenses: { all: () => expenses.map(x => [x.id, plain(x)]), set: list => { expenses = list.map(([, v]) => v); } }
+  };
+  const last = { loads: null, expenses: null, settings: null };
+  const pending = new Set(), timers = {};
+  let on = false, errored = "", gotData = false, userEmail = "";
+  function status(){
+    const el = $("syncState");
+    const t = errored ? ["bad", errored] : !navigator.onLine ? ["warn", "Offline · changes sync when you're back online"]
+      : pending.size ? ["warn", "Saving…"] : ["ok", "Synced ✓"];
+    el.className = "sync " + t[0]; el.textContent = t[1];
+  }
+  addEventListener("online", status); addEventListener("offline", status);
+  // never redraw under someone's typing
+  let later = false;
+  function redraw(){
+    const a = document.activeElement;
+    if (a && a.matches("input,textarea,select") && !a.closest("#setForm")) { later = true; return; }
+    render();
+  }
+  document.addEventListener("focusout", () => setTimeout(() => { if (later) { later = false; redraw(); } }, 60));
+  function apply(k, data, meta){
+    if (!meta.fromCache) gotData = true;
+    if (meta.hasPendingWrites) pending.add(k); else pending.delete(k);
+    if (k === "settings") { last.settings = stable(data || null); settings = { ...DEFAULTS, ...(data || {}) }; redraw(); status(); return; }
+    last[k] = new Map(data.map(([id, v]) => [id, stable(v)]));
+    K[k].set(data); redraw(); status();
+  }
+  function push(k){
+    if (!on || !window.Cloud) return;
+    clearTimeout(timers[k]);
+    timers[k] = setTimeout(() => {
+      if (k === "settings") {
+        if (stable(settings) === last.settings) return;
+        last.settings = stable(settings); pending.add(k); status();
+        Cloud.writeSettings(plain(settings)).catch(fail); return;
+      }
+      if (!last[k]) last[k] = new Map();
+      const cur = new Map(K[k].all());
+      const puts = [...cur].filter(([id, v]) => last[k].get(id) !== stable(v));
+      const dels = [...last[k].keys()].filter(id => !cur.has(id));
+      if (!puts.length && !dels.length) return;
+      puts.forEach(([id, v]) => last[k].set(id, stable(v))); dels.forEach(id => last[k].delete(id));
+      pending.add(k); status();
+      Cloud.write(k, puts, dels).catch(fail);
+    }, 300);
+  }
+  function fail(err){
+    errored = err && err.code === "permission-denied" ? "Not allowed to save. Check the Firestore rules." : "Couldn't save to the cloud. It will retry; keep this page open.";
+    status(); console.warn(err);
+  }
+  async function error(k, err){
+    if (err && err.code === "permission-denied" && !gotData) {
+      if (!on) return; on = false;
+      if (window.Cloud) await Cloud.signOutOnly();
+      signedOut(); $("authMsg").textContent = `${userEmail || "That account"} isn't approved for Truck Ops.`; return;
+    }
+    fail(err);
+  }
+  function signedIn(email){
+    on = true; errored = ""; gotData = false; userEmail = email;
+    $("authGate").hidden = true; document.body.classList.remove("auth-lock"); status(); render();
+  }
+  function signedOut(){
+    on = false; loads = []; expenses = []; settings = { ...DEFAULTS }; last.loads = last.expenses = last.settings = null;
+    $("authGate").hidden = false; document.body.classList.add("auth-lock");
+    $("authForm").hidden = false; $("authWait").hidden = true; $("authMsg").textContent = "";
+  }
+  $("authBtn").onclick = async () => {
+    if (!window.Cloud) { $("authMsg").textContent = "Still connecting. Check your internet and try again."; return; }
+    $("authBtn").disabled = true; $("authMsg").textContent = "";
+    try { await Cloud.signIn(); }
+    catch (err) {
+      const c = err && err.code || "";
+      $("authMsg").textContent = c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request" ? ""
+        : c === "auth/network-request-failed" ? "No connection. Check your internet and try again."
+        : c === "auth/unauthorized-domain" ? "This site isn't on Firebase's authorized domains list yet." : "Couldn't sign in. Try again.";
+    } finally { $("authBtn").disabled = false; }
+  };
+  $("signOutBtn").onclick = async () => {
+    if (pending.size && !confirm("Some changes haven't reached the cloud yet. Sign out anyway?")) return;
+    on = false; if (window.Cloud) await Cloud.signOut(); location.reload();
+  };
+  setTimeout(() => { if (!window.Cloud) $("authWait").textContent = "Couldn't reach the sign-in service. Check your internet and reload."; }, 12000);
+  return { apply, push, error, signedIn, signedOut };
+})();
+
+{ const t = location.hash.slice(1); if (["loads", "exp", "set"].includes(t)) showTab(t); else render(); }
+</script>
+<script type="module">
+// ===== Truck Ops cloud: Firebase Google sign-in + Firestore sync =====
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, connectAuthEmulator }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
+         collection, doc, onSnapshot, writeBatch, setDoc, terminate, clearIndexedDbPersistence }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  "apiKey": "AIzaSyCK7StNNquwyFNTkUAgm6rzt2PPAiJ0WlU",
+  "authDomain": "dijla-trucking.firebaseapp.com",
+  "projectId": "dijla-trucking",
+  "storageBucket": "dijla-trucking.firebasestorage.app",
+  "messagingSenderId": "548103427278",
+  "appId": "1:548103427278:web:9c5c8bb4fe56d67d036c9f"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+if (location.hostname === "localhost") connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+
+let db = null;
+function getDb(){
+  if (db) return db;
+  try { db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+  catch (e) { db = initializeFirestore(app, { localCache: memoryLocalCache() }); }
+  return db;
+}
+const S = window.Sync;
+let unsubs = [];
+function startSync(){
+  const d = getDb();
+  ["loads", "expenses"].forEach(c => unsubs.push(onSnapshot(collection(d, c), { includeMetadataChanges: true },
+    snap => S.apply(c, snap.docs.map(x => [x.id, x.data()]), snap.metadata), err => S.error(c, err))));
+  unsubs.push(onSnapshot(doc(d, "meta", "settings"), { includeMetadataChanges: true },
+    snap => S.apply("settings", snap.exists() ? snap.data() : null, snap.metadata), err => S.error("settings", err)));
+}
+const stop = () => { unsubs.forEach(u => { try { u(); } catch (e) {} }); unsubs = []; };
+window.Cloud = {
+  async write(col, puts, dels){
+    const d = getDb();
+    const ops = [...puts.map(([id, data]) => ["set", id, data]), ...dels.map(id => ["del", id])];
+    for (let i = 0; i < ops.length; i += 400) {
+      const b = writeBatch(d);
+      ops.slice(i, i + 400).forEach(([k, id, data]) => k === "set" ? b.set(doc(d, col, id), data) : b.delete(doc(d, col, id)));
+      await b.commit();
+    }
+  },
+  writeSettings(data){ return setDoc(doc(getDb(), "meta", "settings"), data); },
+  // Who may read or write is decided by the Firestore rules (an email allow-list), not here.
+  async signIn(){
+    const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: "select_account" });
+    try { await signInWithPopup(auth, p); }
+    catch (e) { if (e && e.code === "auth/popup-blocked") await signInWithRedirect(auth, p); else throw e; }
+  },
+  async signOutOnly(){ stop(); try { await signOut(auth); } catch (e) {} },
+  async signOut(){ stop(); try { await signOut(auth); } catch (e) {} if (db) { try { await terminate(db); await clearIndexedDbPersistence(db); } catch (e) {} } }
+};
+getRedirectResult(auth).catch(() => {});
+onAuthStateChanged(auth, user => { if (user) { S.signedIn(user.email || ""); startSync(); } else S.signedOut(); });
+
+</script>
+</body>
+</html>
