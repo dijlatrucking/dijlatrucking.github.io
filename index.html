@@ -7,7 +7,12 @@
 <meta name="theme-color" content="#f3f5f9">
 <title>Dijla Trucking</title>
 <link rel="icon" type="image/png" href="favicon-64.png">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dijla Ops">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="application-name" content="Dijla Ops">
 <link rel="manifest" href="manifest.webmanifest">
 <style>
   :root{color-scheme:light;--on-acc:#ffffff;--pill:#e8ecf3;--ink:#f3f5f9;--panel:#ffffff;--panel2:#eef1f6;--line:#dde2ea;--acc:#0f2a5c;--acc-hi:#0f2a5c;--text:#131a26;--muted:#5d6678;
@@ -39,12 +44,26 @@
   @media (max-width:370px){header.top{gap:8px} header.top .logo{width:40px} header.top h1{font-size:17px}
     #signOutBtn{padding:8px 10px;font-size:13.5px} .hirebtn{padding:8px 9px}}
   header.top p{margin:0;font-size:12.5px;color:var(--muted)}
-  .sync{font-weight:600} .sync.ok{color:var(--good)} .sync.warn{color:var(--warn)} .sync.bad{color:var(--bad)}
+  .sync{font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .sync.ok{color:var(--good)} .sync.warn{color:var(--warn)} .sync.bad{color:var(--bad)}
   nav.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:14px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
   nav.tabs button{border:none;background:transparent;color:var(--muted);padding:11px 2px;border-radius:8px;font-weight:600;font-size:13.5px}
   @media (max-width:400px){nav.tabs button{font-size:12.5px}}
-  @media (max-width:350px){nav.tabs{gap:2px;padding:4px} nav.tabs button{font-size:11px;padding:10px 0;letter-spacing:-.01em}}
   nav.tabs button[aria-selected="true"]{background:var(--acc);color:var(--on-acc)}
+  nav.tabs svg.ni{display:none;width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  @media (max-width:760px){
+    nav.tabs{position:fixed;left:0;right:0;bottom:0;top:auto;margin:0;border-radius:0;border-width:1px 0 0;gap:0;
+      padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));z-index:60;background:color-mix(in srgb,var(--panel) 94%,transparent);
+      -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 -2px 14px rgba(15,42,92,.08)}
+    nav.tabs button{display:grid;justify-items:center;gap:3px;padding:5px 0 3px;font-size:11px;font-weight:600;border-radius:12px;letter-spacing:0}
+    nav.tabs svg.ni{display:block;padding:3px 14px;box-sizing:content-box;border-radius:14px;transition:background .15s}
+    nav.tabs button[aria-selected="true"]{background:transparent;color:var(--acc)}
+    nav.tabs button[aria-selected="true"] svg.ni{background:color-mix(in srgb,var(--acc) 13%,transparent)}
+    body{padding-bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+    .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px)) !important}
+  }
+  @media (max-width:350px){nav.tabs button{font-size:10px} nav.tabs svg.ni{padding:3px 10px}}
+  .installhint{display:flex;gap:10px;align-items:center;border:1px solid color-mix(in srgb,var(--blue) 40%,transparent);background:color-mix(in srgb,var(--blue) 7%,transparent);border-radius:12px;padding:10px 12px;font-size:14px}
+  .installhint b{flex:1} .installhint button{padding:7px 10px;font-size:13px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
   .card h2{margin:0 0 10px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--acc-hi)}
   .stack{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
@@ -198,15 +217,16 @@
   </header>
 
   <nav class="tabs" role="tablist" aria-label="Sections">
-    <button type="button" role="tab" data-tab="dash" aria-selected="true">Dashboard</button>
-    <button type="button" role="tab" data-tab="loads" aria-selected="false">Loads</button>
-    <button type="button" role="tab" data-tab="exp" aria-selected="false">Expenses</button>
-    <button type="button" role="tab" data-tab="tax" aria-selected="false">1099</button>
-    <button type="button" role="tab" data-tab="set" aria-selected="false">Settings</button>
+    <button type="button" role="tab" data-tab="dash" aria-selected="true"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11.5 12 4l8.5 7.5"/><path d="M6 10v9.5h12V10"/></svg><span>Dashboard</span></button>
+    <button type="button" role="tab" data-tab="loads" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3.5 3.5v2.5h-7.5"/><circle cx="6.5" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/></svg><span>Loads</span></button>
+    <button type="button" role="tab" data-tab="exp" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3 10h18M7 15h3"/></svg><span>Expenses</span></button>
+    <button type="button" role="tab" data-tab="tax" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3h8l4 4v14h-12z"/><path d="M14.5 3v4h4M9 12h6M9 15.5h6"/></svg><span>1099</span></button>
+    <button type="button" role="tab" data-tab="set" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
   </nav>
 
   <!-- ===== DASHBOARD ===== -->
   <section class="stack" id="tab-dash">
+    <div class="installhint" id="installHint" hidden><span aria-hidden="true">📲</span><b>Install Dijla Ops on your home screen</b><button type="button" id="hintHow">How</button><button type="button" class="ghost" id="hintX" aria-label="Dismiss">✕</button></div>
     <div class="chips" id="perChips" aria-label="Period"></div>
     <div class="rangebar" role="group" aria-label="Date range">
       <input type="date" id="dFrom" aria-label="From date"><span class="muted">to</span><input type="date" id="dTo" aria-label="To date">
@@ -387,6 +407,11 @@
       <label>Dashboard counts loads by<select id="sBy"><option value="pickup">Pickup date</option><option value="delivery">Delivery date</option></select></label>
       <div class="btns"><button type="submit" class="primary">Save settings</button></div>
     </form>
+    <div class="card stack" id="installCard">
+      <h2>Phone app</h2>
+      <p class="meta" id="installTxt" style="margin:0"></p>
+      <button type="button" class="primary" id="installBtn" hidden>Install Dijla Ops</button>
+    </div>
     <div class="card stack">
       <h2>Hiring page</h2>
       <p class="meta" style="margin:0">Public page where drivers read about you and apply. Applications show up under 👥 at the top.</p>
@@ -1097,6 +1122,28 @@ $("expList").addEventListener("click", e => {
   }
 });
 
+// ----- Phone app: install + offline shell -----
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOSDevice = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let installEvt = null;
+function installUI(){
+  const st = isStandalone();
+  $("installTxt").innerHTML = st ? "Installed ✓ You're using the Dijla Ops app."
+    : installEvt ? "Put Dijla Ops on your home screen. It opens full-screen like a regular app and stays signed in."
+    : isIOSDevice ? "In <b>Safari</b>: tap <b>Share</b> (square with the arrow) → <b>Add to Home Screen</b> → <b>Add</b>."
+    : "In <b>Chrome</b>: tap the <b>⋮</b> menu → <b>Add to Home screen</b> (or <b>Install app</b>).";
+  $("installBtn").hidden = st || !installEvt;
+  let dismissed = false; try { dismissed = localStorage.getItem("dijla_install_hint") === "x"; } catch (e) {}
+  $("installHint").hidden = st || dismissed || !matchMedia("(max-width:760px)").matches;
+}
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; installUI(); });
+addEventListener("appinstalled", () => { installEvt = null; installUI(); toast("Dijla Ops installed"); });
+$("installBtn").onclick = async () => { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {} installEvt = null; installUI(); };
+$("hintHow").onclick = () => { if (installEvt) $("installBtn").click(); else { showTab("set"); $("installCard").scrollIntoView({ block: "center" }); } };
+$("hintX").onclick = () => { try { localStorage.setItem("dijla_install_hint", "x"); } catch (e) {} installUI(); };
+installUI();
+if ("serviceWorker" in navigator && location.hostname !== "localhost") addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+
 // ----- Recurring charges (kept in the synced settings record) -----
 const recItems = () => (settings.recurring = Array.isArray(settings.recurring) ? settings.recurring : []);
 const FREQ = { m1: "Monthly", w1: "Weekly", w2: "Every 2 weeks", m3: "Every 3 months", m6: "Every 6 months", m12: "Yearly" };
@@ -1790,17 +1837,20 @@ function getDb(){
 }
 const S = window.Sync;
 let unsubs = [];
+// each sign-in gets a new session number; late messages from an earlier session are ignored
+let session = 0;
 function startSync(){
+  stop(); const me = ++session, live = () => me === session;
   const d = getDb();
   ["loads", "expenses"].forEach(c => unsubs.push(onSnapshot(collection(d, c), { includeMetadataChanges: true },
-    snap => S.apply(c, snap.docs.map(x => [x.id, x.data()]), snap.metadata), err => S.error(c, err))));
+    snap => live() && S.apply(c, snap.docs.map(x => [x.id, x.data()]), snap.metadata), err => live() && S.error(c, err))));
   // driver applications from the public hiring page (timestamps turned into plain dates)
   const iso = v => v && typeof v.toDate === "function" ? v.toDate().toISOString() : v;
   unsubs.push(onSnapshot(collection(d, "applications"), { includeMetadataChanges: true },
-    snap => S.apply("applications", snap.docs.map(x => { const v = x.data(); return [x.id, { ...v, created: iso(v.created) }]; }), snap.metadata),
+    snap => live() && S.apply("applications", snap.docs.map(x => { const v = x.data(); return [x.id, { ...v, created: iso(v.created) }]; }), snap.metadata),
     err => console.warn("applications not readable yet (check Firestore rules)", err)));   // never blocks the rest of the app
   unsubs.push(onSnapshot(doc(d, "meta", "settings"), { includeMetadataChanges: true },
-    snap => S.apply("settings", snap.exists() ? snap.data() : null, snap.metadata), err => S.error("settings", err)));
+    snap => live() && S.apply("settings", snap.exists() ? snap.data() : null, snap.metadata), err => live() && S.error("settings", err)));
 }
 const stop = () => { unsubs.forEach(u => { try { u(); } catch (e) {} }); unsubs = []; };
 window.Cloud = {
@@ -1826,7 +1876,7 @@ window.Cloud = {
   async signOut(){ stop(); try { await signOut(auth); } catch (e) {} if (db) { try { await terminate(db); await clearIndexedDbPersistence(db); } catch (e) {} } }
 };
 getRedirectResult(auth).catch(() => {});
-onAuthStateChanged(auth, user => { if (user) { S.signedIn(user.email || ""); startSync(); } else S.signedOut(); });
+onAuthStateChanged(auth, user => { if (user) { S.signedIn(user.email || ""); startSync(); } else { session++; stop(); S.signedOut(); } });
 
 </script>
 </body>
