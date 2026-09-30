@@ -8,93 +8,137 @@
 <meta property="og:title" content="Now hiring OTR CDL-A reefer drivers | Dijla Trucking LLC">
 <meta property="og:description" content="We&#x27;re a small, owner-operated carrier looking for one solid OTR driver. You&#x27;ll work directly with the owners, run dependable reefer freight, and always know who you&#x27;re dealing with.">
 <meta property="og:image" content="img/hero.jpg">
-<link rel="preload" as="image" href="img/hero.jpg">
+<link rel="preload" as="image" href="img/hero.jpg" fetchpriority="high">
 <meta name="theme-color" content="#0f2a5c">
 <link rel="icon" type="image/png" href="../favicon-64.png">
+<link rel="preload" as="font" type="font/woff2" href="fonts/plus-jakarta-sans-latin-800-normal.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="fonts/archivo-black-latin-400-normal.woff2" crossorigin>
 <style>
-  :root{color-scheme:light;--ink:#f3f5f9;--panel:#fff;--panel2:#eef1f6;--line:#dde2ea;--navy:#0f2a5c;--navy2:#1b3f7e;--deep:#081a3a;--sky:#9cc3ff;--text:#131a26;--muted:#5d6678;
-    --good:#1d8a52;--bad:#c23a32;--body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  @font-face{font-family:"Archivo Black";font-weight:400;font-display:swap;src:url(fonts/archivo-black-latin-400-normal.woff2) format("woff2")}
+  @font-face{font-family:"Plus Jakarta Sans";font-weight:400;font-display:swap;src:url(fonts/plus-jakarta-sans-latin-400-normal.woff2) format("woff2")}
+  @font-face{font-family:"Plus Jakarta Sans";font-weight:500;font-display:swap;src:url(fonts/plus-jakarta-sans-latin-500-normal.woff2) format("woff2")}
+  @font-face{font-family:"Plus Jakarta Sans";font-weight:600;font-display:swap;src:url(fonts/plus-jakarta-sans-latin-600-normal.woff2) format("woff2")}
+  @font-face{font-family:"Plus Jakarta Sans";font-weight:700;font-display:swap;src:url(fonts/plus-jakarta-sans-latin-700-normal.woff2) format("woff2")}
+  @font-face{font-family:"Plus Jakarta Sans";font-weight:800;font-display:swap;src:url(fonts/plus-jakarta-sans-latin-800-normal.woff2) format("woff2")}
+
+  :root{color-scheme:light;--ink:#f3f6fb;--tint:#eaf1fb;--panel:#fff;--panel2:#eef3fa;--line:#dfe6f0;--navy:#0f2a5c;--navy2:#1b4a9e;--blue:#2f6fe0;--deep:#081a3a;--sky:#7fb0ff;--amber:#f2b33d;
+    --text:#131a26;--muted:#5d6678;--good:#1d8a52;--bad:#c23a32;
+    --body:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--word:"Archivo Black","Arial Black",system-ui,sans-serif}
   *{box-sizing:border-box}
   [hidden]{display:none !important}
   html{scroll-behavior:smooth}
   html,body{margin:0;background:var(--ink)}
   body{color:var(--text);font:16px/1.55 var(--body)}
   a{color:var(--navy2)}
-  .wrap{max-width:760px;margin:0 auto;padding-left:18px;padding-right:18px}
+  .wrap{max-width:1000px;margin:0 auto;padding-left:20px;padding-right:20px}
+  svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  /* top bar: logo + wordmark + menu */
+  .topbar{position:absolute;z-index:5;top:0;left:0;right:0;padding-top:max(14px,env(safe-area-inset-top))}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff;min-width:0}
+  .brand img{width:clamp(58px,15vw,88px);height:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.35))}
+  .brand .wm{display:grid;line-height:.92;padding-left:12px;border-left:2px solid rgba(255,255,255,.55)}
+  .brand .wm b,.brand .wm span{font-synthesis:none}
+  .brand .wm b{font:900 clamp(30px,8.4vw,54px)/.95 var(--word);letter-spacing:.01em;background:linear-gradient(180deg,#fff 0%,#e6ebf2 55%,#aab4c3 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+  .brand .wm span{font:900 clamp(17px,4.6vw,30px)/1.05 var(--word);letter-spacing:.02em;color:#eef2f8;text-shadow:0 2px 4px rgba(0,0,0,.35)}
+  .brand .wm small{font:800 .52em/1 var(--body);color:var(--amber);letter-spacing:.06em;margin-left:5px;vertical-align:.12em}
+  .menubtn{width:48px;height:48px;display:grid;place-items:center;background:transparent;border:0;color:#fff;cursor:pointer;border-radius:12px;flex:none}
+  .menubtn svg{width:32px;height:32px}
+  .menubtn:focus-visible{outline:2px solid #fff}
+  .menu{position:absolute;right:20px;top:calc(100% + 6px);min-width:220px;background:#fff;border-radius:16px;box-shadow:0 18px 40px rgba(8,26,58,.3);padding:8px;display:grid}
+  .menu a{padding:12px 14px;border-radius:10px;text-decoration:none;color:var(--deep);font-weight:700}
+  .menu a:hover,.menu a:focus-visible{background:var(--panel2);outline:none}
+  .menu a.apply{margin-top:4px;background:var(--navy);color:#fff;text-align:center}
   /* hero */
   .hero{position:relative;color:#fff;overflow:hidden;background:var(--deep)}
-  .hero .shot{position:relative;height:clamp(300px,62svh,640px)}
-  .hero .shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:14% 60%}
-  .hero .shot::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,26,58,.45) 0%,rgba(8,26,58,0) 24%,rgba(8,26,58,0) 62%,var(--deep) 100%)}
-  @media (min-width:760px){.hero .shot img{object-position:center 62%}}
-  .hero .wrap{position:relative;margin-top:-64px;padding-bottom:40px;width:100%;z-index:1}
-  .brandrow{position:absolute;z-index:2;top:max(16px,env(safe-area-inset-top));left:18px;right:18px;display:flex;align-items:center;gap:10px;max-width:724px;margin:0 auto}
-  .brandrow img{width:46px;height:auto;filter:drop-shadow(0 3px 8px rgba(0,0,0,.35))}
-  .brandrow b{font-size:14px;letter-spacing:.16em;text-transform:uppercase;text-shadow:0 1px 6px rgba(0,0,0,.4)}
-  .kicker{display:inline-block;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
-  .hero h1{margin:14px 0 10px;font-size:clamp(30px,9.2vw,56px);line-height:1.02;letter-spacing:-.02em;text-shadow:0 2px 18px rgba(0,0,0,.35)}
+  /* phones: photo across the top, fading into navy under the headline */
+  .hero .bg{position:absolute;left:0;right:0;top:0;width:100%;height:calc(max(14px,env(safe-area-inset-top)) + clamp(330px,98vw,470px));object-fit:cover;object-position:8% 58%;
+    -webkit-mask-image:linear-gradient(180deg,#000 62%,transparent 100%);mask-image:linear-gradient(180deg,#000 62%,transparent 100%)}
+  .hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(8,26,58,.7) 0,rgba(8,26,58,0) 120px)}
+  .herobody{position:relative;z-index:1;padding-top:calc(max(14px,env(safe-area-inset-top)) + clamp(286px,80vw,370px));padding-bottom:30px}
+  @media (min-width:760px){
+    .hero .bg{inset:0;height:100%;object-position:center 45%;transform:scaleX(-1);-webkit-mask-image:none;mask-image:none}
+    .hero::after{background:linear-gradient(90deg,rgba(8,26,58,.92) 0%,rgba(8,26,58,.72) 38%,rgba(8,26,58,.08) 68%),linear-gradient(180deg,rgba(8,26,58,.55) 0%,rgba(8,26,58,0) 26%,rgba(8,26,58,0) 60%,rgba(8,26,58,.9) 100%)}
+    .herobody{padding-top:170px;padding-bottom:40px}
+    .hero .copy{max-width:540px}
+  }
+  @media (min-width:760px) and (max-width:960px){.hero .copy{max-width:440px}.hero p.tag{max-width:400px}}
+  .kicker{display:inline-block;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:7px 16px;font-size:13px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}
+  .hero h1{margin:16px 0 14px;font-weight:800;font-size:clamp(32px,9vw,54px);line-height:1.04;letter-spacing:-.02em;text-shadow:0 2px 16px rgba(0,0,0,.3)}
   .hero h1 em{font-style:normal;color:var(--sky)}
-  .hero p.tag{margin:0 0 22px;max-width:540px;font-size:17px;opacity:.92}
-  .ctas{display:flex;flex-wrap:wrap;gap:10px}
-  .cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:#fff;color:var(--navy);font-weight:800;font-size:17px;text-decoration:none;padding:15px 26px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
-  .cta.ghost{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.6);box-shadow:none;font-weight:700}
+  .hero h1 .l{display:block}
+  .hero p.tag{margin:0 0 24px;max-width:470px;font-size:17px;line-height:1.5;color:rgba(255,255,255,.92)}
+  .ctas{display:grid;grid-template-columns:1fr;gap:12px}
+  @media (min-width:520px){.ctas{grid-template-columns:auto auto;justify-content:start}}
+  .cta{white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:#fff;color:var(--navy);font-weight:800;font-size:17px;text-decoration:none;padding:16px 34px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+  .cta.ghost{background:rgba(8,26,58,.35);color:#fff;border:1.5px solid rgba(255,255,255,.65);box-shadow:none;font-weight:700}
   .cta:active{transform:translateY(1px)}
-  .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:26px;background:rgba(255,255,255,.18);border-radius:14px;overflow:hidden}
-  .facts div{background:rgba(8,26,58,.55);padding:12px 6px;text-align:center}
-  .facts b{display:block;font-size:17px;line-height:1.15}
-  .facts span{display:block;margin-top:2px;font-size:11px;line-height:1.3;opacity:.8;letter-spacing:.02em;text-wrap:balance}
-
+  .facts{display:grid;grid-template-columns:1fr;margin-top:26px;background:rgba(15,33,72,.72);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:6px 16px}
+  .facts .f{display:flex;align-items:center;gap:14px;padding:12px 4px}
+  .facts .f+.f{border-top:1px solid rgba(255,255,255,.14)}
+  .facts svg.i{width:30px;height:30px;stroke-width:1.9}
+  .facts b{display:block;font-size:20px;line-height:1.15;font-weight:800}
+  .facts span{display:block;font-size:14px;opacity:.85}
+  @media (min-width:640px){.facts{grid-template-columns:repeat(3,1fr);padding:10px 8px}.facts .f{padding:10px 18px}.facts .f+.f{border-top:0;border-left:1px solid rgba(255,255,255,.18)}}
+  @media (min-width:760px){.facts{max-width:none}}
   /* sections */
-  section{padding:40px 0 8px}
-  h2{margin:0 0 6px;font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--navy2)}
-  h3.big{margin:0 0 14px;font-size:clamp(24px,6.5vw,32px);line-height:1.15;color:var(--deep);letter-spacing:-.01em}
+  section{padding:44px 0 8px}
+  h2{margin:0 0 8px;font-size:13px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--navy2)}
+  h3.big{margin:0 0 14px;font-weight:800;font-size:clamp(27px,7vw,36px);line-height:1.12;color:var(--deep);letter-spacing:-.015em}
   .about p{margin:0 0 12px;font-size:16.5px}
-  .photo{margin:22px 0 0;border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(8,26,58,.22);position:relative}
-  .photo img{display:block;width:100%;height:auto;aspect-ratio:900/560;object-fit:cover}
-  .photo figcaption{position:absolute;left:0;right:0;bottom:0;padding:34px 16px 14px;color:#fff;font-weight:700;background:linear-gradient(180deg,transparent,rgba(8,26,58,.85))}
-  .offer{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media (max-width:430px){.offer{grid-template-columns:1fr}}
-  .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(15,42,92,.06)}
-  .box .ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--panel2);font-size:21px;margin-bottom:10px}
-  .box .t{font-weight:800;color:var(--deep);margin-bottom:2px;font-size:17px}
-  .box .x{color:var(--muted);font-size:15px}
+  .about-grid{display:grid;gap:22px;align-items:center}
+  @media (min-width:760px){.about-grid{grid-template-columns:1.05fr 1fr;gap:40px}}
+  .photo{margin:0;border-radius:20px;overflow:hidden;box-shadow:0 16px 36px rgba(8,26,58,.22);position:relative}
+  .photo img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover}
+  @media (max-width:759px){.photo img{aspect-ratio:900/620}}
+  .photo figcaption{position:absolute;left:0;right:0;bottom:0;padding:40px 20px 18px;color:#fff;font-weight:700;font-size:17px;background:linear-gradient(180deg,transparent,rgba(8,26,58,.9))}
+  .offersec{margin-top:36px;padding-bottom:44px;background:var(--tint)}
+  .offer{display:grid;grid-template-columns:1fr;gap:14px}
+  @media (min-width:700px){.offer{grid-template-columns:1fr 1fr}}
+  @media (min-width:900px){.offer{grid-template-columns:repeat(3,1fr)}}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 2px 8px rgba(15,42,92,.06);display:flex;gap:14px;align-items:flex-start}
+  .box .ic{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:#e3edfc;color:var(--blue);flex:none}
+  .box .t{font-weight:800;color:var(--deep);margin:2px 0 3px;font-size:17px}
+  .box .x{color:#3d4657;font-size:15px;line-height:1.45}
   /* photo band */
-  .band{position:relative;margin:44px 0 0;min-height:340px;display:grid;align-items:center;color:#fff;background:#0f2a5c url(img/road.jpg) center/cover no-repeat}
-  .band::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,26,58,.92) 0%,rgba(8,26,58,.65) 55%,rgba(8,26,58,.2) 100%)}
+  .band{position:relative;min-height:340px;display:grid;align-items:center;color:#fff;background:#0f2a5c url(img/road.jpg) center/cover no-repeat}
+  .band::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,26,58,.94) 0%,rgba(8,26,58,.68) 55%,rgba(8,26,58,.2) 100%)}
   .band .wrap{position:relative;width:100%}
-  .band q{display:block;font-size:clamp(24px,6.8vw,34px);font-weight:800;line-height:1.15;max-width:420px;quotes:none}
-  .band p{margin:12px 0 0;opacity:.85;max-width:380px}
-  .req{margin:0;padding:0;list-style:none;display:grid;gap:10px}
-  .req li{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px 13px 48px;position:relative;font-weight:600}
-  .req li::before{content:"✓";position:absolute;left:14px;top:11px;width:24px;height:24px;border-radius:50%;background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--good);font-weight:800;display:grid;place-items:center;font-size:14px}
+  .band q{display:block;font-size:clamp(26px,7vw,38px);font-weight:800;line-height:1.12;max-width:500px;quotes:none;letter-spacing:-.01em}
+  .band p{margin:12px 0 0;opacity:.88;max-width:420px}
+  .req{margin:0;padding:0;list-style:none;display:grid;gap:12px}
+  @media (min-width:700px){.req{grid-template-columns:1fr 1fr}}
+  .req li{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:15px 16px 15px 54px;position:relative;font-weight:700;box-shadow:0 2px 8px rgba(15,42,92,.05)}
+  .req li::before{content:"✓";position:absolute;left:16px;top:13px;width:26px;height:26px;border-radius:50%;background:#e3edfc;color:var(--blue);font-weight:800;display:grid;place-items:center;font-size:14px}
   /* application */
-  .applywrap{margin-top:44px;padding:44px 0 36px;background:linear-gradient(180deg,var(--deep),var(--navy))}
-  .applywrap .head{color:#fff;margin-bottom:18px}
+  .applywrap{margin-top:44px;padding:48px 0 40px;background:linear-gradient(180deg,var(--deep),var(--navy))}
+  .applywrap .wrap{max-width:680px}
+  .applywrap .head{color:#fff;margin-bottom:20px}
   .applywrap .head h2{color:var(--sky)}
   .applywrap .head h3.big{color:#fff;margin-bottom:6px}
-  .applywrap .head p{margin:0;opacity:.85}
+  .applywrap .head p{margin:0;opacity:.88}
   form{display:grid;gap:14px}
-  .card{background:var(--panel);border-radius:18px;padding:20px 16px;box-shadow:0 18px 40px rgba(0,0,0,.25)}
-  label{display:grid;gap:5px;font-size:14px;font-weight:600;color:var(--text)}
-  label .opt{font-weight:400;color:var(--muted)}
-  input,select,textarea{font:inherit;font-size:16px;width:100%;background:#fff;color:var(--text);border:1px solid #c9d0db;border-radius:10px;padding:12px}
+  .card{background:var(--panel);border-radius:20px;padding:22px 18px;box-shadow:0 18px 40px rgba(0,0,0,.25)}
+  label{display:grid;gap:5px;font-size:14px;font-weight:700;color:var(--text)}
+  label .opt{font-weight:500;color:var(--muted)}
+  input,select,textarea{font:inherit;font-size:16px;width:100%;background:#fff;color:var(--text);border:1px solid #c9d2df;border-radius:12px;padding:12px}
   textarea{min-height:96px;resize:vertical}
-  input:focus,select:focus,textarea:focus{outline:2px solid var(--navy2);outline-offset:1px;border-color:var(--navy2)}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--blue);outline-offset:1px;border-color:var(--blue)}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .row.cs{grid-template-columns:1fr 90px}
   @media (max-width:380px){.row{grid-template-columns:1fr}.row.cs{grid-template-columns:1fr 80px}}
   fieldset{border:0;margin:0;padding:0;display:grid;gap:8px}
-  legend{font-size:14px;font-weight:600;margin-bottom:6px;padding:0}
+  legend{font-size:14px;font-weight:700;margin-bottom:6px;padding:0}
   .pills{display:flex;flex-wrap:wrap;gap:8px}
-  .pills label{display:block;font-weight:500}
+  .pills label{display:block;font-weight:600}
   .pills input{position:absolute;opacity:0;width:1px;height:1px}
-  .pills span{display:inline-block;border:1px solid #c9d0db;background:#fff;border-radius:999px;padding:9px 15px;font-size:15px;cursor:pointer}
+  .pills span{display:inline-block;border:1px solid #c9d2df;background:#fff;border-radius:999px;padding:9px 16px;font-size:15px;cursor:pointer}
   .pills input:checked+span{background:var(--navy);border-color:var(--navy);color:#fff}
-  .pills input:focus-visible+span{outline:2px solid var(--navy2);outline-offset:2px}
-  .consent{display:flex;gap:10px;align-items:flex-start;font-weight:400;font-size:14.5px}
+  .pills input:focus-visible+span{outline:2px solid var(--blue);outline-offset:2px}
+  .consent{display:flex;gap:10px;align-items:flex-start;font-weight:500;font-size:14.5px}
   .consent input{width:22px;height:22px;flex:none;margin-top:1px;accent-color:var(--navy)}
   .hp{position:absolute;left:-5000px;width:1px;height:1px;overflow:hidden}
-  button.go{font:inherit;font-weight:800;font-size:17px;background:var(--navy);color:#fff;border:0;border-radius:12px;padding:16px;cursor:pointer}
+  button.go{font:inherit;font-weight:800;font-size:17px;background:var(--navy);color:#fff;border:0;border-radius:14px;padding:16px;cursor:pointer}
   button.go:disabled{opacity:.6}
   .err{color:var(--bad);font-size:14.5px;margin:0}
   .err:empty{display:none}
@@ -103,31 +147,39 @@
   .done .big{font-size:48px;line-height:1}
   .done h3{margin:10px 0 6px;color:var(--deep);font-size:22px}
   .sub{margin:0 0 14px;color:var(--muted);font-size:14.5px}
-  footer{background:var(--deep);color:rgba(255,255,255,.7);padding:26px 0 calc(28px + env(safe-area-inset-bottom,0px));text-align:center;font-size:13.5px}
+  footer{background:var(--deep);color:rgba(255,255,255,.7);padding:28px 0 calc(30px + env(safe-area-inset-bottom,0px));text-align:center;font-size:13.5px}
   footer b{color:#fff} footer a{color:var(--sky)}
-  footer img{width:40px;height:auto;display:block;margin:0 auto 8px;opacity:.95}
+  footer img{width:44px;height:auto;display:block;margin:0 auto 8px;opacity:.95}
 </style>
 </head>
-<body>
+<body id="top">
 <header class="hero">
-  <div class="shot"><img src="img/hero.jpg" alt="Red semi truck with a reefer trailer on an open highway, snowy mountains behind" width="1024" height="683" fetchpriority="high"></div>
-  <div class="brandrow"><img src="../logo.png" alt="" width="46" height="46"><b>Dijla Trucking LLC</b></div>
-  <div class="wrap">
-    <span class="kicker">Now hiring</span>
-    <h1>OTR Reefer. Based in Boise. <em>Built for Drivers.</em></h1>
-    <p class="tag">We&#x27;re a small, owner-operated carrier looking for one solid OTR driver. You&#x27;ll work directly with the owners, run dependable reefer freight, and always know who you&#x27;re dealing with.</p>
-    <div class="ctas"><a class="cta" href="#apply">Apply in 2 Minutes →</a><a class="cta ghost" href="#about">Why Drive With Us</a></div>
-    <div class="facts"><div><b>OTR</b><span>Reefer Freight</span></div><div><b>~3 Weeks</b><span>Typical Time Out</span></div><div><b>4 Days</b><span>Typical Home Time</span></div></div>
+  <img class="bg" src="img/hero.jpg" alt="Red semi truck with a reefer trailer on an open highway, snowy mountains behind" width="1024" height="683" fetchpriority="high">
+  <nav class="topbar" aria-label="Main">
+    <div class="wrap" style="position:relative">
+      <a class="brand" href="#top" aria-label="Dijla Trucking LLC"><img src="../logo.png" alt="" width="88" height="88"><span class="wm"><b>DIJLA</b><span>TRUCKING<small>LLC</small></span></span></a>
+      <button type="button" class="menubtn" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="menu"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <div class="menu" id="menu" hidden><a href="#about">About us</a><a href="#offer">What we offer</a><a href="#requirements">Requirements</a><a class="apply" href="#apply">Apply now</a></div>
+    </div>
+  </nav>
+  <div class="wrap herobody">
+    <div class="copy">
+      <span class="kicker">Now hiring</span>
+      <h1><span class="l">OTR Reefer.</span> <span class="l">Based in <em>Boise.</em></span> <span class="l">Built for Drivers.</span></h1>
+      <p class="tag">We&#x27;re a small, owner-operated carrier looking for one solid OTR driver. You&#x27;ll work directly with the owners, run dependable reefer freight, and always know who you&#x27;re dealing with.</p>
+      <div class="ctas"><a class="cta" href="#apply">Apply in 2 Minutes →</a><a class="cta ghost" href="#about">Why Drive With Us</a></div>
+    </div>
+    <div class="facts"><div class="f"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3 4.5 21M15 3l4.5 18"/><path d="M12 4.5v2.5M12 10.5v3M12 17v3"/></svg><div><b>OTR</b><span>Reefer Freight</span></div></div><div class="f"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.3h.01M12 17.3h.01"/></svg><div><b>~3 Weeks</b><span>Typical Time Out</span></div></div><div class="f"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5.5h4V20"/></svg><div><b>4 Days</b><span>Typical Home Time</span></div></div></div>
   </div>
 </header>
 <main>
-  <section class="about wrap" id="about"><h2>About us</h2><h3 class="big">Trucking run by people who actually truck.</h3><p>Dijla Trucking is a small, owner-operated reefer carrier based in Boise, Idaho. We drive too, so we understand the job from the driver&#x27;s seat, not a corporate office.</p><p>We keep things simple: dependable equipment, clear communication, realistic expectations, and respect for the driver doing the work.</p><p>We&#x27;re looking for an experienced, safety-minded driver who wants steady OTR work with a company small enough to know their name.</p>
-    <figure class="photo"><img src="img/fleet.jpg" alt="Semi trucks lined up at sunset" loading="lazy" width="900" height="651"><figcaption>Built for the long haul.</figcaption></figure>
+  <section class="about wrap" id="about"><div class="about-grid"><div><h2>About us</h2><h3 class="big">Trucking run by people who actually truck.</h3><p>Dijla Trucking is a small, owner-operated reefer carrier based in Boise, Idaho. We drive too, so we understand the job from the driver&#x27;s seat, not a corporate office.</p><p>We keep things simple: dependable equipment, clear communication, realistic expectations, and respect for the driver doing the work.</p><p>We&#x27;re looking for an experienced, safety-minded driver who wants steady OTR work with a company small enough to know their name.</p></div>
+    <figure class="photo"><img src="img/fleet.jpg" alt="Semi trucks lined up at sunset" loading="lazy" width="900" height="651"><figcaption>Built for the long haul.</figcaption></figure></div>
   </section>
-  <section class="wrap"><h2>What we offer</h2><h3 class="big">The things that actually matter.</h3><div class="offer"><div class="box"><div class="ic" aria-hidden="true">💵</div><div class="t">Pay</div><div class="x">Competitive pay with the details discussed upfront.</div></div><div class="box"><div class="ic" aria-hidden="true">🏠</div><div class="t">Home Time</div><div class="x">Approximately three weeks out followed by four days home.</div></div><div class="box"><div class="ic" aria-hidden="true">🚛</div><div class="t">Equipment</div><div class="x">Dependable, properly maintained equipment built for OTR reefer work.</div></div><div class="box"><div class="ic" aria-hidden="true">❄️</div><div class="t">Freight</div><div class="x">Consistent temperature-controlled freight and long-haul operations.</div></div><div class="box"><div class="ic" aria-hidden="true">💬</div><div class="t">Communication</div><div class="x">Work directly with ownership instead of navigating layers of management.</div></div><div class="box"><div class="ic" aria-hidden="true">👥</div><div class="t">Small Fleet</div><div class="x">Small enough that ownership knows who&#x27;s behind the wheel.</div></div></div></section>
+  <section class="offersec" id="offer"><div class="wrap"><h2>What we offer</h2><h3 class="big">The things that actually matter.</h3><div class="offer"><div class="box"><div class="ic" aria-hidden="true"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.5 6.5c-.9-1.2-2.5-1.9-4.5-1.9-2.6 0-4.5 1.3-4.5 3.3s1.9 2.8 4.5 3.3 4.5 1.4 4.5 3.5-1.9 3.4-4.6 3.4c-2.1 0-3.9-.8-4.8-2.1"/></svg></div><div><div class="t">Pay</div><div class="x">Competitive pay with the details discussed upfront.</div></div></div><div class="box"><div class="ic" aria-hidden="true"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5.5h4V20"/></svg></div><div><div class="t">Home Time</div><div class="x">Approximately three weeks out followed by four days home.</div></div></div><div class="box"><div class="ic" aria-hidden="true"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 6h11v10h-11z"/><path d="M13.5 9.5h4l3.5 3.5V16h-7.5"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg></div><div><div class="t">Equipment</div><div class="x">Dependable, properly maintained equipment built for OTR reefer work.</div></div></div><div class="box"><div class="ic" aria-hidden="true"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5v19M3.8 7.2l16.4 9.6M20.2 7.2 3.8 16.8"/><path d="m9.5 4 2.5 2 2.5-2M9.5 20l2.5-2 2.5 2"/></svg></div><div><div class="t">Freight</div><div class="x">Consistent temperature-controlled freight and long-haul operations.</div></div></div><div class="box"><div class="ic" aria-hidden="true"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H10l-6 4.5z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01"/></svg></div><div><div class="t">Communication</div><div class="x">Work directly with ownership instead of navigating layers of management.</div></div></div><div class="box"><div class="ic" aria-hidden="true"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.3"/><path d="M2.8 20c0-3.4 2.8-5.8 6.2-5.8s6.2 2.4 6.2 5.8"/><circle cx="17.3" cy="9" r="2.6"/><path d="M16.8 14.6c2.6.2 4.6 2.3 4.6 5.1"/></svg></div><div><div class="t">Small Fleet</div><div class="x">Small enough that ownership knows who&#x27;s behind the wheel.</div></div></div></div></div></section>
   <div class="band" role="img" aria-label="Semi trucks on the highway"><div class="wrap"><q>You&#x27;ll always know who you&#x27;re dealing with.</q><p>Questions go straight to ownership, not through layers of management.</p></div></div>
-  <section class="wrap"><h2>What you need</h2><h3 class="big">What we look for</h3><ul class="req"><li>Class A CDL</li><li>At least 2 years of CDL-A driving experience</li><li>Current DOT medical card</li><li>Able to pass a DOT drug screen</li></ul></section>
-  <section id="apply" class="applywrap" style="padding-top:44px">
+  <section class="wrap" id="requirements"><h2>What you need</h2><h3 class="big">What we look for</h3><ul class="req"><li>Class A CDL</li><li>At least 2 years of CDL-A driving experience</li><li>Current DOT medical card</li><li>Able to pass a DOT drug screen</li></ul></section>
+  <section id="apply" class="applywrap">
    <div class="wrap">
     <div class="head"><h2>Apply</h2><h3 class="big">Driver application</h3><p>About 2 minutes. If it looks like a fit, we'll call you, then send the full DOT application.</p></div>
     <div class="card" id="formCard">
@@ -189,6 +241,16 @@
   </section>
 </main>
 <footer><div class="wrap"><img src="../logo.png" alt="" width="40" height="40"><b>Dijla Trucking LLC</b></div></footer>
+<script>
+(() => {
+  const b = document.getElementById("menuBtn"), m = document.getElementById("menu");
+  const set = open => { m.hidden = !open; b.setAttribute("aria-expanded", String(open)); };
+  b.addEventListener("click", e => { e.stopPropagation(); set(m.hidden); });
+  m.addEventListener("click", e => { if (e.target.closest("a")) set(false); });
+  document.addEventListener("click", e => { if (!m.hidden && !m.contains(e.target)) set(false); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !m.hidden) { set(false); b.focus(); } });
+})();
+</script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-lite.js";
