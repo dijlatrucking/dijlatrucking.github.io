@@ -61,6 +61,17 @@
   .seg button{border:0;background:none;border-radius:8px;padding:9px 6px;font-weight:600;color:var(--muted)}
   .seg button[aria-pressed="true"]{background:var(--acc);color:var(--on-acc)}
   .item.paused{opacity:.6}
+  .hirebtn{position:relative;padding:10px 12px}
+  .hirebtn .badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;border-radius:10px;background:var(--bad);color:#fff;font:700 11.5px/20px var(--body);text-align:center;padding:0 5px}
+  .hirebtn .badge:empty{display:none}
+  .appfacts{display:flex;flex-wrap:wrap;gap:6px}
+  .appfacts span{background:var(--panel2);border-radius:6px;padding:3px 8px;font-size:12.5px}
+  .appfacts .flag{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+  .appfacts .ok{background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--good)}
+  .appnote{white-space:pre-wrap;background:var(--panel2);border-radius:8px;padding:9px 11px;font-size:14px}
+  .hirestages{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+  .hirestages button{padding:8px 2px;font-size:12px;border-radius:8px}
+  .hirestages button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:700}
   .rhint{font-size:12.5px;color:var(--muted);margin:0}
   .chip[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
   .list{display:grid;gap:10px}
@@ -176,6 +187,7 @@
       <h1 id="coName">Dijla Trucking</h1>
       <p><span class="sync" id="syncState">Connecting…</span></p>
     </div>
+    <button type="button" class="ghost hirebtn" id="hireBtn" aria-label="Driver applicants">👥<span class="badge" id="hireBadge"></span></button>
     <button type="button" class="ghost" id="signOutBtn">Sign out</button>
   </header>
 
@@ -195,6 +207,7 @@
       <button type="button" class="ghost" id="dClear" aria-label="Clear date range">✕</button>
     </div>
     <div class="alert" id="waitAlert" hidden></div>
+    <button type="button" class="alert" id="hireAlert" hidden style="text-align:left;width:100%;border-color:color-mix(in srgb,var(--blue) 45%,transparent);background:color-mix(in srgb,var(--blue) 8%,transparent)"></button>
     <div class="card"><h2 id="sumTitle">Summary</h2><div class="scroll"><table class="sum" id="sumTable"></table></div></div>
     <div class="card"><h2>Expenses by category</h2><div class="bars" id="catBars"></div></div>
     <div class="card"><h2>Top brokers</h2><div class="scroll"><table class="sum" id="brokerTable"></table></div></div>
@@ -368,7 +381,20 @@
       <label>Dashboard counts loads by<select id="sBy"><option value="pickup">Pickup date</option><option value="delivery">Delivery date</option></select></label>
       <div class="btns"><button type="submit" class="primary">Save settings</button></div>
     </form>
+    <div class="card stack">
+      <h2>Hiring page</h2>
+      <p class="meta" style="margin:0">Public page where drivers read about you and apply. Applications show up under 👥 at the top.</p>
+      <div class="btns"><a class="primary" id="jobsOpen" href="jobs/" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;padding:10px 14px;border-radius:9px;background:var(--acc);color:var(--on-acc);font-weight:700;flex:1">Open hiring page</a><button type="button" id="jobsCopy" style="flex:1">Copy link</button></div>
+    </div>
     <p class="muted" style="font-size:13px;margin:0">Everything saves to the cloud and shows up on every device signed in with an approved account.</p>
+  </section>
+
+  <!-- ===== DRIVER APPLICANTS ===== -->
+  <section class="stack" id="tab-hire" hidden>
+    <div class="row2"><h2 style="margin:6px 0 0;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--acc-hi)">Driver applicants</h2><a href="jobs/" target="_blank" rel="noopener" style="justify-self:end;align-self:center;font-size:13.5px;color:var(--blue)">Hiring page ↗</a></div>
+    <div class="chips" id="hireChips" aria-label="Filter"></div>
+    <div class="list" id="hireList"></div>
+    <p class="meta" style="margin:0">Only you can see these. Applicants can't see each other or anything else in Truck Ops.</p>
   </section>
 </div>
 
@@ -643,7 +669,7 @@ function toast(msg){
 }
 
 // ----- State (filled from the cloud) -----
-let loads = [], expenses = [];
+let loads = [], expenses = [], applicants = [];
 const DEFAULTS = { company: "", t1: "Truck 1", t2: "Truck 2", factor: "GAP", pct: 2, ageDays: 30, countBy: "pickup" };
 let settings = { ...DEFAULTS };
 const TRUCKS = () => [["t1", settings.t1 || "Truck 1"], ["t2", settings.t2 || "Truck 2"]];
@@ -686,6 +712,8 @@ function render(){
   if (tab === "exp") { renderExp(); renderRec(); }
   if (tab === "set") fillSettings();
   if (tab === "tax") renderTax();
+  if (tab === "hire") renderHire();
+  hireBadge();
 }
 
 // ----- Periods -----
@@ -1164,6 +1192,66 @@ $("recList").addEventListener("click", e => {
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && postRecurring()) render(); });
 
+// ----- Driver applicants (from the public hiring page) -----
+const HSTAGES = [["new", "New"], ["contacted", "Contacted"], ["interview", "Interview"], ["hired", "Hired"], ["pass", "Pass"]];
+let hireFilter = "active";
+const appDate = a => String(a.created || "").slice(0, 10);
+function hireBadge(){
+  const n = applicants.filter(a => (a.status || "new") === "new").length;
+  $("hireBadge").textContent = n ? String(n) : "";
+  $("hireBtn").setAttribute("aria-label", n ? `Driver applicants, ${n} new` : "Driver applicants");
+  $("hireAlert").hidden = !n;
+  if (n) $("hireAlert").innerHTML = `👥 <b>${n} new driver application${n === 1 ? "" : "s"}</b>. Tap to view.`;
+}
+function renderHire(){
+  const act = a => ["new", "contacted", "interview"].includes(a.status || "new");
+  const F = [["active", "Active", applicants.filter(act).length], ["hired", "Hired", applicants.filter(a => a.status === "hired").length], ["pass", "Pass", applicants.filter(a => a.status === "pass").length], ["all", "All", applicants.length]];
+  $("hireChips").innerHTML = chipsHtml(F, hireFilter, "h");
+  const list = applicants.filter(a => hireFilter === "all" ? true : hireFilter === "active" ? act(a) : a.status === hireFilter)
+    .sort((a, b) => String(b.created || "").localeCompare(String(a.created || "")));
+  if (!list.length) { $("hireList").innerHTML = `<div class="empty"><b>${applicants.length ? "Nothing here" : "No applications yet"}</b>${applicants.length ? "No applicants in this group." : "Share your hiring page link (Settings → Hiring page) and applications will land here."}</div>`; return; }
+  const tel = p => String(p || "").replace(/[^\d+]/g, "");
+  $("hireList").innerHTML = list.map(a => {
+    const st = a.status || "new", bad = x => x && x !== "0";
+    const facts = [a.cdl && `CDL: ${esc(a.cdl)}`, a.years && `${esc(a.years)} yrs`, a.reefer && `<span class="${a.reefer === "Yes" ? "ok" : ""}" style="padding:0;background:none">Reefer: ${esc(a.reefer)}</span>`,
+      a.medcard && `Med card: ${esc(a.medcard)}`, a.start && `Start: ${esc(a.start)}`].filter(Boolean).map(x => `<span>${x}</span>`).join("")
+      + (a.endorse && a.endorse.length ? `<span>${esc(a.endorse.join(", "))}</span>` : "")
+      + `<span class="${bad(a.violations) ? "flag" : "ok"}">Violations: ${esc(a.violations || "?")}</span><span class="${bad(a.accidents) ? "flag" : "ok"}">Accidents: ${esc(a.accidents || "?")}</span>`;
+    return `<article class="item" data-id="${esc(a.id)}" style="border-left-color:${st === "new" ? "var(--blue)" : st === "hired" ? "var(--good)" : st === "pass" ? "var(--muted)" : "var(--violet)"}">
+      <div class="top2">
+        <div style="min-width:0"><div class="big">${esc(a.name)}</div><div class="meta">${esc([a.city, a.state].filter(Boolean).join(", "))}${appDate(a) ? " · applied " + niceDate(appDate(a)) : ""}</div></div>
+        <div class="r"><span class="pill">${esc((HSTAGES.find(h => h[0] === st) || [0, st])[1])}</span></div>
+      </div>
+      <div class="appfacts">${facts}</div>
+      ${a.notes ? `<div class="appnote">${esc(a.notes)}</div>` : ""}
+      <div class="btns">${a.phone ? `<a class="chip" href="tel:${esc(tel(a.phone))}" style="text-decoration:none">📞 ${esc(a.phone)}</a><a class="chip" href="sms:${esc(tel(a.phone))}" style="text-decoration:none">💬 Text</a>` : ""}${a.email ? `<a class="chip" href="mailto:${esc(a.email)}" style="text-decoration:none">✉️ Email</a>` : ""}</div>
+      <div class="hirestages">${HSTAGES.map(([id, lab]) => `<button type="button" data-hs="${id}" aria-pressed="${st === id}">${lab}</button>`).join("")}</div>
+      <label>Your notes<textarea data-a="note" rows="2" placeholder="Called Tue, interview Fri…">${esc(a.myNotes || "")}</textarea></label>
+      <div class="acts"><button type="button" data-a="del" class="danger">Delete</button></div>
+      <div class="confirm" hidden><span>Delete this application?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
+    </article>`; }).join("");
+}
+$("hireBtn").onclick = () => showTab("hire");
+$("hireAlert").onclick = () => showTab("hire");
+$("hireChips").addEventListener("click", e => { const b = e.target.closest("[data-h]"); if (b) { hireFilter = b.dataset.h; renderHire(); } });
+$("hireList").addEventListener("click", e => {
+  const card = e.target.closest(".item"); if (!card) return;
+  const a = applicants.find(x => x.id === card.dataset.id); if (!a) return;
+  const hs = e.target.closest("[data-hs]");
+  if (hs) { a.status = hs.dataset.hs; Sync.push("applications"); renderHire(); hireBadge(); return; }
+  const b = e.target.closest("button[data-a]"); if (!b) return;
+  if (b.dataset.a === "del") card.querySelector(".confirm").hidden = false;
+  if (b.dataset.a === "nodel") card.querySelector(".confirm").hidden = true;
+  if (b.dataset.a === "yesdel") { applicants = applicants.filter(x => x !== a); Sync.push("applications"); renderHire(); hireBadge(); toast("Application deleted"); }
+});
+$("hireList").addEventListener("change", e => {
+  if (!e.target.matches('[data-a="note"]')) return;
+  const a = applicants.find(x => x.id === e.target.closest(".item").dataset.id); if (!a) return;
+  a.myNotes = e.target.value.trim().slice(0, 2000); Sync.push("applications"); toast("Note saved");
+});
+const jobsUrl = () => new URL("jobs/", location.href.split("#")[0]).href;
+$("jobsCopy").onclick = async () => { try { await navigator.clipboard.writeText(jobsUrl()); toast("Link copied"); } catch (e) { prompt("Copy this link:", jobsUrl()); } };
+
 // ----- 1099 / tax year (cash basis: a load counts in the year and quarter it was paid) -----
 let taxYear = new Date().getFullYear(), taxTruck = "t1";
 const paidDate = l => { const h = (l.hist || []).find(x => x.s === "funded"); return h ? h.d : ""; };
@@ -1524,9 +1612,10 @@ window.Sync = (() => {
   const plain = v => JSON.parse(JSON.stringify(v));
   const K = {
     loads: { all: () => loads.map(x => [x.id, plain(x)]), set: list => { loads = list.map(([, v]) => (LEGACY[v.stage] ? { ...v, stage: LEGACY[v.stage] } : v)).sort((a, b) => String(b.created || "").localeCompare(String(a.created || ""))); } },
-    expenses: { all: () => expenses.map(x => [x.id, plain(x)]), set: list => { expenses = list.map(([, v]) => v); } }
+    expenses: { all: () => expenses.map(x => [x.id, plain(x)]), set: list => { expenses = list.map(([, v]) => v); } },
+    applications: { all: () => applicants.map(x => [x.id, plain(x)]), set: list => { applicants = list.map(([id, v]) => ({ ...v, id })); } }
   };
-  const last = { loads: null, expenses: null, settings: null };
+  const last = { loads: null, expenses: null, settings: null, applications: null };
   const pending = new Set(), timers = {};
   let on = false, errored = "", gotData = false, userEmail = "";
   const fresh = { expenses: false, settings: false };            // both read from the server (not just the phone's cache)
@@ -1549,6 +1638,7 @@ window.Sync = (() => {
     if (!meta.fromCache) { gotData = true; if (k in fresh && !fresh[k]) { fresh[k] = true; setTimeout(() => { if (postRecurring()) redraw(); }, 0); } }
     if (meta.hasPendingWrites) pending.add(k); else pending.delete(k);
     if (k === "settings") { last.settings = stable(data || null); settings = { ...DEFAULTS, ...(data || {}) }; redraw(); status(); return; }
+    if (k === "applications") data = data.map(([id, v]) => [id, { ...v, id }]);   // public form docs don't carry their own id
     last[k] = new Map(data.map(([id, v]) => [id, stable(v)]));
     K[k].set(data); redraw(); status();
   }
@@ -1588,7 +1678,7 @@ window.Sync = (() => {
     $("authGate").hidden = true; document.body.classList.remove("auth-lock"); status(); render();
   }
   function signedOut(){
-    on = false; fresh.expenses = fresh.settings = false; loads = []; expenses = []; settings = { ...DEFAULTS }; last.loads = last.expenses = last.settings = null;
+    on = false; fresh.expenses = fresh.settings = false; loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; last.loads = last.expenses = last.settings = last.applications = null;
     $("authGate").hidden = false; document.body.classList.add("auth-lock");
     $("authForm").hidden = false; $("authWait").hidden = true; $("authMsg").textContent = "";
   }
@@ -1611,7 +1701,7 @@ window.Sync = (() => {
   return { apply, push, error, signedIn, signedOut, ready: () => on && fresh.expenses && fresh.settings };
 })();
 
-{ const t = location.hash.slice(1); if (t === "exp-recurring") { showTab("exp"); setExpView("rec"); } else if (["loads", "exp", "tax", "set"].includes(t)) showTab(t); else render(); }
+{ const t = location.hash.slice(1); if (t === "exp-recurring") { showTab("exp"); setExpView("rec"); } else if (["loads", "exp", "tax", "set", "hire"].includes(t)) showTab(t); else render(); }
 </script>
 <script type="module">
 // ===== Truck Ops cloud: Firebase Google sign-in + Firestore sync =====
@@ -1648,6 +1738,11 @@ function startSync(){
   const d = getDb();
   ["loads", "expenses"].forEach(c => unsubs.push(onSnapshot(collection(d, c), { includeMetadataChanges: true },
     snap => S.apply(c, snap.docs.map(x => [x.id, x.data()]), snap.metadata), err => S.error(c, err))));
+  // driver applications from the public hiring page (timestamps turned into plain dates)
+  const iso = v => v && typeof v.toDate === "function" ? v.toDate().toISOString() : v;
+  unsubs.push(onSnapshot(collection(d, "applications"), { includeMetadataChanges: true },
+    snap => S.apply("applications", snap.docs.map(x => { const v = x.data(); return [x.id, { ...v, created: iso(v.created) }]; }), snap.metadata),
+    err => console.warn("applications not readable yet (check Firestore rules)", err)));   // never blocks the rest of the app
   unsubs.push(onSnapshot(doc(d, "meta", "settings"), { includeMetadataChanges: true },
     snap => S.apply("settings", snap.exists() ? snap.data() : null, snap.metadata), err => S.error("settings", err)));
 }
