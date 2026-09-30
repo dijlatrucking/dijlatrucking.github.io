@@ -533,7 +533,8 @@ window.RateCon = (() => {
       /(?<!customer\s)\bPO\s*#\s*([0-9]{5,})/i, /\b([0-9]{5,})\s*\n\s*(?:trip|load|order)\s*(?:number|#|no)/i];
     for (const re of NO_KEYS) { const m = text.match(re); if (m) { f.loadNo = m[1]; break; } }
     // pickup / delivery: find a section keyword, then the first City, ST and date after it
-    const SKIP = /boise, id|ogden, ut|milford, oh|exeter, nh|fort myers, fl/i;   // our address, broker and factoring offices
+    // our own address (Boise 83709, W Gowen Rd) and broker/factoring offices; loads can still pick up or deliver in Boise
+    const SKIP = /\b83709\b|gowen|ogden, ut|milford, oh|exeter, nh|fort myers, fl/i;
     const PU = /(pick[\s-]*up\b|\bpickup\b|\bshipper\b|\borigin\b|^\s*PU\s+\d|\bPICK\s+\d|\bload at\b)/i;
     const DEL = /(\bdelivery\b|\bdeliver to\b|\bconsignee\b|\breceiver\b|\bdestination\b|^\s*SO\s+\d|\bSTOP\s+\d|\bDEL\s+\d|\bdrop\b|\bunload at\b)/i;
     const grab = (start, span) => {
@@ -567,7 +568,9 @@ window.RateCon = (() => {
       if (i >= 0 && lines[i + 1]) { const n = lines[i + 1].match(/\b\d{1,5}\b/g); if (n && n.length >= 2) f.truckNo = n[n.length - 2]; else if (n) f.truckNo = n[0]; }
     }
     // miles, weight, commodity (nice to have)
-    const mi = text.match(/\b(?:total\s+)?miles?\s*:?\s*([0-9,]{2,6})\b/i); if (mi) f.miles = parseInt(mi[1].replace(/,/g, ""), 10);
+    const mi = text.match(/\b(?:total\s+)?miles?\s*:?\s*([0-9,]{2,6})\b/i)
+      || text.match(/\b(?:distance|total|loaded)\s*:?\s*([0-9,]{2,6})(?:\.\d+)?\s*(?:mi|miles)\b/i);   // "Distance 2195.07 Miles"
+    if (mi) f.miles = parseInt(mi[1].replace(/,/g, ""), 10);
     const wt = text.match(/\b(?:estimated\s+)?weight\s*:?\s*([0-9,]{3,6}(?:\.\d+)?)/i); if (wt) f.weight = Math.round(parseFloat(wt[1].replace(/,/g, "")));
     const cm = text.match(/commodit(?:y|ies)\s*:?\s*([A-Za-z][A-Za-z &/-]{2,30})/i) || text.match(/description\s*:\s*([A-Za-z][A-Za-z &/-]{2,30})/i);
     const cleanC = s => s.trim().replace(/\s{2,}.*/, "").replace(/\s+(trailer|temp|weight|pieces|pcs|hazmat|size|type|mode|reefer|van|miles)\b.*$/i, "");
@@ -576,6 +579,7 @@ window.RateCon = (() => {
     if (cm && !junk(cleanC(cm[1]))) f.commodity = titleCase(cleanC(cm[1]));
     else if (pr && !junk(cleanC(pr[1]))) f.commodity = titleCase(cleanC(pr[1]));
     if (!f.commodity) { const m = text.match(/Truckload\s+([A-Za-z][A-Za-z ]{2,25})/); if (m) f.commodity = titleCase(m[1].trim().replace(/\s{2,}.*/, "")); }
+    if (!f.commodity) { const m = text.match(/^\s*item\s*:\s*(.{3,40}?)\s*$/im); if (m && !junk(m[1])) f.commodity = m[1].replace(/\s{2,}.*/, "").trim(); }   // Echo: "Item: ..."
     return f;
   }
   return { readFile, parse };
