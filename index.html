@@ -271,7 +271,7 @@
     <form class="card stack" id="expForm" hidden autocomplete="off">
       <h2 id="expFormTitle">New expense</h2>
       <label class="scanbtn" id="billWrap"><input type="file" id="billFile" accept="application/pdf,.pdf,image/*"><span>📄 Scan bill / receipt</span></label>
-      <p class="scanmsg" id="billMsg" role="status">IFTA service bills, statements and receipts. Read on this phone, never uploaded or saved.</p>
+      <p class="scanmsg" id="billMsg" role="status">Fuel receipts, IFTA service bills and statements. Read on this phone, never uploaded or saved.</p>
       <div class="billplan" id="billPlan" hidden></div>
       <div class="row2">
         <label>Category<select id="eCat"></select></label>
@@ -559,7 +559,34 @@ window.BillReader = (() => {
     // itemized lines: "--- Licensing services $45.00"
     lines.forEach(l => { const m = l.match(/^\W*-{2,}\s*([A-Za-z][A-Za-z /&]+?)\s+\$\s*([\d,]+\.\d{2})/); if (m) out.items.push({ desc: m[1].trim(), amt: toNum(m[2]) }); });
     out.ifta = /ifta|truckers\s*reporting|fuel\s*tax|tax\s*reporting|operations\s*tax/i.test(text) || (out.units.length > 0 && /licens/i.test(text));
+    out.fuel = parseFuel(text, lines);
+    if (out.fuel) out.ifta = false;
     return out;
+  }
+  // ---- fuel receipts (Love's, Pilot/Flying J, TA/Petro, etc.) ----
+  const STATES = "AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(" ");
+  const STOPS = [["Love's", /\blove'?s\b|\bloves\b/i], ["Pilot Flying J", /\bpilot\b|flying\s*j/i], ["TA Petro", /travel\s*centers|\bpetro\b|\bTA\s+(express|travel)/i],
+    ["Sapp Bros", /sapp\s*bros/i], ["Maverik", /maverik/i], ["Town Pump", /town\s*pump/i], ["Kwik Trip", /kwik\s*trip/i], ["Road Ranger", /road\s*ranger/i],
+    ["Petro-Canada", /petro-?canada/i], ["Speedway", /speedway/i], ["Chevron", /chevron/i], ["Shell", /\bshell\b/i], ["Sinclair", /sinclair/i], ["Casey's", /casey'?s/i]];
+  function parseFuel(text, lines){
+    const gm = text.match(/\bgal(?:lon)?s?\.?\s*:?\s*([\d,]+\.\d{1,3})\b/i) || text.match(/\b([\d,]+\.\d{3})\s*gal/i) || text.match(/\bqty\s*:?\s*([\d,]+\.\d{3})\b/i);
+    const fuelWords = /diesel|trkds|ulsd|\bdsl\b|reefer|price\s*\/\s*gal|ppg|\bpump\b|gallons/i.test(text);
+    if (!gm || !fuelWords) return null;
+    const f = { gallons: toNum(gm[1]) };
+    const pg = text.match(/(?:price\s*\/?\s*gal\w*|ppg|\$\s*\/\s*gal)\s*:?\s*\$?\s*(\d+\.\d{2,4})/i); if (pg) f.ppg = toNum(pg[1]);
+    const ts = text.match(/total\s*sale\s*:?\s*\$?\s*([\d,]+\.\d{2})/i) || text.match(/^\W*total\b[^\n\d$]{0,20}\$?\s*([\d,]+\.\d{2})/im) || text.match(/amount\s*:?\s*\$?\s*([\d,]+\.\d{2})/i);
+    if (ts) f.total = toNum(ts[1]); else if (f.ppg) f.total = Math.round(f.ppg * f.gallons * 100) / 100;
+    const dt = text.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/); if (dt) { let y = dt[3]; if (y.length === 2) y = "20" + y; f.date = iso(+y, +dt[1], +dt[2]); }
+    // state: from the store's "City, ST 12345" line (first address on the receipt)
+    for (const l of lines) { const m = l.match(/([A-Za-z .'-]{2,}),?\s+([A-Z]{2})\s+\d{5}\b/); if (m && STATES.includes(m[2])) { f.state = m[2]; f.city = m[1].trim().replace(/^.*\d\s+/, ""); break; } }
+    for (const [n, re] of STOPS) if (re.test(text)) { f.vendor = n; break; }
+    const st = text.match(/\bstore\s*#?\s*(\d{2,6})/i); if (st) f.store = st[1];
+    const tk = text.match(/\b(?:tkt|ticket|trans(?:action)?|receipt)\s*#?\s*:?\s*(\d{4,})/i); if (tk) f.ticket = tk[1];
+    const un = text.match(/\b(?:vehicle\s*id|veh(?:icle)?\s*#|unit(?:\s*(?:#|no\.?|number))?|truck\s*(?:#|no\.?|number))\s*:?\s*(\d{1,5})\b/i); if (un) f.unit = un[1];
+    const od = text.match(/\b(?:hub\s*)?odometer\s*:?\s*(\d{3,7})/i); if (od) f.odometer = od[1];
+    f.gap = /fleet\s*one|gap\s*services|gap\s*factoring/i.test(text);
+    const def = text.match(/\bDEF\b[^\n]*?([\d,]+\.\d{2})\s*$/im); if (def) f.def = toNum(def[1]);
+    return f;
   }
   return { parse };
 })();
@@ -858,6 +885,21 @@ $("billFile").addEventListener("change", async e => {
     const { text } = await RateCon.readFile(file, t => say(t));
     const b = BillReader.parse(text);
     const set = (id, v) => { if (v === undefined || v === "" || v === null) return; $(id).value = v; $(id).classList.add("filled"); };
+    if (b.fuel) {                       // fuel receipt: gallons, state, truck, GAP card
+      const f = b.fuel;
+      document.querySelectorAll("#expForm .filled").forEach(el => el.classList.remove("filled"));
+      $("eCat").value = "Fuel"; $("eCat").classList.add("filled"); fuelToggle();
+      set("eAmt", f.total); set("eDate", f.date); set("eGal", f.gallons); set("eState", f.state);
+      paidTouched = true; $("ePaid").value = f.gap ? "gap" : "own"; $("ePaid").classList.add("filled");
+      const tb = truckByUnit(f.unit); if (tb) { $("eTruck").value = tb; $("eTruck").classList.add("filled"); }
+      const note = [[f.vendor, f.store ? "#" + f.store : ""].filter(Boolean).join(" "), f.city && f.state ? `${f.city}, ${f.state}` : "",
+        f.ticket ? "Tkt #" + f.ticket : "", f.ppg ? `$${f.ppg}/gal` : "", f.odometer ? "odo " + Number(f.odometer).toLocaleString("en-US") : "", f.def ? `incl. DEF ${money2(f.def)}` : ""].filter(Boolean).join(" · ");
+      set("eNote", note);
+      const fdup = f.ticket && expenses.find(x => (x.note || "").includes("Tkt #" + f.ticket));
+      say(`Filled in ${money2(f.total || 0)} · ${f.gallons} gal${f.state ? " in " + f.state : ""}${tb ? " · " + truckName(tb) : " · pick the truck"}${f.gap ? " · GAP card" : ""}. Check the green fields and save.` +
+        (fdup ? ` Heads up: ticket #${f.ticket} is already saved.` : ""), fdup ? "bad" : "ok");
+      return;
+    }
     const dup = b.invoice && expenses.find(x => (x.note || "").includes("#" + b.invoice));
     const label = [b.vendor || (b.ifta ? "IFTA service" : ""), b.month, b.period].filter(Boolean).join(" · ");
     if (b.units.length >= 1 && b.ifta) {
@@ -940,7 +982,7 @@ function openExpForm(x){
   paidTouched = !!x; $("ePaid").value = v.paidWith || (["Fuel", "DEF"].includes(v.cat) ? "gap" : "own");
   $("eGal").value = v.gallons ?? ""; $("eState").value = v.state || ""; $("eNote").value = v.note || ""; $("eLink").value = v.link || "";
   document.querySelectorAll("#expForm .filled").forEach(el => el.classList.remove("filled"));
-  $("billPlan").hidden = true; billUnits = null; $("billMsg").className = "scanmsg"; $("billMsg").textContent = "IFTA service bills, statements and receipts. Read on this phone, never uploaded or saved.";
+  $("billPlan").hidden = true; billUnits = null; $("billMsg").className = "scanmsg"; $("billMsg").textContent = "Fuel receipts, IFTA service bills and statements. Read on this phone, never uploaded or saved.";
   fuelToggle(); $("expForm").hidden = false; $("expNewBtn").hidden = true;
   $("expForm").scrollIntoView({ block: "start", behavior: "smooth" });
 }
