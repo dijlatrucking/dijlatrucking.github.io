@@ -56,6 +56,11 @@
   .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
   .chip{flex:none;border-radius:999px;padding:7px 12px;font-size:13px;color:var(--muted);background:var(--panel)}
   .chip span{opacity:.7;margin-left:3px}
+  .seg{display:grid;grid-template-columns:1fr 1fr;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+  .seg button{border:0;background:none;border-radius:8px;padding:9px 6px;font-weight:600;color:var(--muted)}
+  .seg button[aria-pressed="true"]{background:var(--acc);color:#141100}
+  .item.paused{opacity:.6}
+  .rhint{font-size:12.5px;color:var(--muted);margin:0}
   .chip[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#141100}
   .list{display:grid;gap:10px}
   .item{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:10px;padding:13px;display:grid;gap:8px}
@@ -254,6 +259,8 @@
 
   <!-- ===== EXPENSES ===== -->
   <section class="stack" id="tab-exp" hidden>
+    <div class="seg" id="expSeg" role="group" aria-label="Expenses view"><button type="button" data-v="all" aria-pressed="true">All expenses</button><button type="button" data-v="rec" aria-pressed="false">🔁 Recurring</button></div>
+    <div class="stack" id="expMain">
     <div class="stats stats4" id="expStats"></div>
     <div class="row2"><button type="button" class="primary" id="expNewBtn">+ Add expense</button><button type="button" id="erOpen">📄 Report</button></div>
     <div class="card stack" id="erCard" hidden>
@@ -298,6 +305,32 @@
     </div>
     <select id="exCat" aria-label="Category"></select>
     <div class="list" id="expList"></div>
+    </div>
+    <div class="stack" id="expRec" hidden>
+      <div class="stats" id="recStats"></div>
+      <button type="button" class="primary" id="recNewBtn">+ Add recurring charge</button>
+      <form class="card stack" id="recForm" hidden autocomplete="off">
+        <h2 id="recFormTitle">New recurring charge</h2>
+        <label>Name<input id="rName" placeholder="e.g. Progressive insurance, Motive ELD"></label>
+        <div class="row2">
+          <label>Category<select id="rCat"></select></label>
+          <label>Amount ($)<input id="rAmt" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label>
+        </div>
+        <div class="row2">
+          <label>Truck<select id="rTruck"></select></label>
+          <label>How often<select id="rFreq"><option value="m1">Monthly</option><option value="w1">Weekly</option><option value="w2">Every 2 weeks</option><option value="m3">Every 3 months</option><option value="m6">Every 6 months</option><option value="m12">Yearly</option></select></label>
+        </div>
+        <div class="row2">
+          <label>First charge date<input id="rStart" type="date"></label>
+          <label>Paid with<select id="rPaid"><option value="own">Own card / bank</option><option value="gap">GAP (out of load pay)</option></select></label>
+        </div>
+        <label>Note<input id="rNote" placeholder="Optional, e.g. policy #, last 4 of card"></label>
+        <p class="rhint" id="rHint"></p>
+        <div class="btns"><button type="button" class="ghost" id="recCancel">Cancel</button><button type="submit" class="primary">Save</button></div>
+      </form>
+      <div class="list" id="recList"></div>
+      <p class="meta" style="margin:0">Each charge is added to your expenses on its due date, on both phones. Delete one from the expenses list if a month didn't get charged; it won't come back.</p>
+    </div>
   </section>
 
   <!-- ===== 1099 / TAX ===== -->
@@ -620,7 +653,7 @@ const STAGES = () => [["booked", "Booked"], ["pickedup", "Picked up"], ["deliver
 const LEGACY = { dispatched: "booked", submitted: "delivered" };
 const stLabel = id => (STAGES().find(s => s[0] === id) || [0, id])[1];
 const OPEN = ["booked", "pickedup", "delivered"];
-const CATS = ["Fuel", "DEF", "Tolls", "Repairs", "Tires", "Maintenance", "Insurance", "Truck payment", "Trailer", "Permits & plates", "IFTA tax", "IFTA service fee", "Parking", "Lumper", "Scale", "Phone & ELD", "Other"];
+const CATS = ["Fuel", "DEF", "Tolls", "Repairs", "Tires", "Maintenance", "Insurance", "Truck payment", "Trailer", "Permits & plates", "IFTA tax", "IFTA service fee", "Parking", "Lumper", "Scale", "Phone & ELD", "Subscriptions", "Other"];
 
 // ----- Load math -----
 const lMiles = l => num(l.miles) + num(l.empty);
@@ -640,7 +673,7 @@ function showTab(name){
   tab = name;
   document.querySelectorAll("section[id^=tab-]").forEach(s => s.hidden = s.id !== "tab-" + name);
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
-  try { history.replaceState(null, "", name === "dash" ? location.pathname : "#" + name); } catch (e) {}
+  try { history.replaceState(null, "", name === "dash" ? location.pathname : "#" + name + (name === "exp" && expView === "rec" ? "-recurring" : "")); } catch (e) {}
   render(); window.scrollTo(0, 0);
 }
 document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
@@ -649,7 +682,7 @@ function render(){
   document.title = settings.company || "Dijla Trucking";
   if (tab === "dash") renderDash();
   if (tab === "loads") renderLoads();
-  if (tab === "exp") renderExp();
+  if (tab === "exp") { renderExp(); renderRec(); }
   if (tab === "set") fillSettings();
   if (tab === "tax") renderTax();
 }
@@ -960,7 +993,7 @@ function renderExp(){
   if (!list.length) { $("expList").innerHTML = expenses.length ? `<div class="empty"><b>Nothing here</b>No expenses match these filters.</div>` : `<div class="empty"><b>No expenses yet</b>Tap "Add expense" for fuel, repairs and the rest.</div>`; return; }
   $("expList").innerHTML = list.map(e => `<article class="item" data-id="${esc(e.id)}" style="border-left-color:${e.cat === "Fuel" ? "var(--acc)" : "var(--blue)"}">
       <div class="top2">
-        <div style="min-width:0"><div class="big">${esc(e.cat)}</div><div class="meta">${niceDate(e.date)} · ${esc(truckName(e.truck))}${e.cat === "Fuel" && e.gallons ? ` · ${num(e.gallons)} gal${e.state ? " in " + esc(e.state) : ""}` : ""}${isGap(e) ? " · GAP card" : ""}</div></div>
+        <div style="min-width:0"><div class="big">${esc(e.cat)}</div><div class="meta">${niceDate(e.date)} · ${esc(truckName(e.truck))}${e.cat === "Fuel" && e.gallons ? ` · ${num(e.gallons)} gal${e.state ? " in " + esc(e.state) : ""}` : ""}${isGap(e) ? " · GAP card" : ""}${e.rec ? " · 🔁" : ""}</div></div>
         <div class="r"><b class="money">${money2(num(e.amount))}</b></div>
       </div>
       ${e.note ? `<div class="meta" style="color:var(--text)">${esc(e.note)}</div>` : ""}
@@ -1015,8 +1048,120 @@ $("expList").addEventListener("click", e => {
   if (a === "link") window.open(x.link, "_blank", "noopener");
   if (a === "del") card.querySelector(".confirm").hidden = false;
   if (a === "nodel") card.querySelector(".confirm").hidden = true;
-  if (a === "yesdel") { expenses = expenses.filter(y => y !== x); Sync.push("expenses"); renderExp(); toast("Expense deleted"); }
+  if (a === "yesdel") {
+    expenses = expenses.filter(y => y !== x); Sync.push("expenses");
+    const it = x.rec && recItems().find(r => r.id === x.rec);          // don't re-add a deleted recurring charge
+    if (it && !(it.skip || []).includes(x.date)) { it.skip = [...(it.skip || []), x.date]; Sync.push("settings"); }
+    renderExp(); toast("Expense deleted");
+  }
 });
+
+// ----- Recurring charges (kept in the synced settings record) -----
+const recItems = () => (settings.recurring = Array.isArray(settings.recurring) ? settings.recurring : []);
+const FREQ = { m1: "Monthly", w1: "Weekly", w2: "Every 2 weeks", m3: "Every 3 months", m6: "Every 6 months", m12: "Yearly" };
+const PER_MONTH = { m1: 1, w1: 52 / 12, w2: 26 / 12, m3: 1 / 3, m6: 1 / 6, m12: 1 / 12 };
+const ymd = x => x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
+// the k-th charge date; monthly charges on the 31st land on the last day of shorter months
+function nthDate(start, freq, k){
+  const s = new Date(start + "T12:00:00");
+  if (freq[0] === "w") { const d = new Date(s); d.setDate(s.getDate() + 7 * Number(freq.slice(1)) * k); return ymd(d); }
+  const mo = s.getMonth() + Number(freq.slice(1)) * k, y = s.getFullYear() + Math.floor(mo / 12), m = ((mo % 12) + 12) % 12;
+  return ymd(new Date(y, m, Math.min(s.getDate(), new Date(y, m + 1, 0).getDate()), 12));
+}
+function dueDates(it, upTo){
+  const out = [], end = it.end && it.end < upTo ? it.end : upTo;
+  if (!it.start) return out;
+  for (let k = 0; k < 1000; k++) { const d = nthDate(it.start, it.freq || "m1", k); if (d > end) break; out.push(d); }
+  return out;
+}
+const nextDue = it => { if (it.end) return ""; const t = today(); for (let k = 0; k < 1000; k++) { const d = nthDate(it.start, it.freq || "m1", k); if (d >= t && !(it.skip || []).includes(d) && !expenses.some(e => e.id === recExpId(it, d))) return d; } return ""; };
+const recExpId = (it, d) => "rc-" + it.id + "-" + d;
+// add every charge that's come due and isn't in the expenses yet (same id on both phones, so no doubles)
+function postRecurring(){
+  if (!Sync.ready()) return 0;
+  const have = new Set(expenses.map(e => e.id)); let n = 0;
+  recItems().forEach(it => dueDates(it, today()).forEach(d => {
+    const id = recExpId(it, d);
+    if (have.has(id) || (it.skip || []).includes(d)) return;
+    expenses.push({ id, created: new Date().toISOString(), rec: it.id, cat: it.cat, amount: num(it.amount), truck: it.truck, date: d, paidWith: it.paidWith || "own",
+      gallons: 0, state: "", note: it.name + (it.note ? " · " + it.note : ""), link: "" }); have.add(id); n++;
+  }));
+  if (n) { Sync.push("expenses"); toast(`Added ${n} recurring charge${n === 1 ? "" : "s"}`); }
+  return n;
+}
+let expView = "all", editingRec = null;
+function setExpView(v){
+  expView = v; $("expMain").hidden = v !== "all"; $("expRec").hidden = v !== "rec";
+  $("expSeg").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === v)));
+  try { history.replaceState(null, "", v === "rec" ? "#exp-recurring" : "#exp"); } catch (e) {}
+  renderRec();
+}
+$("expSeg").addEventListener("click", e => { const b = e.target.closest("[data-v]"); if (b) setExpView(b.dataset.v); });
+function renderRec(){
+  const items = recItems(), live = items.filter(it => !it.end);
+  const mo = tr => live.reduce((s, it) => s + expShare({ truck: it.truck, amount: num(it.amount) * PER_MONTH[it.freq || "m1"] }, tr), 0);
+  $("recStats").innerHTML = `<div><b>${money(mo("all"))}</b><span>Fixed costs / month</span></div>` + TRUCKS().map(([id, n]) => `<div><b>${money(mo(id))}</b><span>${esc(n)} / month</span></div>`).join("");
+  if (!items.length) { $("recList").innerHTML = `<div class="empty"><b>No recurring charges yet</b>Add insurance, ELD, phones, truck payments and other fixed bills once, and they'll post every period.</div>`; return; }
+  const sorted = [...items].sort((a, b) => (!!a.end - !!b.end) || String(nextDue(a)).localeCompare(String(nextDue(b))));
+  $("recList").innerHTML = sorted.map(it => {
+    const nd = nextDue(it), posted = expenses.filter(e => e.rec === it.id).length;
+    return `<article class="item${it.end ? " paused" : ""}" data-id="${esc(it.id)}" style="border-left-color:var(--blue)">
+      <div class="top2">
+        <div style="min-width:0"><div class="big">${esc(it.name || it.cat)}</div><div class="meta">${esc(it.cat)} · ${esc(truckName(it.truck))} · ${FREQ[it.freq || "m1"]}${it.paidWith === "gap" ? " · GAP" : ""}</div></div>
+        <div class="r"><b class="money">${money2(num(it.amount))}</b></div>
+      </div>
+      <div class="meta">${it.end ? `Paused since ${niceDate(it.end)}` : nd ? `Next: <b style="color:var(--text)">${niceDate(nd)}</b>${nd.slice(0, 4) !== today().slice(0, 4) ? ", " + nd.slice(0, 4) : ""}` : ""} · ${posted} posted${it.note ? " · " + esc(it.note) : ""}</div>
+      <div class="acts"><button type="button" data-a="edit">Edit</button><button type="button" data-a="${it.end ? "resume" : "pause"}">${it.end ? "Resume" : "Pause"}</button><button type="button" data-a="del" class="danger">Delete</button></div>
+      <div class="confirm" hidden><span>Stop this charge? Expenses already added stay.</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
+    </article>`; }).join("");
+}
+$("rCat").innerHTML = CATS.filter(c => !["Fuel", "DEF"].includes(c)).map(c => `<option>${c}</option>`).join("");
+function recHint(){
+  const st = $("rStart").value; if (!st) { $("rHint").textContent = ""; return; }
+  const probe = { id: editingRec || "x", start: st, freq: $("rFreq").value, skip: (recItems().find(r => r.id === editingRec) || {}).skip };
+  const due = dueDates(probe, today()).filter(d => !(probe.skip || []).includes(d) && !expenses.some(e => e.id === recExpId(probe, d)));
+  $("rHint").textContent = due.length ? `Saving adds ${due.length} charge${due.length === 1 ? "" : "s"} from ${niceDate(due[0])}${due.length > 1 ? " to " + niceDate(due[due.length - 1]) : ""} to your expenses now.` : `First charge posts on ${niceDate(nthDate(st, $("rFreq").value, 0) >= today() ? nthDate(st, $("rFreq").value, 0) : nextDue(probe))}.`;
+}
+["rStart", "rFreq"].forEach(id => $(id).addEventListener("change", recHint));
+function openRecForm(it){
+  editingRec = it ? it.id : null;
+  $("recFormTitle").textContent = it ? "Edit recurring charge" : "New recurring charge";
+  fillTruckSelect($("rTruck"), true);
+  const v = it || { cat: "Insurance", truck: "shared", freq: "m1", start: today(), paidWith: "own" };
+  $("rName").value = v.name || ""; $("rCat").value = v.cat; $("rAmt").value = v.amount ?? ""; $("rTruck").value = v.truck; $("rFreq").value = v.freq || "m1";
+  $("rStart").value = v.start || today(); $("rPaid").value = v.paidWith || "own"; $("rNote").value = v.note || "";
+  recHint(); $("recForm").hidden = false; $("recNewBtn").hidden = true; $("recForm").scrollIntoView({ block: "start", behavior: "smooth" });
+}
+function closeRecForm(){ $("recForm").hidden = true; $("recNewBtn").hidden = false; editingRec = null; }
+$("recNewBtn").onclick = () => openRecForm(null);
+$("recCancel").onclick = closeRecForm;
+$("recForm").onsubmit = e => {
+  e.preventDefault();
+  if (!$("rName").value.trim()) { toast("Give it a name"); $("rName").focus(); return; }
+  if (!$("rAmt").value) { toast("Add the amount"); $("rAmt").focus(); return; }
+  const f = { name: $("rName").value.trim(), cat: $("rCat").value, amount: Math.round(num($("rAmt").value) * 100) / 100, truck: $("rTruck").value,
+    freq: $("rFreq").value, start: $("rStart").value || today(), paidWith: $("rPaid").value, note: $("rNote").value.trim() };
+  const was = editingRec;
+  if (was) Object.assign(recItems().find(r => r.id === was), f);
+  else recItems().push({ id: newId("r"), created: new Date().toISOString(), skip: [], ...f });
+  Sync.push("settings"); closeRecForm(); postRecurring(); render(); toast(was ? "Recurring charge saved" : "Recurring charge added");
+};
+$("recList").addEventListener("click", e => {
+  const b = e.target.closest("[data-a]"); if (!b) return;
+  const card = b.closest(".item"), it = recItems().find(r => r.id === card.dataset.id); if (!it) return;
+  const a = b.dataset.a;
+  if (a === "edit") openRecForm(it);
+  if (a === "del") card.querySelector(".confirm").hidden = false;
+  if (a === "nodel") card.querySelector(".confirm").hidden = true;
+  if (a === "pause") { const t = new Date(); t.setDate(t.getDate() - 1); it.end = ymd(t); Sync.push("settings"); renderRec(); toast("Paused. No new charges until you resume."); }
+  if (a === "resume") {                                              // pick the schedule back up from the next due date, no back-charges
+    const t = today(); let k = 0; while (nthDate(it.start, it.freq || "m1", k) < t && k < 1000) k++;
+    const missed = []; for (let j = 0; j < k; j++) { const d = nthDate(it.start, it.freq || "m1", j); if (d > it.end && !expenses.some(x => x.id === recExpId(it, d))) missed.push(d); }
+    it.skip = [...new Set([...(it.skip || []), ...missed])]; delete it.end; Sync.push("settings"); postRecurring(); renderRec(); toast("Resumed");
+  }
+  if (a === "yesdel") { settings.recurring = recItems().filter(r => r !== it); Sync.push("settings"); renderRec(); toast("Recurring charge removed"); }
+});
+document.addEventListener("visibilitychange", () => { if (!document.hidden && postRecurring()) render(); });
 
 // ----- 1099 / tax year (cash basis: a load counts in the year and quarter it was paid) -----
 let taxYear = new Date().getFullYear(), taxTruck = "t1";
@@ -1360,7 +1505,7 @@ function fillSettings(){
 }
 $("setForm").onsubmit = e => {
   e.preventDefault();
-  settings = { company: $("sCo").value.trim(), t1: $("sT1").value.trim() || "Truck 1", t2: $("sT2").value.trim() || "Truck 2",
+  settings = { ...settings, company: $("sCo").value.trim(), t1: $("sT1").value.trim() || "Truck 1", t2: $("sT2").value.trim() || "Truck 2",
     u1: $("sU1").value.trim(), u2: $("sU2").value.trim(),
     factor: $("sFac").value.trim() || "Factoring", pct: Math.max(0, num($("sPct").value)), ageDays: Math.max(1, Math.round(num($("sAge").value)) || 30), countBy: $("sBy").value || "pickup" };
   Sync.push("settings"); document.activeElement.blur(); render(); toast("Settings saved");
@@ -1379,6 +1524,7 @@ window.Sync = (() => {
   const last = { loads: null, expenses: null, settings: null };
   const pending = new Set(), timers = {};
   let on = false, errored = "", gotData = false, userEmail = "";
+  const fresh = { expenses: false, settings: false };            // both read from the server (not just the phone's cache)
   function status(){
     const el = $("syncState");
     const t = errored ? ["bad", errored] : !navigator.onLine ? ["warn", "Offline · changes sync when you're back online"]
@@ -1395,7 +1541,7 @@ window.Sync = (() => {
   }
   document.addEventListener("focusout", () => setTimeout(() => { if (later) { later = false; redraw(); } }, 60));
   function apply(k, data, meta){
-    if (!meta.fromCache) gotData = true;
+    if (!meta.fromCache) { gotData = true; if (k in fresh && !fresh[k]) { fresh[k] = true; setTimeout(() => { if (postRecurring()) redraw(); }, 0); } }
     if (meta.hasPendingWrites) pending.add(k); else pending.delete(k);
     if (k === "settings") { last.settings = stable(data || null); settings = { ...DEFAULTS, ...(data || {}) }; redraw(); status(); return; }
     last[k] = new Map(data.map(([id, v]) => [id, stable(v)]));
@@ -1437,7 +1583,7 @@ window.Sync = (() => {
     $("authGate").hidden = true; document.body.classList.remove("auth-lock"); status(); render();
   }
   function signedOut(){
-    on = false; loads = []; expenses = []; settings = { ...DEFAULTS }; last.loads = last.expenses = last.settings = null;
+    on = false; fresh.expenses = fresh.settings = false; loads = []; expenses = []; settings = { ...DEFAULTS }; last.loads = last.expenses = last.settings = null;
     $("authGate").hidden = false; document.body.classList.add("auth-lock");
     $("authForm").hidden = false; $("authWait").hidden = true; $("authMsg").textContent = "";
   }
@@ -1457,10 +1603,10 @@ window.Sync = (() => {
     on = false; if (window.Cloud) await Cloud.signOut(); location.reload();
   };
   setTimeout(() => { if (!window.Cloud) $("authWait").textContent = "Couldn't reach the sign-in service. Check your internet and reload."; }, 12000);
-  return { apply, push, error, signedIn, signedOut };
+  return { apply, push, error, signedIn, signedOut, ready: () => on && fresh.expenses && fresh.settings };
 })();
 
-{ const t = location.hash.slice(1); if (["loads", "exp", "tax", "set"].includes(t)) showTab(t); else render(); }
+{ const t = location.hash.slice(1); if (t === "exp-recurring") { showTab("exp"); setExpView("rec"); } else if (["loads", "exp", "tax", "set"].includes(t)) showTab(t); else render(); }
 </script>
 <script type="module">
 // ===== Truck Ops cloud: Firebase Google sign-in + Firestore sync =====
