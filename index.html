@@ -2388,7 +2388,7 @@ window.DriverApp = (() => {
     return `<article class="item st-${esc(t.stage)}" data-t="${esc(t.id)}">
       <div class="top2"><div style="min-width:0"><div class="big">${esc(t.broker || "Load")}${t.loadNo ? ` <span class="mono muted" style="font-weight:500;font-size:13px">#${esc(t.loadNo)}</span>` : ""}</div>
         <div class="lane">${esc(t.from || "?")} → ${esc(t.to || "?")}</div></div>
-        <div class="r"><span class="pill st-${esc(t.stage)}">${esc(STAGE_TXT[t.stage] || t.stage)}</span><b class="money">${money2(num(t.pay))}</b><span class="meta">you earn</span></div></div>
+        <div class="r"><span class="pill st-${esc(t.stage)}">${esc(STAGE_TXT[t.stage] || t.stage)}</span></div></div>
       <div class="meta">${esc(t.truckName || "")} · Pickup ${niceDate(t.fromDate) || "?"} · Deliver ${niceDate(t.toDate) || "?"}${num(t.miles) + num(t.empty) ? ` · ${(num(t.miles) + num(t.empty)).toLocaleString("en-US")} mi` : ""}${t.weight ? ` · ${num(t.weight).toLocaleString("en-US")} lb` : ""}${t.commodity ? " · " + esc(t.commodity) : ""}</div>
       ${t.stmt ? `<div class="meta">On a pay statement ✓</div>` : ""}
       <div class="acts">${next && !old ? `<button type="button" data-a="stage" data-st="${next[0]}" class="primary">${next[1]}</button>` : ""}<button type="button" data-a="papers" aria-expanded="${open}">📎 BOL / POD${pp.length ? ` (${pp.length})` : ""}</button></div>
