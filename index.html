@@ -133,6 +133,11 @@
   .meter .fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--good);border-radius:7px 0 0 7px;transition:width .4s}
   .meter.warn .fill{background:#d9a21b} .meter.full .fill{background:var(--bad)}
   .meter .half{position:absolute;top:-2px;bottom:-2px;left:50%;width:2px;background:var(--text);opacity:.45}
+  .trk{display:grid;grid-template-columns:1fr 92px auto;gap:6px;align-items:center}
+  .trk input{padding:9px 10px}
+  .trk button{padding:9px 11px;font-size:13px}
+  .trkhead{font-size:12.5px;color:var(--muted)}
+  .trk.retired input{opacity:.55}
   .papers{display:grid;gap:6px;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px}
   .pp{display:flex;align-items:center;gap:8px;font-size:14px}
   .pp>span{flex:1;min-width:0;overflow-wrap:anywhere}
@@ -154,7 +159,7 @@
   table.sum{width:100%;border-collapse:collapse;font-size:14px}
   #taxQ{font-size:13px} #taxQ th,#taxQ td{padding:8px 4px}
   table.sum th,table.sum td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
-  table.sum th:first-child,table.sum td:first-child{text-align:left;color:var(--muted);font-weight:500}
+  table.sum th:first-child,table.sum td:first-child{text-align:left;color:var(--muted);font-weight:500;position:sticky;left:0;background:var(--panel);z-index:1;box-shadow:6px 0 6px -6px rgba(15,42,92,.18)}
   table.sum thead th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc-hi)}
   table.sum tr.key td{font-weight:700}
   .scroll{overflow-x:auto}
@@ -435,7 +440,7 @@
     <div class="card"><h2>Income by quarter</h2><div class="scroll"><table class="sum" id="taxQ"></table></div>
       <p class="meta" style="margin:8px 0 0">Counted when paid (the date a load was marked Paid). <span id="taxUnpaid"></span></p></div>
     <div class="card"><h2>Expenses by category</h2><div class="scroll"><table class="sum" id="taxCats"></table></div>
-      <p class="meta" style="margin:8px 0 0">Expenses tagged "Both trucks" are split 50/50. Truck payments: your accountant may only deduct the interest part, plus depreciation.</p></div>
+      <p class="meta" style="margin:8px 0 0">Expenses for all trucks are split evenly across the trucks. Truck payments: your accountant may only deduct the interest part, plus depreciation.</p></div>
     <button type="button" class="primary wide noprint" id="taxPdf">📄 View PDF</button>
     <p class="meta noprint" style="margin:0">This is a record-keeping summary, not tax advice. Have your accountant check it before filing.</p>
   </section>
@@ -445,13 +450,11 @@
     <form class="card stack" id="setForm" autocomplete="off">
       <h2>Company</h2>
       <label>Company name<input id="sCo" placeholder="Truck Ops"></label>
-      <div class="row2">
-        <label>Truck 1 name<input id="sT1" placeholder="Truck 1"></label>
-        <label>Truck 2 name<input id="sT2" placeholder="Truck 2"></label>
-      </div>
-      <div class="row2">
-        <label>Truck 1 unit #<input id="sU1" inputmode="numeric" placeholder="e.g. 5"></label>
-        <label>Truck 2 unit #<input id="sU2" inputmode="numeric" placeholder="e.g. 66"></label>
+      <div class="stack" style="gap:6px">
+        <div class="trk trkhead"><span>Truck name</span><span>Unit #</span><span></span></div>
+        <div id="trkList" class="stack" style="gap:6px"></div>
+        <button type="button" id="trkAdd" style="justify-self:start">+ Add truck</button>
+        <p class="meta" style="margin:0">Unit # lets scanned rate cons and fuel receipts pick the right truck. Removing a truck that already has loads or expenses retires it: it leaves the pickers but its history stays.</p>
       </div>
       <div class="row2">
         <label>Factoring company<input id="sFac" placeholder="GAP"></label>
@@ -801,9 +804,21 @@ function toast(msg){
 let loads = [], expenses = [], applicants = [];
 const DEFAULTS = { company: "", t1: "Truck 1", t2: "Truck 2", factor: "GAP", pct: 2, ageDays: 30, countBy: "pickup" };
 let settings = { ...DEFAULTS };
-const TRUCKS = () => [["t1", settings.t1 || "Truck 1"], ["t2", settings.t2 || "Truck 2"]];
-const truckByUnit = u => { u = String(u || "").replace(/^0+/, ""); return u && String(settings.u1 || "").replace(/^0+/, "") === u ? "t1" : u && String(settings.u2 || "").replace(/^0+/, "") === u ? "t2" : ""; };
-const truckName = id => id === "shared" ? "Both trucks" : (TRUCKS().find(t => t[0] === id) || [0, "?"])[1];
+// Trucks: settings.trucks = [{ id, name, unit, retired }]. Older data only has t1/t2 names and u1/u2 unit numbers.
+const truckList = () => Array.isArray(settings.trucks) && settings.trucks.length ? settings.trucks
+  : [{ id: "t1", name: settings.t1 || "Truck 1", unit: settings.u1 || "" }, { id: "t2", name: settings.t2 || "Truck 2", unit: settings.u2 || "" }];
+const TRUCKS = () => truckList().filter(t => !t.retired).map(t => [t.id, t.name || "Truck"]);        // trucks in use (pickers)
+const ALL_TRUCKS = () => truckList().map(t => [t.id, t.name || "Truck"]);                            // incl. retired (names, history)
+// filters and reports: trucks in use, plus retired ones that still have loads or expenses
+const chipTrucks = () => truckList().filter(t => !t.retired || loads.some(l => l.truck === t.id) || expenses.some(e => e.truck === t.id)).map(t => [t.id, t.name || "Truck"]);
+const activeIds = () => TRUCKS().map(t => t[0]);
+const allLabel = () => TRUCKS().length === 2 ? "Both trucks" : "All trucks";
+const truckByUnit = u => { const z = x => String(x || "").replace(/^0+/, ""); u = z(u); const t = u && truckList().find(t => z(t.unit) === u); return t ? t.id : ""; };
+const truckName = id => id === "shared" ? allLabel() : (ALL_TRUCKS().find(t => t[0] === id) || [0, "?"])[1];
+const firstTruck = () => (TRUCKS()[0] || ALL_TRUCKS()[0] || ["t1"])[0];
+// an expense for all trucks is split evenly across the trucks in use when it was saved (older ones: the first two)
+const splitOf = e => Array.isArray(e.splitIds) && e.splitIds.length ? e.splitIds : ["t1", "t2"];
+const shareOf = (e, truck) => truck === "all" || e.truck === truck ? num(e.amount) : e.truck === "shared" && splitOf(e).includes(truck) ? num(e.amount) / splitOf(e).length : 0;
 const STAGES = () => [["booked", "Booked"], ["pickedup", "Picked up"], ["delivered", "Delivered"], ["funded", "Paid"]];
 // older loads used more stages; fold them into the four we keep
 const LEGACY = { dispatched: "booked", submitted: "delivered" };
@@ -874,10 +889,10 @@ function renderDash(){
   $("dClear").hidden = dashPer !== "custom";
   const L = loads.filter(l => l.stage !== "cancelled" && inRange(lDate(l), r));
   const E = expenses.filter(e => inRange(e.date, r));
-  const cols = [...TRUCKS(), ["all", "Total"]];
+  const cols = [...truckList().filter(t => !t.retired || L.some(l => l.truck === t.id) || E.some(e => e.truck === t.id)).map(t => [t.id, t.name || "Truck"]), ["all", "Total"]];
   const calc = id => {
     const ls = id === "all" ? L : L.filter(l => l.truck === id);
-    const share = e => id === "all" || e.truck === id ? num(e.amount) : e.truck === "shared" ? num(e.amount) / 2 : 0;
+    const share = e => shareOf(e, id);
     const gapFuel = E.filter(isGap).reduce((s, e) => s + share(e), 0);      // bought on the GAP card
     const other = E.filter(e => !isGap(e)).reduce((s, e) => s + share(e), 0);
     const kept = ls.reduce((s, l) => s + lDeduct(l), 0);                       // what GAP kept back on loads with a deposit typed in
@@ -934,7 +949,7 @@ function renderLoads(){
   const wait = loads.filter(l => l.stage === "delivered");
   const mr = range("month"), monthNet = loads.filter(l => l.stage !== "cancelled" && inRange(lDate(l), mr)).reduce((s, l) => s + lNet(l), 0);
   $("loadStats").innerHTML = `<div><b>${open.length}</b><span>Open loads</span></div><div><b>${money(wait.reduce((s, l) => s + lNet(l), 0))}</b><span>Waiting on pay</span></div><div><b>${money(monthNet)}</b><span>Net this month</span></div>`;
-  $("loadTruckChips").innerHTML = chipsHtml([["all", "Both trucks"], ...TRUCKS()], loadTruck, "t");
+  $("loadTruckChips").innerHTML = chipsHtml([["all", allLabel()], ...chipTrucks()], loadTruck, "t");
   const byTruck = loads.filter(l => loadTruck === "all" || l.truck === loadTruck);
   $("loadFilters").innerHTML = chipsHtml([["all", "All", byTruck.length],
     ...STAGES().map(([id, lab]) => [id, lab, byTruck.filter(l => l.stage === id).length])], loadFilter, "f");
@@ -965,7 +980,11 @@ function renderLoads(){
     </article>`;
   }).join("") + (rest ? `<button type="button" class="ghost" id="loadMore" style="width:100%">Show ${Math.min(100, rest)} more · ${rest} older load${rest === 1 ? "" : "s"}</button>` : "");
 }
-function fillTruckSelect(sel, withShared){ sel.innerHTML = TRUCKS().map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join("") + (withShared ? `<option value="shared">Both trucks (split)</option>` : ""); }
+// pickers list trucks in use; a retired truck still shows when it's the one already picked
+function fillTruckSelect(sel, withShared, current){
+  const list = TRUCKS(); if (current && current !== "shared" && !list.some(t => t[0] === current)) list.push([current, truckName(current) + " (retired)"]);
+  sel.innerHTML = list.map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join("") + (withShared ? `<option value="shared">${allLabel()} (split)</option>` : "");
+}
 function loadCalc(){
   const l = { rate: $("lRate").value, miles: $("lMiles").value, empty: $("lEmpty").value, factored: $("lFactored").checked, deposit: $("lDeposit").value };
   $("lCalc").innerHTML = `Rate/mile <b>${rpm(num(l.rate), lMiles(l))}</b> · Loaded/mile <b>${rpm(num(l.rate), num(l.miles))}</b>` +
@@ -976,11 +995,11 @@ function loadCalc(){
 function openLoadForm(l){
   editingLoad = l ? l.id : null;
   $("loadFormTitle").textContent = l ? "Edit load" : "New load";
-  fillTruckSelect($("lTruck"));
+  fillTruckSelect($("lTruck"), false, l && l.truck);
   $("brokerList").innerHTML = [...new Set(loads.map(x => x.broker).filter(Boolean))].map(b => `<option value="${esc(b)}">`).join("");
   $("lFactoredLbl").textContent = `Factored with ${settings.factor || "factoring"} (${num(settings.pct)}%)`;
-  const v = l || { truck: loadTruck !== "all" ? loadTruck : "t1", fromDate: today(), factored: true };
-  $("lTruck").value = v.truck || "t1"; $("lRate").value = v.rate ?? ""; $("lBroker").value = v.broker || ""; $("lNo").value = v.loadNo || "";
+  const v = l || { truck: loadTruck !== "all" && activeIds().includes(loadTruck) ? loadTruck : firstTruck(), fromDate: today(), factored: true };
+  $("lTruck").value = v.truck || firstTruck(); $("lRate").value = v.rate ?? ""; $("lBroker").value = v.broker || ""; $("lNo").value = v.loadNo || "";
   $("lFrom").value = v.from || ""; $("lFromDate").value = v.fromDate || ""; $("lTo").value = v.to || ""; $("lToDate").value = v.toDate || "";
   $("lMiles").value = v.miles ?? ""; $("lEmpty").value = v.empty ?? "";
   $("lDeposit").value = hasDep(v) ? v.deposit : "";
@@ -1142,9 +1161,9 @@ $("billPlan").addEventListener("click", e => {
     const id = newId("ex"); ids.push(id);
     expenses.push({ id, created: new Date().toISOString(), cat: "IFTA service fee", amount: u.total, truck: u.truck, date: plan.dataset.date,
       paidWith: "own", gallons: 0, state: "", link: "", note: `${plan.dataset.label} · unit ${u.unit} · tax reporting ${money2(u.tax)} + licensing ${money2(u.lic)}` });
-    if (!truckByUnit(u.unit)) learn[u.truck === "t1" ? "u1" : "u2"] = u.unit;       // remember which unit is which truck
+    if (!truckByUnit(u.unit)) learn[u.truck] = u.unit;       // remember which unit is which truck
   });
-  if (Object.keys(learn).length) { settings = { ...settings, ...learn }; Sync.push("settings"); }
+  if (Object.keys(learn).length) { settings = { ...settings, trucks: truckList().map(t => learn[t.id] ? { ...t, unit: learn[t.id] } : t) }; Sync.push("settings"); }
   Sync.push("expenses"); toast(`Added ${billUnits.length} expense${billUnits.length === 1 ? "" : "s"}`);
   const bill = pendingBill; pendingBill = null;
   if (bill) Papers.save(bill, "Receipt", "Receipt · " + (plan.dataset.label || "IFTA service bill"), { expenseIds: ids })
@@ -1192,8 +1211,8 @@ const expLabel = x => `${x.cat} ${money2(num(x.amount))} ${x.date || ""}`.trim()
 
 // ----- Expenses -----
 let expTruck = "all", expPer = "month", editingExp = null, exFrom = "", exTo = "", exCat = "";
-// this truck's share of an expense ("Both trucks" is split 50/50 when one truck is picked)
-const expShare = (e, truck) => truck === "all" || e.truck === truck ? num(e.amount) : e.truck === "shared" ? num(e.amount) / 2 : 0;
+// this truck's share of an expense (one for all trucks is split evenly when one truck is picked)
+const expShare = shareOf;
 const catOptions = (sel, allLabel) => { const used = [...new Set([...CATS, ...expenses.map(e => e.cat)])]; sel.innerHTML = `<option value="">${allLabel}</option>` + used.map(c => `<option>${esc(c)}</option>`).join(""); };
 function renderExp(){
   const r = expPer === "custom" ? [exFrom || "0000-01-01", exTo || "9999-12-31"] : range(expPer);
@@ -1203,7 +1222,7 @@ function renderExp(){
   const fuel = E.filter(e => e.cat === "Fuel"), gal = fuel.reduce((s, e) => s + num(e.gallons) * (sh(e) / (num(e.amount) || 1)), 0), fuelAmt = fuel.reduce((s, e) => s + sh(e), 0);
   $("expStats").innerHTML = `<div><b>${money(tot)}</b><span>Total${exCat ? " · " + esc(exCat) : ""}</span></div><div><b>${money(gap)}</b><span>On GAP card</span></div>
     <div><b>${money(tot - gap)}</b><span>Own card / cash</span></div><div><b>${gal ? "$" + (fuelAmt / gal).toFixed(2) : "–"}</b><span>Fuel $/gallon${gal ? ` · ${Math.round(gal).toLocaleString("en-US")} gal` : ""}</span></div>`;
-  $("expTruckChips").innerHTML = chipsHtml([["all", "Both trucks"], ...TRUCKS()], expTruck, "t");
+  $("expTruckChips").innerHTML = chipsHtml([["all", allLabel()], ...chipTrucks()], expTruck, "t");
   $("expPerChips").innerHTML = chipsHtml(DASH_PERIODS, expPer, "p");
   if (document.activeElement !== $("exFrom")) $("exFrom").value = expPer === "all" ? "" : (expPer === "custom" ? exFrom : r[0]);
   if (document.activeElement !== $("exTo")) $("exTo").value = expPer === "all" ? "" : (expPer === "custom" ? exTo : r[1]);
@@ -1230,8 +1249,8 @@ $("eCat").addEventListener("change", fuelToggle);
 function openExpForm(x){
   editingExp = x ? x.id : null;
   $("expFormTitle").textContent = x ? "Edit expense" : "New expense";
-  fillTruckSelect($("eTruck"), true);
-  const v = x || { cat: "Fuel", truck: expTruck !== "all" ? expTruck : "t1", date: today() };
+  fillTruckSelect($("eTruck"), true, x && x.truck);
+  const v = x || { cat: "Fuel", truck: expTruck !== "all" && activeIds().includes(expTruck) ? expTruck : firstTruck(), date: today() };
   $("eCat").value = v.cat; $("eAmt").value = v.amount ?? ""; $("eTruck").value = v.truck; $("eDate").value = v.date || today();
   paidTouched = !!x; $("ePaid").value = v.paidWith || (["Fuel", "DEF"].includes(v.cat) ? "gap" : "own");
   $("eGal").value = v.gallons ?? ""; $("eState").value = v.state || ""; $("eNote").value = v.note || ""; $("eLink").value = v.link || "";
@@ -1250,8 +1269,11 @@ $("expForm").onsubmit = e => {
   const f = { cat: $("eCat").value, amount: Math.round(num($("eAmt").value) * 100) / 100, truck: $("eTruck").value, date: $("eDate").value || today(),
     paidWith: $("ePaid").value,
     gallons: fuel ? num($("eGal").value) : 0, state: fuel ? $("eState").value.trim().toUpperCase().slice(0, 2) : "", note: $("eNote").value.trim(), link: $("eLink").value.trim() };
-  const was = editingExp, xid = was || newId("ex");
-  if (was) Object.assign(expenses.find(x => x.id === was), f);
+  const was = editingExp, xid = was || newId("ex"), old = was && expenses.find(x => x.id === was);
+  // "all trucks": remember which trucks share it, so adding a truck later doesn't change past splits
+  if (f.truck === "shared") f.splitIds = old && old.truck === "shared" ? splitOf(old) : activeIds();
+  else if (old) delete old.splitIds;
+  if (was) Object.assign(old, f);
   else expenses.push({ id: xid, created: new Date().toISOString(), ...f });
   const bill = pendingBill; pendingBill = null;
   Sync.push("expenses"); closeExpForm(); renderExp(); toast(was ? "Expense saved" : "Expense added");
@@ -1353,7 +1375,7 @@ function postRecurring(){
   recItems().forEach(it => dueDates(it, today()).forEach(d => {
     const id = recExpId(it, d);
     if (have.has(id) || (it.skip || []).includes(d)) return;
-    expenses.push({ id, created: new Date().toISOString(), rec: it.id, cat: it.cat, amount: num(it.amount), truck: it.truck, date: d, paidWith: it.paidWith || "own",
+    expenses.push({ id, created: new Date().toISOString(), rec: it.id, cat: it.cat, amount: num(it.amount), truck: it.truck, ...(it.truck === "shared" ? { splitIds: activeIds() } : {}), date: d, paidWith: it.paidWith || "own",
       gallons: 0, state: "", note: it.name + (it.note ? " · " + it.note : ""), link: "" }); have.add(id); n++;
   }));
   if (n) { Sync.push("expenses"); toast(`Added ${n} recurring charge${n === 1 ? "" : "s"}`); }
@@ -1369,7 +1391,7 @@ function setExpView(v){
 $("expSeg").addEventListener("click", e => { const b = e.target.closest("[data-v]"); if (b) setExpView(b.dataset.v); });
 function renderRec(){
   const items = recItems(), live = items.filter(it => !it.end);
-  const mo = tr => live.reduce((s, it) => s + expShare({ truck: it.truck, amount: num(it.amount) * PER_MONTH[it.freq || "m1"] }, tr), 0);
+  const mo = tr => live.reduce((s, it) => s + expShare({ truck: it.truck, splitIds: activeIds(), amount: num(it.amount) * PER_MONTH[it.freq || "m1"] }, tr), 0);
   $("recStats").innerHTML = `<div><b>${money(mo("all"))}</b><span>Fixed costs / month</span></div>` + TRUCKS().map(([id, n]) => `<div><b>${money(mo(id))}</b><span>${esc(n)} / month</span></div>`).join("");
   if (!items.length) { $("recList").innerHTML = `<div class="empty"><b>No recurring charges yet</b>Add insurance, ELD, phones, truck payments and other fixed bills once, and they'll post every period.</div>`; return; }
   const sorted = [...items].sort((a, b) => (!!a.end - !!b.end) || String(nextDue(a)).localeCompare(String(nextDue(b))));
@@ -1396,7 +1418,7 @@ function recHint(){
 function openRecForm(it){
   editingRec = it ? it.id : null;
   $("recFormTitle").textContent = it ? "Edit recurring charge" : "New recurring charge";
-  fillTruckSelect($("rTruck"), true);
+  fillTruckSelect($("rTruck"), true, it && it.truck);
   const v = it || { cat: "Insurance", truck: "shared", freq: "m1", start: today(), paidWith: "own" };
   $("rName").value = v.name || ""; $("rCat").value = v.cat; $("rAmt").value = v.amount ?? ""; $("rTruck").value = v.truck; $("rFreq").value = v.freq || "m1";
   $("rStart").value = v.start || today(); $("rPaid").value = v.paidWith || "own"; $("rNote").value = v.note || "";
@@ -1494,14 +1516,14 @@ const jobsUrl = () => new URL("jobs/", location.href.split("#")[0]).href;
 $("jobsCopy").onclick = async () => { try { await navigator.clipboard.writeText(jobsUrl()); toast("Link copied"); } catch (e) { prompt("Copy this link:", jobsUrl()); } };
 
 // ----- 1099 / tax year (cash basis: a load counts in the year and quarter it was paid) -----
-let taxYear = new Date().getFullYear(), taxTruck = "t1";
+let taxYear = new Date().getFullYear(), taxTruck = "";
 const paidDate = l => { const h = (l.hist || []).find(x => x.s === "funded"); return h ? h.d : ""; };
 function taxData(year, truck){
   const inYear = d => d && d.slice(0, 4) === String(year);
   const qOf = d => Math.floor((+d.slice(5, 7) - 1) / 3);
   const paid = loads.filter(l => l.stage === "funded" && l.truck === truck && inYear(paidDate(l)));
   const unpaid = loads.filter(l => l.truck === truck && l.stage !== "funded" && l.stage !== "cancelled" && inYear(lDate(l)));
-  const share = e => e.truck === truck ? num(e.amount) : e.truck === "shared" ? num(e.amount) / 2 : 0;
+  const share = e => e.truck === truck ? num(e.amount) : shareOf(e, truck);
   const exps = expenses.filter(e => inYear(e.date) && share(e) > 0);
   const Q = [0, 1, 2, 3].map(q => {
     const ls = paid.filter(l => qOf(paidDate(l)) === q), es = exps.filter(e => qOf(e.date) === q);
@@ -1509,7 +1531,7 @@ function taxData(year, truck){
     const gapFuel = es.filter(isGap).reduce((s, e) => s + share(e), 0), kept = ls.reduce((s, l) => s + lDeduct(l), 0);
     const gapOut = Math.max(gapFuel, kept), other = es.filter(e => !isGap(e)).reduce((s, e) => s + share(e), 0);
     return { n: ls.length, gross, fees, gapOut, paid: gross - fees - gapOut, other, net: gross - fees - gapOut - other,
-      miles: ls.reduce((s, l) => s + lMiles(l), 0), gallons: es.filter(e => e.cat === "Fuel").reduce((s, e) => s + num(e.gallons) * (e.truck === "shared" ? .5 : 1), 0) };
+      miles: ls.reduce((s, l) => s + lMiles(l), 0), gallons: es.filter(e => e.cat === "Fuel").reduce((s, e) => s + num(e.gallons) * (e.truck === "shared" ? 1 / splitOf(e).length : 1), 0) };
   });
   const T = Q.reduce((a, q) => { Object.keys(q).forEach(k => a[k] = (a[k] || 0) + q[k]); return a; }, {});
   // expenses by category (fuel from deposits that wasn't logged shows as its own line)
@@ -1524,7 +1546,8 @@ function taxData(year, truck){
 function renderTax(){
   const years = [...new Set([new Date().getFullYear(), ...loads.map(l => (paidDate(l) || lDate(l)).slice(0, 4)), ...expenses.map(e => String(e.date).slice(0, 4))].map(Number).filter(Boolean))].sort((a, b) => b - a);
   $("taxYearChips").innerHTML = chipsHtml(years.map(y => [String(y), String(y)]), String(taxYear), "y");
-  $("taxTruckChips").innerHTML = chipsHtml(TRUCKS(), taxTruck, "t");
+  if (!chipTrucks().some(t => t[0] === taxTruck)) taxTruck = firstTruck();
+  $("taxTruckChips").innerHTML = chipsHtml(chipTrucks(), taxTruck, "t");
   const d = taxData(taxYear, taxTruck), T = d.T;
   $("taxHead").innerHTML = `<h2>${esc(truckName(taxTruck))} · ${taxYear}</h2>
     <div class="meta">${esc(settings.company || "Truck Ops")} · ${T.n || 0} paid load${T.n === 1 ? "" : "s"} · ${Math.round(T.miles || 0).toLocaleString("en-US")} mi · ${(T.gallons || 0).toLocaleString("en-US", { maximumFractionDigits: 0 })} gal fuel</div>
@@ -1565,12 +1588,12 @@ function buildTaxPdf(year, truck){
     if (logoData) { try { doc.addImage(logoData, "PNG", M, 7, 55, 56); } catch (e) {} }
     doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text(clean(settings.company || "Dijla Trucking"), LX, 32);
     doc.setTextColor(230, 232, 238); doc.setFont("helvetica", "normal"); doc.setFontSize(11);
-    doc.text(clean(`1099 summary  |  ${truckName(truck)}${settings[truck === "t1" ? "u1" : "u2"] ? " (unit " + settings[truck === "t1" ? "u1" : "u2"] + ")" : ""}  |  ${year}`), LX, 52);
+    doc.text(clean(`1099 summary  |  ${truckName(truck)}${(truckList().find(t => t.id === truck) || {}).unit ? " (unit " + truckList().find(t => t.id === truck).unit + ")" : ""}  |  ${year}`), LX, 52);
     doc.setFontSize(9); doc.setTextColor(170, 176, 188); doc.text("Generated " + new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), R, 52, { align: "right" });
     y = 96;
   };
   const footer = () => { doc.setFontSize(8); doc.setTextColor(...MUT); doc.setFont("helvetica", "normal");
-    doc.text("Record-keeping summary for your accountant, not tax advice. Income counted when paid (cash basis). Shared expenses split 50/50.", M, 772);
+    doc.text("Record-keeping summary for your accountant, not tax advice. Income counted when paid (cash basis). Expenses for all trucks split evenly across them.", M, 772);
     doc.text("Page " + page, R, 772, { align: "right" }); };
   const need = h => { if (y + h > 750) { footer(); doc.addPage(); page++; header(); } };
   const title = t => { need(40); doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...INK); doc.text(t.toUpperCase(), M, y); doc.setDrawColor(...ACC); doc.setLineWidth(1.5); doc.line(M, y + 5, M + 40, y + 5); y += 22; };
@@ -1612,8 +1635,8 @@ function buildTaxPdf(year, truck){
     title("Expenses");
     table([{ w: 62, a: "l" }, { w: 100, a: "l" }, { w: 70, a: "r" }, { w: 60, a: "l" }, { w: R - M - 292, a: "l" }],
       ["Date", "Category", "Amount", "Paid with", "Note"],
-      d.exps.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(e => [e.date, e.cat, $$(e.truck === "shared" ? num(e.amount) / 2 : num(e.amount)) + (e.truck === "shared" ? "*" : ""), isGap(e) ? "GAP card" : "Own", e.note || (e.gallons ? `${num(e.gallons)} gal ${e.state || ""}` : "")]));
-    doc.setFontSize(8); doc.setTextColor(...MUT); doc.text("* half of a shared expense", M, y - 4); y += 8;
+      d.exps.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).map(e => [e.date, e.cat, $$(shareOf(e, truck)) + (e.truck === "shared" ? "*" : ""), isGap(e) ? "GAP card" : "Own", e.note || (e.gallons ? `${num(e.gallons)} gal ${e.state || ""}` : "")]));
+    doc.setFontSize(8); doc.setTextColor(...MUT); doc.text("* this truck's share of an expense split across the trucks", M, y - 4); y += 8;
   }
   footer();
   return doc;
@@ -1665,7 +1688,7 @@ function buildLoadsPdf(){
   const $$ = n => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const clean = x => String(x ?? "").replace(/[–—]/g, "-").replace(/→/g, ">").replace(/[^\x20-\x7E]/g, "");
   const nd = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
-  const trTxt = $("rpTruck").value === "all" ? "Both trucks" : truckName($("rpTruck").value);
+  const trTxt = $("rpTruck").value === "all" ? allLabel() : truckName($("rpTruck").value);
   const stTxt = $("rpStatus").selectedOptions[0].textContent, brTxt = $("rpBroker").value || "All brokers";
   const rangeTxt = ($("rpFrom").value || $("rpTo").value) ? `${$("rpFrom").value ? nd($("rpFrom").value) : "Start"} - ${$("rpTo").value ? nd($("rpTo").value) : "today"}` : "All dates";
   let y = 0, page = 1;
@@ -1724,7 +1747,7 @@ function buildExpPdf(){
   const $$ = n => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const clean = x => String(x ?? "").replace(/[–—]/g, "-").replace(/[^\x20-\x7E]/g, "");
   const nd = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
-  const trTxt = tr === "all" ? "Both trucks" : truckName(tr), cTxt = $("erCat").value || "All categories", pTxt = $("erPaid").selectedOptions[0].textContent;
+  const trTxt = tr === "all" ? allLabel() : truckName(tr), cTxt = $("erCat").value || "All categories", pTxt = $("erPaid").selectedOptions[0].textContent;
   const rangeTxt = ($("erFrom").value || $("erTo").value) ? `${$("erFrom").value ? nd($("erFrom").value) : "Start"} - ${$("erTo").value ? nd($("erTo").value) : "today"}` : "All dates";
   let y = 0, page = 1;
   const header = () => {
@@ -1780,7 +1803,7 @@ function erCount(){ const l = reportExps(), tr = $("erTruck").value; $("erCount"
 $("erOpen").onclick = () => {
   const r = range("month");
   if (!$("erFrom").value && !$("erTo").value) { $("erFrom").value = r[0]; $("erTo").value = r[1]; }
-  $("erTruck").innerHTML = [["all", "Both trucks"], ...TRUCKS()].map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join(""); $("erTruck").value = expTruck;
+  $("erTruck").innerHTML = [["all", allLabel()], ...chipTrucks()].map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join(""); $("erTruck").value = expTruck;
   const keep = $("erCat").value; catOptions($("erCat"), "All categories"); $("erCat").value = keep || exCat;
   $("erCard").hidden = false; $("erOpen").hidden = true; erCount();
 };
@@ -1795,7 +1818,7 @@ $("erView").onclick = () => showPdf($("erView"), "Expenses", () => ({ doc: build
 function openReport(){
   const r = range("month");
   if (!$("rpFrom").value && !$("rpTo").value) { $("rpFrom").value = r[0]; $("rpTo").value = r[1]; }
-  $("rpTruck").innerHTML = [["all", "Both trucks"], ...TRUCKS()].map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join("");
+  $("rpTruck").innerHTML = [["all", allLabel()], ...chipTrucks()].map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join("");
   $("rpTruck").value = loadTruck;
   const keep = $("rpBroker").value;
   $("rpBroker").innerHTML = `<option value="">All brokers</option>` + [...new Set(loads.map(l => l.broker).filter(Boolean))].sort().map(b => `<option>${esc(b)}</option>`).join("");
@@ -1830,17 +1853,46 @@ $("pvShare").onclick = async () => {
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("pdfView").hidden) closePdf(); });
 
 // ----- Settings -----
+// truck rows in Settings (edited here, saved with "Save settings")
+let trkRows = null;
+function drawTrucks(){
+  $("trkList").innerHTML = trkRows.map((t, i) => `<div class="trk${t.retired ? " retired" : ""}" data-i="${i}">
+      <input data-k="name" value="${esc(t.name || "")}" placeholder="Truck ${i + 1}" aria-label="Truck ${i + 1} name" ${t.retired ? "disabled" : ""}>
+      <input data-k="unit" value="${esc(t.unit || "")}" inputmode="numeric" placeholder="e.g. ${[5, 66, 12, 30][i % 4]}" aria-label="Truck ${i + 1} unit number" ${t.retired ? "disabled" : ""}>
+      ${t.retired ? `<button type="button" data-a="restore">Restore</button>` : `<button type="button" data-a="rm" class="danger" ${trkRows.filter(x => !x.retired).length < 2 ? "disabled" : ""} aria-label="Remove truck">✕</button>`}
+    </div>`).join("");
+}
+const truckUsed = id => loads.some(l => l.truck === id) || expenses.some(e => e.truck === id || (e.truck === "shared" && splitOf(e).includes(id))) || recItems().some(r => r.truck === id);
+$("trkList").addEventListener("input", e => { const i = e.target.closest("[data-i]"); if (i) trkRows[+i.dataset.i][e.target.dataset.k] = e.target.value; });
+$("trkList").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const i = +b.closest("[data-i]").dataset.i, t = trkRows[i];
+  if (b.dataset.a === "restore") { t.retired = false; drawTrucks(); toast("Truck back in use. Save settings to keep it."); return; }
+  if (truckUsed(t.id)) { t.retired = true; toast("Has history, so it's retired, not deleted. Save settings to keep it."); }
+  else trkRows.splice(i, 1);
+  drawTrucks();
+});
+$("trkAdd").onclick = () => {
+  const n = Math.max(0, ...trkRows.map(t => +String(t.id).replace(/\D/g, "") || 0), ...ALL_TRUCKS().map(t => +String(t[0]).replace(/\D/g, "") || 0)) + 1;
+  trkRows.push({ id: "t" + n, name: "", unit: "" }); drawTrucks();
+  $("trkList").lastElementChild.querySelector("input").focus();
+};
 function fillSettings(){
   if (document.activeElement && document.activeElement.closest("#setForm")) return;
-  $("sCo").value = settings.company || ""; $("sT1").value = settings.t1 || ""; $("sT2").value = settings.t2 || "";
+  trkRows = truckList().map(t => ({ ...t })); drawTrucks();
+  $("sCo").value = settings.company || "";
   $("sBy").value = settings.countBy || "pickup";
-  $("sU1").value = settings.u1 || ""; $("sU2").value = settings.u2 || "";
   $("sFac").value = settings.factor || ""; $("sPct").value = settings.pct ?? 2; $("sAge").value = settings.ageDays ?? 30;
 }
 $("setForm").onsubmit = e => {
   e.preventDefault();
-  settings = { ...settings, company: $("sCo").value.trim(), t1: $("sT1").value.trim() || "Truck 1", t2: $("sT2").value.trim() || "Truck 2",
-    u1: $("sU1").value.trim(), u2: $("sU2").value.trim(),
+  const trucks = trkRows.map((t, i) => ({ id: t.id, name: String(t.name || "").trim() || "Truck " + (i + 1), unit: String(t.unit || "").trim(), ...(t.retired ? { retired: true } : {}) }));
+  const units = trucks.filter(t => t.unit).map(t => t.unit.replace(/^0+/, ""));
+  if (new Set(units).size !== units.length) { toast("Two trucks have the same unit #"); return; }
+  const t1 = trucks.find(t => t.id === "t1"), t2 = trucks.find(t => t.id === "t2");
+  settings = { ...settings, company: $("sCo").value.trim(), trucks,
+    // kept for older copies of the app and the backup script
+    t1: t1 ? t1.name : settings.t1 || "Truck 1", t2: t2 ? t2.name : settings.t2 || "Truck 2", u1: t1 ? t1.unit : settings.u1 || "", u2: t2 ? t2.unit : settings.u2 || "",
     factor: $("sFac").value.trim() || "Factoring", pct: Math.max(0, num($("sPct").value)), ageDays: Math.max(1, Math.round(num($("sAge").value)) || 30), countBy: $("sBy").value || "pickup" };
   Sync.push("settings"); document.activeElement.blur(); render(); toast("Settings saved");
 };

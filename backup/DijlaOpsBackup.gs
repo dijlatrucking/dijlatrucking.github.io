@@ -125,7 +125,8 @@ function writeSheet(root, data) {
     props.setProperty("sheetId", ss.getId());
   }
   const s = data.settings || {};
-  const truckName = (t) => (t === "t1" ? s.t1 || "Truck 1" : t === "t2" ? s.t2 || "Truck 2" : t === "shared" ? "Both trucks" : t);
+  const trucks = Array.isArray(s.trucks) && s.trucks.length ? s.trucks : [{ id: "t1", name: s.t1 || "Truck 1" }, { id: "t2", name: s.t2 || "Truck 2" }];
+  const truckName = (t) => (t === "shared" ? "All trucks (split)" : (trucks.find((x) => x.id === t) || { name: t }).name);
   const byNew = (k) => (a, b) => String(b[k] || "").localeCompare(String(a[k] || ""));
   const loads = data.loads.slice().sort(byNew("created")).map((l) => Object.assign({}, l, { truck: truckName(l.truck) }));
   const exps = data.expenses.slice().sort(byNew("date")).map((x) => Object.assign({}, x, { truck: truckName(x.truck) }));
@@ -141,7 +142,8 @@ function writeSheet(root, data) {
     ["start", "Starts"], ["paidWith", "Paid with"], ["note", "Note"], ["skip", "Skipped"], ["created", "Created"], ["id", "ID"]],
     (Array.isArray(s.recurring) ? s.recurring : []).map((r) => Object.assign({}, r, { truck: truckName(r.truck) })));
   tab(ss, "Applicants", APP_COLS, apps);
-  const flat = Object.keys(s).filter((k) => k !== "recurring" && k !== "backup").sort().map((k) => ({ setting: k, value: s[k] }));
+  tab(ss, "Trucks", [["name", "Truck"], ["unit", "Unit #"], ["retired", "Retired"], ["id", "ID"]], trucks.map((t) => Object.assign({ retired: false }, t)));
+  const flat = Object.keys(s).filter((k) => k !== "recurring" && k !== "backup" && k !== "trucks").sort().map((k) => ({ setting: k, value: s[k] }));
   tab(ss, "Settings", [["setting", "Setting"], ["value", "Value"]], flat);
   tab(ss, "About", [["what", ""], ["value", ""]], [
     { what: "Backed up", value: Utilities.formatDate(new Date(data.backedUpAt), "America/Chicago", "MMM d, yyyy h:mm a") + " (Central)" },
