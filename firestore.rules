@@ -14,13 +14,80 @@ service cloud.firestore {
       return isOwner() || (signedIn() && exists(/databases/$(database)/documents/team/$(myEmail())));
     }
 
+    // Drivers: a separate list (drivers/{email}) the office manages. A driver sees only their own trips (a copy of
+    // each assigned load without the money), their truck's profile and papers, their own uploads and statements.
+    function myDriver() { return get(/databases/$(database)/documents/drivers/$(myEmail())).data; }
+    function isDriver() {
+      return signedIn() && exists(/databases/$(database)/documents/drivers/$(myEmail())) && myDriver().get('active', true) == true;
+    }
+    function myTruck() { return myDriver().get('truckId', ''); }
+
     // Truck Ops data: owner and team members.
     match /loads/{id}    { allow read, write: if isMember(); }
     match /expenses/{id} { allow read, write: if isMember(); }
     match /meta/{id}     { allow read, write: if isMember(); }
-    // papers (rate cons, receipts, BOLs…): the record, and its scan split into parts
-    match /files/{id}    { allow read, write: if isMember(); }
-    match /fileData/{id} { allow read, write: if isMember(); }
+    // papers (rate cons, receipts, BOLs…): the record, and its scan split into parts (fileData/<id>_<n>).
+    // Drivers: their own uploads (on their own trips, receipts start pending) and their truck's papers, read-only.
+    function driverSees(f) {
+      return f.get('driverEmail', '') == myEmail() || (f.get('truckId', '') != '' && f.get('truckId', '') == myTruck());
+    }
+    match /files/{id} {
+      allow read: if isMember() || (isDriver() && driverSees(resource.data));
+      allow create: if isMember() || (isDriver() && validDriverPaper(request.resource.data));
+      allow update: if isMember();
+      allow delete: if isMember() || (isDriver() && resource.data.get('driverEmail', '') == myEmail()
+        && resource.data.get('driveFileId', null) == null && resource.data.get('claim', {}).get('status', '') != 'approved');
+    }
+    function validDriverPaper(d) {
+      return d.get('driverEmail', '') == myEmail() && !('truckId' in d) && !('expenseIds' in d) && !('driveFileId' in d) && !('freed' in d)
+        && (d.get('loadId', null) == null || get(/databases/$(database)/documents/trips/$(d.loadId)).data.get('driverEmail', '') == myEmail())
+        && (!('claim' in d) || (d.claim.get('status', '') == 'pending' && d.claim.amount is number && d.claim.amount >= 0 && d.claim.amount < 100000));
+    }
+    match /fileData/{id} {
+      function paperId() { return id.split('_')[0]; }
+      allow read: if isMember() || (isDriver() && driverSees(get(/databases/$(database)/documents/files/$(paperId())).data));
+      allow create: if isMember() || (isDriver()
+        && getAfter(/databases/$(database)/documents/files/$(paperId())).data.get('driverEmail', '') == myEmail());
+      allow update: if isMember();
+      allow delete: if isMember() || (isDriver()
+        && !existsAfter(/databases/$(database)/documents/files/$(paperId()))
+        && get(/databases/$(database)/documents/files/$(paperId())).data.get('driverEmail', '') == myEmail());
+    }
+    // the driver list, managed by the office; a driver can read their own entry
+    match /drivers/{email} {
+      allow read: if isMember() || (signedIn() && email == myEmail());
+      allow create, update: if isMember() && validDriver(email, request.resource.data);
+      allow delete: if isMember();
+    }
+    function validDriver(email, d) {
+      return email == email.lower() && email.matches('^[^@\\s/]+@[^@\\s/]+\\.[a-z]{2,}$')
+        && d.keys().hasOnly(['email', 'name', 'payType', 'payRate', 'truckId', 'active', 'added', 'addedBy'])
+        && d.email == email && d.get('payType', 'perMile') in ['perMile', 'perLoadedMile', 'percent', 'flat']
+        && (!('payRate' in d) || d.payRate is number);
+    }
+    // a driver's copy of each assigned load (no rate, broker pay or fees); they can only move it to picked up / delivered
+    match /trips/{id} {
+      allow read: if isMember() || (isDriver() && resource.data.driverEmail == myEmail());
+      allow create, delete: if isMember();
+      allow update: if isMember() || (isDriver() && resource.data.driverEmail == myEmail()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage', 'stageBy', 'stageAt'])
+        && request.resource.data.stage in ['pickedup', 'delivered'] && request.resource.data.stageBy == 'driver');
+    }
+    // pay statements: the office issues them; the driver reads their own
+    match /statements/{id} {
+      allow read: if isMember() || (isDriver() && resource.data.driverEmail == myEmail());
+      allow write: if isMember();
+    }
+    // truck profiles for drivers (name, unit, VIN, plate…): a driver reads only the truck they're on
+    match /trucksPublic/{id} {
+      allow read: if isMember() || (isDriver() && myTruck() == id);
+      allow write: if isMember();
+    }
+    // app info drivers need (company name, the Drive script link for opening cleared papers)
+    match /shared/{id} {
+      allow read: if isMember() || isDriver();
+      allow write: if isMember();
+    }
     // papers deleted in Ops whose Drive copy still has to go to the Drive trash
     match /trash/{id}    { allow read, write: if isMember(); }
 
