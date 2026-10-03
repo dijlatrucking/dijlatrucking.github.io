@@ -134,9 +134,10 @@ function writeSheet(root, data) {
   tab(ss, "Loads", LOAD_COLS, loads);
   tab(ss, "Expenses", EXP_COLS, exps);
   const loadName = {}; data.loads.forEach((l) => { loadName[l.id] = [l.broker, l.loadNo ? "#" + l.loadNo : ""].filter(Boolean).join(" "); });
-  tab(ss, "Papers", [["created", "Saved"], ["kind", "Kind"], ["name", "Name"], ["load", "Load"], ["type", "Type"], ["driveUrl", "Google Drive copy"],
+  tab(ss, "Papers", [["created", "Saved"], ["kind", "Kind"], ["name", "Name"], ["load", "Load / truck"], ["expires", "Expires"], ["type", "Type"], ["driveUrl", "Google Drive copy"],
     ["freed", "Only in Drive"], ["by", "Saved by"], ["id", "ID"]],
-    (data.files || []).slice().sort(byNew("created")).map((f) => ({ created: f.created, kind: f.kind, name: f.name, load: f.loadId ? loadName[f.loadId] || f.loadId : "",
+    (data.files || []).slice().sort(byNew("created")).map((f) => ({ created: f.created, kind: f.kind, name: f.name, expires: f.expiresAt || "",
+      load: f.loadId ? loadName[f.loadId] || f.loadId : f.truckId ? "Truck: " + truckName(f.truckId) : "",
       type: f.type, driveUrl: f.driveUrl || "", freed: !!f.freed, by: f.by, id: f.id })));
   tab(ss, "Recurring", [["name", "Name"], ["cat", "Category"], ["amount", "Amount"], ["truck", "Truck"], ["freq", "How often"],
     ["start", "Starts"], ["paidWith", "Paid with"], ["note", "Note"], ["skip", "Skipped"], ["created", "Created"], ["id", "ID"]],
