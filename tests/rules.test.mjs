@@ -96,6 +96,9 @@ await t("outsider can't list papers", getDocs(collection(outsider, "files")), fa
 await t("outsider can't open a scan", getDoc(doc(outsider, "fileData/pp1_0")), false);
 await t("outsider can't add a paper", setDoc(doc(outsider, "files/x"), { kind: "BOL" }), false);
 await t("signed out: can't open a scan", getDoc(doc(anon, "fileData/pp1_0")), false);
+await t("member queues a Drive copy for the trash", setDoc(doc(member, "trash/pp1"), { fileId: "abc", at: "2026-10-03" }), true);
+await t("member reads and clears the queue", getDocs(collection(member, "trash")), true);
+await t("outsider can't see the trash queue", getDocs(collection(outsider, "trash")), false);
 
 // access requests
 const newbie = who("newbie@gmail.com"), other = who("other@gmail.com");

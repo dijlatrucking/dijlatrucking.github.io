@@ -21,7 +21,10 @@ Settings → Cloud storage & backup shows roughly how much of Firestore's free 1
 an Apps Script deployed once from the Google account that keeps the backups. Ops sends only the signed-in person's
 sign-in token and paper ids; the script reads everything from Firestore as that person (so only the team can back up).
 
-A backup writes a Google Sheet (Loads, Expenses, Papers, Recurring, Applicants, Settings), a JSON snapshot (kept 90 days),
+A backup writes a Google Sheet (Loads, Expenses, Papers, Recurring, Applicants, Settings), one JSON snapshot,
 every paper not yet in Drive (Papers/YYYY-MM/…) and the reports (all loads, all expenses, this year's 1099 per truck) to
 Drive → "Dijla Ops Backups". When storage reaches half (512 MB) Ops runs it by itself, then checks each paper's Drive
 copy (there, not in the trash, same size) and clears only the checked ones from Firestore. Cleared papers open from Drive.
+Drive mirrors the app: deleting a paper (or the load/expense it belongs to) queues its Drive copy in `trash/{id}` in the same
+write, and the script moves it to the Drive trash (30 days to recover); after any delete the Sheet, snapshot and reports are
+rewritten a few seconds later.

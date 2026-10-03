@@ -20,12 +20,12 @@
 // What it makes, in Drive → "Dijla Ops Backups":
 //   Dijla Ops backup (Google Sheet)   tabs: Loads, Expenses, Papers, Recurring, Applicants, Settings, About.
 //                                      Rewritten on every backup, so it always matches the app.
-//   Snapshots / dijla-ops-YYYY-MM-DD.json
-//                                      Every record, exactly as stored, one file per backup day (last 90 days).
-//                                      This is what a restore would use.
+//   Dijla Ops snapshot.json            Every record, exactly as stored. Replaced on every backup, so it always
+//                                      matches the app. This is what a restore would use.
 //   Papers / 2026-10 / 2026-10-03 · BOL · Echo #4471823.jpg
 //                                      Every rate con, receipt, BOL, POD… saved in Ops. Once a copy here is
 //                                      checked, Ops may clear its own copy to save space; it then opens this one.
+//                                      A paper deleted in Ops goes to the Drive trash (recoverable for 30 days).
 //   Reports / Loads - all time.pdf, Expenses - all time.pdf, 1099 2026 - Truck 1.pdf …
 //                                      Remade on every backup.
 
@@ -36,12 +36,12 @@ const SNAP_FOLDER = "Snapshots", OLD_SNAP_FOLDER = "Daily snapshots";
 const PAPERS_FOLDER = "Papers", REPORTS_FOLDER = "Reports";
 const MARK = "Dijla Ops paper ";
 const SHEET_NAME = "Dijla Ops backup";
-const KEEP_DAYS = 90;
+const SNAP_FILE = "Dijla Ops snapshot.json";
 
 function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || "{}");
-    if (body.ping) return reply({ ok: true, ping: "pong", version: 2 });
+    if (body.ping) return reply({ ok: true, ping: "pong", version: 3 });
     const token = String(body.idToken || "");
     if (!token) return reply({ ok: false, error: "Sign in to Dijla Ops again." });
     const email = whoIs(token);
@@ -53,6 +53,7 @@ function doPost(e) {
 
     if (body.backup) return reply(backup(token, email, settingsDoc));
     if (body.papers) return reply({ ok: true, results: (body.ids || []).slice(0, 10).map((id) => copyPaper(String(id), token)) });
+    if (body.remove) return reply({ ok: true, results: (body.items || []).slice(0, 200).map((it) => removePaper(it, token)) });
     if (body.verify) return reply({ ok: true, results: (body.items || []).slice(0, 200).map(verifyPaper) });
     if (body.fetch) return reply(fetchPaper(String(body.id || ""), token));
     if (body.savePdf) return reply(savePdf(String(body.name || ""), String(body.data || "")));
@@ -82,17 +83,14 @@ function backup(token, email, settingsDoc) {
   lock.waitLock(30000);
   try {
     const root = folder(DriveApp.getRootFolder(), ROOT_FOLDER);
-    const old = root.getFoldersByName(OLD_SNAP_FOLDER);            // first version called it "Daily snapshots"
-    if (old.hasNext() && !root.getFoldersByName(SNAP_FOLDER).hasNext()) old.next().setName(SNAP_FOLDER);
-    const snaps = folder(root, SNAP_FOLDER);
-    const day = Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd");
-    const name = "dijla-ops-" + day + ".json";
-    const json = JSON.stringify(data, null, 1);
-    const same = snaps.getFilesByName(name);
+    // one snapshot that always matches the app (so anything deleted in Ops is gone from it too)
+    const name = SNAP_FILE, json = JSON.stringify(data, null, 1);
+    const same = root.getFilesByName(name);
     let snap = null;
     while (same.hasNext()) { const f = same.next(); if (!snap) snap = f; else f.setTrashed(true); }
-    if (snap) snap.setContent(json); else snap = snaps.createFile(name, json, "application/json");
-    prune(snaps);
+    if (snap) snap.setContent(json); else snap = root.createFile(name, json, "application/json");
+    // older versions kept dated copies in a folder: move those to the Drive trash
+    [SNAP_FOLDER, OLD_SNAP_FOLDER].forEach((n) => { const it = root.getFoldersByName(n); while (it.hasNext()) it.next().setTrashed(true); });
     const sheet = writeSheet(root, data);
     return {
       ok: true, at: data.backedUpAt, by: email,
@@ -102,14 +100,6 @@ function backup(token, email, settingsDoc) {
   } finally { lock.releaseLock(); }
 }
 
-function prune(snaps) {
-  const cutoff = Date.now() - KEEP_DAYS * 86400000;
-  const it = snaps.getFiles();
-  while (it.hasNext()) {
-    const f = it.next(), m = /^dijla-ops-(\d{4}-\d{2}-\d{2})\.json$/.exec(f.getName());
-    if (m && new Date(m[1] + "T12:00:00Z").getTime() < cutoff) f.setTrashed(true);
-  }
-}
 
 // ---------- the Google Sheet ----------
 const LOAD_COLS = [["created", "Created"], ["stage", "Stage"], ["truck", "Truck"], ["broker", "Broker"], ["loadNo", "Load #"],
@@ -157,7 +147,7 @@ function writeSheet(root, data) {
     { what: "Backed up", value: Utilities.formatDate(new Date(data.backedUpAt), "America/Chicago", "MMM d, yyyy h:mm a") + " (Central)" },
     { what: "By", value: data.backedUpBy },
     { what: "Loads", value: loads.length }, { what: "Expenses", value: exps.length }, { what: "Papers", value: (data.files || []).length }, { what: "Applicants", value: apps.length },
-    { what: "Note", value: "This sheet is rewritten on every backup. Edits here are not sent back to Dijla Ops. Full copies are in the 'Snapshots' folder, papers in 'Papers', reports in 'Reports'." }
+    { what: "Note", value: "This sheet is rewritten on every backup and after anything is deleted in Ops. Edits here are not sent back to Dijla Ops. The full copy is 'Dijla Ops snapshot.json', papers are in 'Papers', reports in 'Reports'." }
   ]);
   const blank = ss.getSheetByName("Sheet1");
   if (blank && ss.getSheets().length > 1) ss.deleteSheet(blank);
@@ -227,6 +217,18 @@ function paperCopy(id, fileId) {
   if (!fileId) return null;
   try { const f = DriveApp.getFileById(fileId); return !f.isTrashed() && String(f.getDescription() || "") === MARK + id ? f : null; }
   catch (e) { return null; }
+}
+
+// A paper deleted in Ops: move its Drive copy to the Drive trash (Drive empties it after 30 days).
+// Only for papers that really are gone from Ops, and only files this script made for that paper.
+function removePaper(it, token) {
+  const id = String(it.id || ""), fileId = String(it.fileId || "");
+  const still = fsGet("files/" + id, token);
+  if (still && still !== DENIED) return { id: id, ok: false, error: "still in Ops" };
+  if (still === DENIED) return { id: id, ok: false, error: "not allowed" };
+  const f = paperCopy(id, fileId);
+  if (f) f.setTrashed(true);
+  return { id: id, ok: true, trashed: !!f };
 }
 
 // Before Ops clears its own copy: is the Drive copy there, whole (same size), and the right paper?

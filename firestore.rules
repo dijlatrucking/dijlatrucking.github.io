@@ -21,6 +21,8 @@ service cloud.firestore {
     // papers (rate cons, receipts, BOLs…): the record, and its scan split into parts
     match /files/{id}    { allow read, write: if isMember(); }
     match /fileData/{id} { allow read, write: if isMember(); }
+    // papers deleted in Ops whose Drive copy still has to go to the Drive trash
+    match /trash/{id}    { allow read, write: if isMember(); }
 
     // Team list: everyone on the team can see it; only the owner adds or removes people.
     match /team/{email} {

@@ -485,7 +485,7 @@
           <button type="button" id="driveFree" style="flex:1">Back up &amp; free space</button>
         </div>
         <div class="btns"><button type="button" id="driveOpen" style="flex:1">Open in Drive</button><button type="button" id="driveCopy2" style="flex:1">Copy the script</button></div>
-        <p class="meta" style="margin:0">When storage reaches half (512 MB), Ops backs up everything to Google Drive by itself: records, every paper and the reports. It checks each copy, then clears the papers from here so the bar drops. Cleared papers still open from Drive. <button type="button" class="ghost" id="driveChange" style="padding:0;border:0;color:var(--blue);font-size:12.5px;text-decoration:underline">Change link</button></p>
+        <p class="meta" style="margin:0">When storage reaches half (512 MB), Ops backs up everything to Google Drive by itself: records, every paper and the reports. It checks each copy, then clears the papers from here so the bar drops. Cleared papers still open from Drive. Anything you delete in Ops is removed from Drive too (papers go to the Drive trash for 30 days). <button type="button" class="ghost" id="driveChange" style="padding:0;border:0;color:var(--blue);font-size:12.5px;text-decoration:underline">Change link</button></p>
       </div>
       <div class="stack" id="driveSetup">
         <p class="meta" style="margin:0">Connect Google Drive so Ops can back everything up and clear space when it fills up. Set up once (about 5 minutes, best on a computer):</p>
@@ -1429,7 +1429,7 @@ $("recList").addEventListener("click", e => {
     const missed = []; for (let j = 0; j < k; j++) { const d = nthDate(it.start, it.freq || "m1", j); if (d > it.end && !expenses.some(x => x.id === recExpId(it, d))) missed.push(d); }
     it.skip = [...new Set([...(it.skip || []), ...missed])]; delete it.end; Sync.push("settings"); postRecurring(); renderRec(); toast("Resumed");
   }
-  if (a === "yesdel") { settings.recurring = recItems().filter(r => r !== it); Sync.push("settings"); renderRec(); toast("Recurring charge removed"); }
+  if (a === "yesdel") { settings.recurring = recItems().filter(r => r !== it); Sync.push("settings"); renderRec(); toast("Recurring charge removed"); Drive.soon(); }
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && postRecurring()) render(); });
 
@@ -1907,11 +1907,16 @@ window.Papers = (() => {
       toast(e && e.message && !/fetch/i.test(e.message) ? e.message : "Couldn't open that paper. Check your connection.");
     }
   }
-  async function remove(list){ for (const f of list) await Cloud.deleteFile(f.id, f.freed ? 0 : (f.parts || 1)); }
+  // delete from Ops; a paper with a Drive copy is queued (in the same write) for the Drive trash, so it still
+  // happens if Drive can't be reached right now
+  async function remove(list){
+    for (const f of list) await Cloud.deleteFile(f.id, f.freed ? 0 : (f.parts || 1), f.driveFileId || null);
+    Drive.soon();
+  }
   const ofLoad = id => files.filter(f => f.loadId === id).sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || String(a.created).localeCompare(String(b.created)));
   const ofExp = id => files.filter(f => (f.expenseIds || []).includes(id));
   return {
-    KINDS, save, open, remove, ofLoad, ofExp, toData,
+    KINDS, save, open, remove, ofLoad, ofExp, toData, data: dataOf,
     all: () => files,
     apply(rows){ files = rows; if (typeof renderLoads === "function" && !$("tab-loads").hidden) renderLoads(); if (!$("tab-exp").hidden) renderExp(); Drive.draw(); Drive.maybeAuto(); },
     reset(){ files = []; }
@@ -2111,6 +2116,35 @@ window.Drive = (() => {
     }
     return { ok, of: out.length };
   }
+  // papers deleted in Ops: their Drive copies go to the Drive trash
+  async function emptyTrash(){
+    const q = (await Cloud.trashQueue()).slice(0, 200); if (!q.length) return 0;
+    const r = await signed({ remove: true, items: q });
+    const done = r.results.filter(x => x.ok || x.error === "still in Ops").map(x => x.id);
+    if (done.length) await Cloud.clearTrash(done);
+    return r.results.filter(x => x.trashed).length;
+  }
+  // after something is deleted in Ops: trash its Drive copies and rewrite the Sheet, snapshot and reports
+  // (quietly, a few seconds later, so several deletes make one update)
+  let soonT = 0, trashChecked = false;
+  function soon(){
+    clearTimeout(soonT);
+    soonT = setTimeout(async () => {
+      soonT = 0;
+      if (!url() || !Sync.ready()) return;                               // tried again next time Ops opens
+      if (busy) { soon(); return; }
+      busy = true;
+      try {
+        const v = await call({ ping: true }); if ((v.version || 1) < 3) return;
+        await emptyTrash();
+        const j = await signed({ backup: true });
+        await reports();
+        settings.backup = { ...(settings.backup || {}), at: j.at, by: j.by, loads: j.loads, expenses: j.expenses, applicants: j.applicants, papers: j.papers, folderUrl: j.folderUrl, sheetUrl: j.sheetUrl };
+        Sync.push("settings");
+      } catch (e) { console.warn("Drive update after delete", e); }
+      finally { busy = false; draw(); }
+    }, 8000);
+  }
   // the full backup: records → Sheet + snapshot; papers → Drive; reports; then (free) check each copy and clear it here
   async function backup({ free = false, auto = false } = {}){
     if (busy || !url()) return;
@@ -2119,7 +2153,8 @@ window.Drive = (() => {
     const say = t => msg(t);
     try {
       const v = await call({ ping: true });
-      if ((v.version || 1) < 2) throw new Error("Update the backup script first: Copy the script below → paste it over the old one in script.google.com → Save → Deploy → Manage deployments → ✏ → Version: New version → Deploy.");
+      if ((v.version || 1) < 3) throw new Error("Update the backup script first: Copy the script below → paste it over the old one in script.google.com → Save → Deploy → Manage deployments → ✏ → Version: New version → Deploy.");
+      await emptyTrash();
       say("Backing up records…");
       const j = await signed({ backup: true });
       // papers not in Drive yet
@@ -2167,6 +2202,7 @@ window.Drive = (() => {
   }
   // half full → back up and clear, by itself (once an hour at most, so a failure doesn't loop)
   function maybeAuto(){
+    if (url() && Sync.ready() && !trashChecked) { trashChecked = true; Cloud.trashQueue().then(q => { if (q.length) soon(); }).catch(() => {}); }   // deletes that didn't reach Drive yet
     if (busy || !url() || !Sync.ready() || document.hidden || Date.now() - autoTried < 3600e3) return;
     if (usage().total < HALF) return;
     autoTried = Date.now(); backup({ free: true, auto: true });
@@ -2191,13 +2227,13 @@ window.Drive = (() => {
     $("driveConnect").disabled = true; msg("Checking the script…");
     try {
       const p = await call({ ping: true }, u);
-      if ((p.version || 1) < 2) throw new Error("That's the older backup script. Paste the new one (Copy the script), then Deploy → Manage deployments → ✏ → Version: New version → Deploy.");
+      if ((p.version || 1) < 3) throw new Error("That's the older backup script. Paste the new one (Copy the script), then Deploy → Manage deployments → ✏ → Version: New version → Deploy.");
       settings.driveUrl = u; editing = false; Sync.push("settings"); draw();
       await backup({});
     } catch (e) { msg(e.message === "Failed to fetch" ? "Couldn't reach that script. Make sure it's deployed as a Web app with access: Anyone." : e.message, true); }
     finally { $("driveConnect").disabled = false; }
   };
-  return { draw, maybeAuto, usage, fetchPaper: id => signed({ fetch: true, id }), version: () => call({ ping: true }) };
+  return { draw, maybeAuto, usage, soon, fetchPaper: id => signed({ fetch: true, id }), version: () => call({ ping: true }) };
 })();
 
 // ===== Cloud sync (talks to the Firebase module through window.Cloud) =====
@@ -2257,7 +2293,7 @@ window.Sync = (() => {
       if (!puts.length && !dels.length) return;
       puts.forEach(([id, v]) => last[k].set(id, stable(v))); dels.forEach(id => last[k].delete(id));
       pending.add(k); status();
-      Cloud.write(k, puts, dels).catch(fail);
+      Cloud.write(k, puts, dels).then(() => { if (dels.length && window.Drive) Drive.soon(); }).catch(fail);
     }, 300);
   }
   function fail(err){
@@ -2353,7 +2389,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
-         collection, doc, onSnapshot, getDoc, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp, terminate, clearIndexedDbPersistence }
+         collection, doc, onSnapshot, getDoc, getDocs, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp, terminate, clearIndexedDbPersistence }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -2443,10 +2479,13 @@ window.Cloud = {
     if (snaps.some(x => !x.exists())) return null;
     return snaps.map(x => x.data().data).join("");
   },
+  async trashQueue(){ const q = await getDocs(collection(getDb(), "trash")); return q.docs.map(x => ({ id: x.id, fileId: x.data().fileId })); },
+  async clearTrash(ids){ const d = getDb(), b = writeBatch(d); ids.forEach(id => b.delete(doc(d, "trash", id))); await b.commit(); },
   updateFile(id, patch){ return updateDoc(doc(getDb(), "files", id), patch); },
-  async deleteFile(id, n){
+  async deleteFile(id, n, driveFileId){
     const d = getDb(), b = writeBatch(d);
     b.delete(doc(d, "files", id));
+    if (driveFileId) b.set(doc(d, "trash", id), { fileId: driveFileId, at: new Date().toISOString() });
     for (let i = 0; i < n; i++) b.delete(doc(d, "fileData", id + "_" + i));
     await b.commit();
   },
