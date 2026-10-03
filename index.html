@@ -428,6 +428,30 @@
       <label>Dashboard counts loads by<select id="sBy"><option value="pickup">Pickup date</option><option value="delivery">Delivery date</option></select></label>
       <div class="btns"><button type="submit" class="primary">Save settings</button></div>
     </form>
+    <div class="card stack" id="driveCard">
+      <h2>Google Drive backup</h2>
+      <div class="stack" id="driveOn" hidden>
+        <p class="meta" id="driveLast" style="margin:0"></p>
+        <div class="btns">
+          <button type="button" class="primary" id="driveNow" style="flex:1">Back up now</button>
+          <button type="button" id="driveOpen" style="flex:1">Open in Drive</button>
+        </div>
+        <p class="meta" style="margin:0">Backs up by itself once a day when Ops is open: a Google Sheet with every load, expense and applicant, plus a full daily copy (kept 90 days). <button type="button" class="ghost" id="driveChange" style="padding:0;border:0;color:var(--blue);font-size:12.5px;text-decoration:underline">Change link</button></p>
+      </div>
+      <div class="stack" id="driveSetup">
+        <p class="meta" style="margin:0">Keeps a copy of everything in your Google Drive: a Sheet you can open anytime, and a full copy every day. Set up once (about 5 minutes, best on a computer):</p>
+        <ol class="meta" style="margin:0;padding-left:20px;display:grid;gap:4px">
+          <li>Tap <b>Copy the script</b>.</li>
+          <li>Open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener" style="color:var(--blue)">script.google.com</a> with the Google account that should keep the backups. Delete what's in the editor, paste, and click 💾 Save.</li>
+          <li><b>Deploy</b> → <b>New deployment</b> → ⚙ → <b>Web app</b>. Execute as: <b>Me</b>. Who has access: <b>Anyone</b>. Click <b>Deploy</b>, then allow access (Advanced → Go to project → Allow).</li>
+          <li>Copy the <b>Web app URL</b>, paste it below and tap <b>Connect</b>.</li>
+        </ol>
+        <div class="btns"><button type="button" id="driveCopy" style="flex:1">Copy the script</button><a id="driveView" href="backup/DijlaOpsBackup.gs" target="_blank" rel="noopener" style="flex:1;text-align:center;padding:10px 14px;border:1px solid var(--line);border-radius:9px;color:var(--text);text-decoration:none;background:var(--panel2)">View script</a></div>
+        <label>Web app URL<input id="driveUrl" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
+        <div class="btns"><button type="button" class="primary" id="driveConnect" style="flex:1">Connect</button><button type="button" id="driveCancel" hidden style="flex:1">Cancel</button></div>
+      </div>
+      <p class="meta" id="driveMsg" role="status" style="margin:0"></p>
+    </div>
     <div class="card stack" id="installCard">
       <h2>Phone app</h2>
       <p class="meta" id="installTxt" style="margin:0"></p>
@@ -766,7 +790,7 @@ function render(){
   if (tab === "dash") renderDash();
   if (tab === "loads") renderLoads();
   if (tab === "exp") { renderExp(); renderRec(); }
-  if (tab === "set") fillSettings();
+  if (tab === "set") { fillSettings(); Drive.draw(); }
   if (tab === "tax") renderTax();
   if (tab === "hire") renderHire();
   hireBadge();
@@ -1699,6 +1723,80 @@ $("setForm").onsubmit = e => {
   Sync.push("settings"); document.activeElement.blur(); render(); toast("Settings saved");
 };
 
+// ===== Google Drive backup (through the owner's Apps Script: backup/DijlaOpsBackup.gs) =====
+// Ops sends only the signed-in person's sign-in token; the script reads the data from Firestore as that person
+// (so the approved-accounts rules decide) and writes a Sheet + a daily JSON copy into the script owner's Drive.
+window.Drive = (() => {
+  const DAY = 20 * 3600e3;                       // "once a day", with slack for opening Ops at different times
+  let busy = false, editing = false, scriptText = "", autoDone = false;
+  const url = () => String(settings.driveUrl || "");
+  const okUrl = u => /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u) || /^https:\/\/script\.google\.com\/a\/macros\/[^/]+\/s\/[\w-]+\/exec$/.test(u);
+  const msg = (t, bad) => { $("driveMsg").textContent = t || ""; $("driveMsg").style.color = bad ? "var(--bad)" : ""; };
+  async function call(u, payload){
+    // text/plain keeps this a "simple" request, which Apps Script accepts from any site
+    const r = await fetch(u, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
+    let j; try { j = await r.json(); } catch (e) { throw new Error("The script didn't answer. Check it's deployed with access: Anyone."); }
+    if (!j.ok) throw new Error(j.error || "The backup script said no.");
+    return j;
+  }
+  const when = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+  const n = (x, w) => { x = Number(x) || 0; return x.toLocaleString("en-US") + " " + w + (x === 1 ? "" : "s"); };
+  function draw(){
+    const on = !!url() && !editing, b = settings.backup || {};
+    $("driveOn").hidden = !on; $("driveSetup").hidden = on;
+    $("driveCancel").hidden = !url();
+    if (on) $("driveLast").innerHTML = b.at
+      ? `Last backup <b>${esc(when(b.at))}</b> · ${n(b.loads, "load")}, ${n(b.expenses, "expense")}, ${n(b.applicants, "applicant")}${b.by ? " · by " + esc(String(b.by).split("@")[0]) : ""}`
+      : "Connected. No backup yet.";
+    $("driveOpen").disabled = !b.folderUrl; $("driveNow").disabled = busy;
+    if (!on && document.activeElement !== $("driveUrl")) $("driveUrl").value = url();
+    if (!on && !scriptText) fetch("backup/DijlaOpsBackup.gs", { cache: "no-cache" }).then(r => r.ok ? r.text() : "").then(t => { scriptText = t; }).catch(() => {});
+  }
+  async function backup(auto){
+    if (busy || !url()) return;
+    if (!Sync.ready()) { if (!auto) toast("Still loading from the cloud. Try again in a moment."); return; }
+    busy = true; draw(); if (!auto) msg("Backing up…");
+    try {
+      const j = await call(url(), { backup: true, idToken: await Cloud.idToken() });
+      settings.backup = { at: j.at, by: j.by, loads: j.loads, expenses: j.expenses, applicants: j.applicants, folderUrl: j.folderUrl, sheetUrl: j.sheetUrl };
+      Sync.push("settings"); msg(""); if (!auto) toast("Backed up to Google Drive");
+    } catch (e) {
+      console.warn("Drive backup", e);
+      msg((auto ? "Today's automatic backup didn't go through: " : "") + (e.message === "Failed to fetch" ? "Couldn't reach the backup script. Check your connection." : e.message), true);
+    } finally { busy = false; draw(); }
+  }
+  // once per day, when Ops is open and up to date
+  function maybeAuto(){
+    if (autoDone || busy || !url() || !Sync.ready() || document.hidden) return;
+    const last = Date.parse((settings.backup || {}).at || "") || 0;
+    if (Date.now() - last < DAY) return;
+    autoDone = true; backup(true);
+  }
+  setTimeout(maybeAuto, 8000); setInterval(maybeAuto, 60e3); document.addEventListener("visibilitychange", () => { if (!document.hidden) { autoDone = false; setTimeout(maybeAuto, 5000); } });
+  $("driveNow").onclick = () => backup(false);
+  $("driveOpen").onclick = () => { const b = settings.backup || {}; if (b.folderUrl) window.open(b.folderUrl, "_blank", "noopener"); };
+  $("driveChange").onclick = () => { editing = true; msg(""); draw(); $("driveUrl").focus(); };
+  $("driveCancel").onclick = () => { editing = false; msg(""); draw(); };
+  $("driveCopy").onclick = async () => {
+    if (!scriptText) { msg("Still loading the script. Tap again in a second, or use View script.", true); draw(); return; }
+    try { await navigator.clipboard.writeText(scriptText); }
+    catch (e) { const t = document.createElement("textarea"); t.value = scriptText; t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+    msg("Script copied. Paste it into script.google.com."); toast("Script copied");
+  };
+  $("driveConnect").onclick = async () => {
+    const u = $("driveUrl").value.trim();
+    if (!okUrl(u)) { msg("That doesn't look like the Web app URL. It starts with https://script.google.com/macros/s/ and ends with /exec.", true); return; }
+    $("driveConnect").disabled = true; msg("Checking the script…");
+    try {
+      await call(u, { ping: true });
+      settings.driveUrl = u; editing = false; Sync.push("settings"); draw();
+      await backup(false);
+    } catch (e) { msg(e.message === "Failed to fetch" ? "Couldn't reach that script. Make sure it's deployed as a Web app with access: Anyone." : e.message, true); }
+    finally { $("driveConnect").disabled = false; }
+  };
+  return { draw, maybeAuto };
+})();
+
 // ===== Cloud sync (talks to the Firebase module through window.Cloud) =====
 window.Sync = (() => {
   const stable = v => Array.isArray(v) ? "[" + v.map(stable).join(",") + "]"
@@ -1900,6 +1998,8 @@ window.Cloud = {
     }
   },
   writeSettings(data){ return setDoc(doc(getDb(), "meta", "settings"), data); },
+  // for the Drive backup script, which reads the data as the signed-in person
+  idToken(){ if (!auth.currentUser) return Promise.reject(new Error("Sign in again.")); return auth.currentUser.getIdToken(); },
   // Who may read or write is decided by the Firestore rules (an email allow-list), not here.
   async signIn(){
     const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: "select_account" });
