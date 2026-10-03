@@ -485,7 +485,7 @@
           <button type="button" id="driveFree" style="flex:1">Back up &amp; free space</button>
         </div>
         <div class="btns"><button type="button" id="driveOpen" style="flex:1">Open in Drive</button><button type="button" id="driveCopy2" style="flex:1">Copy the script</button></div>
-        <p class="meta" style="margin:0">When storage reaches half (512 MB), Ops backs up everything to Google Drive by itself: records, every paper and the reports. It checks each copy, then clears the papers from here so the bar drops. Cleared papers still open from Drive. Anything you delete in Ops is removed from Drive too (papers go to the Drive trash for 30 days). <button type="button" class="ghost" id="driveChange" style="padding:0;border:0;color:var(--blue);font-size:12.5px;text-decoration:underline">Change link</button></p>
+        <p class="meta" style="margin:0">When storage reaches half (512 MB), Ops backs up everything to Google Drive by itself: every record and every paper. It checks each copy, then clears the papers from here so the bar drops. Cleared papers still open from Drive. Anything you delete in Ops is removed from Drive too (papers go to the Drive trash for 30 days). <button type="button" class="ghost" id="driveChange" style="padding:0;border:0;color:var(--blue);font-size:12.5px;text-decoration:underline">Change link</button></p>
       </div>
       <div class="stack" id="driveSetup">
         <p class="meta" style="margin:0">Connect Google Drive so Ops can back everything up and clear space when it fills up. Set up once (about 5 minutes, best on a computer):</p>
@@ -2095,27 +2095,6 @@ window.Drive = (() => {
     if (!on && document.activeElement !== $("driveUrl")) $("driveUrl").value = url();
     if (!scriptText) fetch("backup/DijlaOpsBackup.gs", { cache: "no-cache" }).then(r => r.ok ? r.text() : "").then(t => { scriptText = t; }).catch(() => {});
   }
-  // the reports, remade on every backup: all loads, all expenses, this year's 1099 per truck
-  async function reports(){
-    await loadJs(JSPDF); await getLogo();
-    const co = settings.company || "Dijla Trucking", out = [], year = new Date().getFullYear();
-    const keep = ids => ids.map(id => [id, $(id).value, $(id).innerHTML]);
-    const back = saved => saved.forEach(([id, v, html]) => { $(id).innerHTML = html; $(id).value = v; });
-    const all = '<option value="all">All</option>';
-    let saved = keep(["rpFrom", "rpTo", "rpTruck", "rpStatus", "rpBroker"]);
-    try { $("rpFrom").value = ""; $("rpTo").value = ""; $("rpTruck").innerHTML = all; $("rpTruck").value = "all"; $("rpStatus").value = "all"; $("rpBroker").innerHTML = '<option value="">All brokers</option>'; $("rpBroker").value = "";
-      out.push(["Loads - all time.pdf", buildLoadsPdf()]); } finally { back(saved); }
-    saved = keep(["erFrom", "erTo", "erTruck", "erCat", "erPaid"]);
-    try { $("erFrom").value = ""; $("erTo").value = ""; $("erTruck").innerHTML = all; $("erTruck").value = "all"; $("erCat").innerHTML = '<option value="">All categories</option>'; $("erCat").value = ""; $("erPaid").value = "all";
-      out.push(["Expenses - all time.pdf", buildExpPdf()]); } finally { back(saved); }
-    TRUCKS().forEach(([id, name]) => out.push([`1099 ${year} - ${name}.pdf`, buildTaxPdf(year, id)]));
-    let ok = 0;
-    for (const [name, doc] of out) {
-      try { await signed({ savePdf: true, name: `${co} - ${name}`, data: doc.output("datauristring").split(",")[1] }); ok++; }
-      catch (e) { console.warn("report", name, e); }
-    }
-    return { ok, of: out.length };
-  }
   // papers deleted in Ops: their Drive copies go to the Drive trash
   async function emptyTrash(){
     const q = (await Cloud.trashQueue()).slice(0, 200); if (!q.length) return 0;
@@ -2124,7 +2103,7 @@ window.Drive = (() => {
     if (done.length) await Cloud.clearTrash(done);
     return r.results.filter(x => x.trashed).length;
   }
-  // after something is deleted in Ops: trash its Drive copies and rewrite the Sheet, snapshot and reports
+  // after something is deleted in Ops: trash its Drive copies and rewrite the Sheet and snapshot
   // (quietly, a few seconds later, so several deletes make one update)
   let soonT = 0, trashChecked = false;
   function soon(){
@@ -2138,14 +2117,13 @@ window.Drive = (() => {
         const v = await call({ ping: true }); if ((v.version || 1) < 3) return;
         await emptyTrash();
         const j = await signed({ backup: true });
-        await reports();
         settings.backup = { ...(settings.backup || {}), at: j.at, by: j.by, loads: j.loads, expenses: j.expenses, applicants: j.applicants, papers: j.papers, folderUrl: j.folderUrl, sheetUrl: j.sheetUrl };
         Sync.push("settings");
       } catch (e) { console.warn("Drive update after delete", e); }
       finally { busy = false; draw(); }
     }, 8000);
   }
-  // the full backup: records → Sheet + snapshot; papers → Drive; reports; then (free) check each copy and clear it here
+  // the full backup: records → Sheet + snapshot; papers → Drive; then (free) check each copy and clear it here
   async function backup({ free = false, auto = false } = {}){
     if (busy || !url()) return;
     if (!Sync.ready()) { if (!auto) toast("Still loading from the cloud. Try again in a moment."); return; }
@@ -2170,8 +2148,6 @@ window.Drive = (() => {
           await Cloud.updateFile(x.id, patch); Object.assign(local.get(x.id) || {}, patch); copied++;
         }
       }
-      say("Saving reports…");
-      const rep = await reports();
       // clear space: only papers whose Drive copy is checked (there, not in the trash, right size)
       let freed = 0, notFreed = 0;
       if (free) {
@@ -2192,7 +2168,7 @@ window.Drive = (() => {
         folderUrl: j.folderUrl, sheetUrl: j.sheetUrl,
         ...(free ? { freedAt: now, freed } : { freedAt: (settings.backup || {}).freedAt, freed: (settings.backup || {}).freed }) };
       Sync.push("settings");
-      const parts = [`Backed up${copied ? `, ${n(copied, "paper")} copied` : ""}`, free ? `${n(freed, "paper")} cleared from Ops` : "", rep.ok < rep.of ? `${rep.of - rep.ok} report(s) didn't save` : ""].filter(Boolean);
+      const parts = [`Backed up${copied ? `, ${n(copied, "paper")} copied` : ""}`, free ? `${n(freed, "paper")} cleared from Ops` : ""].filter(Boolean);
       const warn = failed || notFreed ? ` · ${failed + notFreed} paper(s) need another try and were kept in Ops` : "";
       msg(parts.join(" · ") + warn, !!warn); toast(free ? "Backed up and space freed" : "Backed up to Google Drive");
     } catch (e) {
