@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="application-name" content="Dijla Ops">
 <link rel="manifest" href="manifest.webmanifest">
+<script>try { if (localStorage.getItem("dijla_role") === "driver") location.replace("driver/"); } catch (e) {}</script>
 <style>
   :root{color-scheme:light;--on-acc:#ffffff;--pill:#e8ecf3;--ink:#f3f5f9;--panel:#ffffff;--panel2:#eef1f6;--line:#dde2ea;--acc:#0f2a5c;--acc-hi:#0f2a5c;--text:#131a26;--muted:#5d6678;
     --good:#1d8a52;--warn:#b86a00;--bad:#c23a32;--blue:#2c64d6;--violet:#7446d4;
@@ -550,6 +551,11 @@
     <div class="card stack" id="rcptCard" hidden><h2>Receipts from drivers</h2><div id="rcptList" class="stack" style="gap:0"></div></div>
     <div class="list" id="drvList"></div>
     <button type="button" class="primary" id="drvNewBtn">+ Add driver</button>
+    <div class="card stack" id="drvLinkCard">
+      <h2>Driver app</h2>
+      <p class="meta" style="margin:0">Drivers sign in here with their Gmail and can install it on their phone: <b id="drvLinkTxt"></b></p>
+      <div class="btns"><a id="drvLinkOpen" href="driver/" target="_blank" rel="noopener" style="flex:1;text-align:center;padding:10px 14px;border:1px solid var(--line);border-radius:9px;color:var(--text);text-decoration:none;background:var(--panel2)">Open</a><button type="button" id="drvLinkCopy" style="flex:1">Copy link</button></div>
+    </div>
     <form class="card stack" id="drvForm" hidden autocomplete="off" novalidate>
       <h2 id="drvFormTitle">New driver</h2>
       <div class="row2">
@@ -564,53 +570,13 @@
         <label><span id="dRateLab">Rate ($ per mile)</span><input id="dRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.60"></label>
         <label class="chk" style="align-self:end;padding-bottom:10px"><input type="checkbox" id="dActive" checked> Can sign in</label>
       </div>
-      <p class="meta" style="margin:0">They sign in to Ops with this Gmail and see only their loads (no rates), their truck, their papers and their pay.</p>
+      <p class="meta" style="margin:0">They sign in to the driver app with this Gmail and see only their loads (no rates), their truck, their papers and their pay.</p>
       <div class="btns"><button type="submit" class="primary" style="flex:1">Save driver</button><button type="button" id="drvCancel" style="flex:1">Cancel</button></div>
     </form>
   </section>
 </div>
 
 <!-- ===== DRIVER APP (what a driver sees) ===== -->
-<div class="wrap" id="drvApp" hidden>
-  <header class="top">
-    <img class="logo" src="logo.png" alt="Dijla Trucking">
-    <div style="flex:1;min-width:0">
-      <h1 id="dCo">Dijla Trucking</h1>
-      <p class="meta" id="dHi" style="margin:2px 0 0"></p>
-    </div>
-    <button type="button" class="ghost" id="dSignOut">Sign out</button>
-  </header>
-  <div class="installhint" id="dInstall" hidden><span aria-hidden="true">📲</span><b id="dInstallTxt">Install Dijla Ops on your phone</b><button type="button" class="primary" id="dInstallBtn">Install app</button></div>
-  <nav class="tabs" id="driverNav" role="tablist" aria-label="Driver" style="--ntabs:4">
-    <button type="button" role="tab" data-dtab="loads" aria-selected="true"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3.5 3.5v2.5h-7.5"/><circle cx="6.5" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/></svg><span>My loads</span></button>
-    <button type="button" role="tab" data-dtab="rcpt" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span>Receipts</span></button>
-    <button type="button" role="tab" data-dtab="truck" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3.5 3.5v2.5h-7.5"/></svg><span>My truck</span></button>
-    <button type="button" role="tab" data-dtab="pay" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Pay</span></button>
-  </nav>
-  <section class="stack" id="d-loads"><div class="list" id="dLoadList"></div></section>
-  <section class="stack" id="d-rcpt" hidden>
-    <form class="card stack" id="dRcptForm" autocomplete="off" novalidate>
-      <h2>Send a receipt</h2>
-      <div class="row2">
-        <label>What for<select id="drCat"><option>Fuel</option><option>DEF</option><option>Lumper</option><option>Tolls</option><option>Scale</option><option>Parking</option><option>Repairs</option><option>Other</option></select></label>
-        <label>Amount ($)<input id="drAmt" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label>
-      </div>
-      <div class="row2">
-        <label>Date<input id="drDate" type="date"></label>
-        <label>Paid with<select id="drPaid"><option value="own">My own money</option><option value="company">Company card</option></select></label>
-      </div>
-      <label>Load (optional)<select id="drLoad"></select></label>
-      <label>Note (optional)<input id="drNote" maxlength="200" placeholder="e.g. Pilot #123, Boise"></label>
-      <label class="addbtn" id="drPick" style="display:flex;justify-content:center;gap:8px;padding:12px;border:1px dashed var(--line);border-radius:10px;cursor:pointer;font-weight:700">📷 Photo of the receipt<input type="file" id="drFile" accept="image/*,application/pdf" style="position:absolute;width:1px;height:1px;opacity:0"></label>
-      <p class="meta" id="drFileName" style="margin:0"></p>
-      <button type="submit" class="primary" id="drSend">Send receipt</button>
-    </form>
-    <div class="list" id="dRcptList"></div>
-  </section>
-  <section class="stack" id="d-truck" hidden><div id="dTruckBox"></div></section>
-  <section class="stack" id="d-pay" hidden><div id="dPayBox" class="stack"></div></section>
-</div>
-
 <script>
 // ===== Rate con reader: runs entirely on this device. Nothing is uploaded or stored. =====
 window.RateCon = (() => {
@@ -1418,9 +1384,6 @@ function installUI(){
   $("installBtn").hidden = st || !(installEvt || isIOSDevice);
   let dismissed = false; try { dismissed = localStorage.getItem("dijla_install_hint") === "x"; } catch (e) {}
   $("installHint").hidden = st || dismissed || !matchMedia("(max-width:760px)").matches;
-  // driver page: the button stays until the app is installed
-  $("dInstall").hidden = st;
-  if (!st) $("dInstallTxt").textContent = "Install Dijla Ops on your phone";
 }
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; installUI(); });
 addEventListener("appinstalled", () => { installEvt = null; installUI(); toast("Dijla Ops installed"); });
@@ -1442,10 +1405,6 @@ $("iosGuide").onclick = e => { if (e.target.id === "iosGuide") $("iosGuide").hid
 $("installBtn").onclick = async () => { if (!installEvt) { if (isIOSDevice) iosGuide(); return; } installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {} installEvt = null; installUI(); };
 $("docAlert").onclick = () => { const f = Papers.expiring()[0]; if (!f) return; openProfile = f.truckId; showTab("set"); setTimeout(() => { const el = document.querySelector(`#trkList [data-id="${f.truckId}"]`); if (el) el.scrollIntoView({ block: "center" }); }, 50); };
 $("hintHow").onclick = () => { if (installEvt || isIOSDevice) $("installBtn").click(); else { showTab("set"); $("installCard").scrollIntoView({ block: "center" }); } };
-$("dInstallBtn").onclick = () => {
-  if (installEvt || isIOSDevice) return $("installBtn").click();
-  $("dInstallTxt").innerHTML = "In <b>Chrome</b>: tap the <b>⋮</b> menu (top right) → <b>Add to Home screen</b> or <b>Install app</b>.";
-};
 $("hintX").onclick = () => { try { localStorage.setItem("dijla_install_hint", "x"); } catch (e) {} installUI(); };
 installUI();
 if ("serviceWorker" in navigator && location.hostname !== "localhost") addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
@@ -1615,6 +1574,9 @@ $("hireList").addEventListener("change", e => {
   a.myNotes = e.target.value.trim().slice(0, 2000); Sync.push("applications"); toast("Note saved");
 });
 const jobsUrl = () => new URL("jobs/", location.href.split("#")[0]).href;
+const driverUrl = () => new URL("driver/", location.href.split("#")[0]).href;
+$("drvLinkTxt").textContent = driverUrl().replace(/^https?:\/\//, "");
+$("drvLinkCopy").onclick = async () => { try { await navigator.clipboard.writeText(driverUrl()); toast("Link copied"); } catch (e) { prompt("Copy this link:", driverUrl()); } };
 $("jobsCopy").onclick = async () => { try { await navigator.clipboard.writeText(jobsUrl()); toast("Link copied"); } catch (e) { prompt("Copy this link:", jobsUrl()); } };
 
 // ----- 1099 / tax year (cash basis: a load counts in the year and quarter it was paid) -----
@@ -2139,30 +2101,13 @@ window.Papers = (() => {
   };
 })();
 
-// ===== Location stamps: where a driver was when they tapped Picked up / Delivered or sent a paper =====
-// Only taken at those moments (never in the background). If the phone says no or can't tell, it's simply left out.
+// ===== Location stamps (taken by the driver page when a driver taps Picked up / Delivered or sends a paper) =====
 const Geo = (() => {
-  const timeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
-  async function here(){
-    if (!navigator.geolocation) return null;
-    const pos = await timeout(new Promise(res => navigator.geolocation.getCurrentPosition(res, () => res(null), { enableHighAccuracy: true, timeout: 7000, maximumAge: 120000 })), 7500);
-    if (!pos || !pos.coords) return null;
-    const loc = { lat: Math.round(pos.coords.latitude * 1e5) / 1e5, lng: Math.round(pos.coords.longitude * 1e5) / 1e5, acc: Math.round(pos.coords.accuracy || 0), at: new Date().toISOString() };
-    // the town for it (OpenStreetMap); if that's slow or offline, the map link still has the exact spot
-    try {
-      const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3500);
-      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&lat=${loc.lat}&lon=${loc.lng}`, { signal: ctl.signal, headers: { Accept: "application/json" } });
-      const a = (await r.json()).address || {}, st = String(a["ISO3166-2-lvl4"] || "").split("-")[1] || a.state || "";
-      const town = a.city || a.town || a.village || a.hamlet || a.municipality || a.county || "";
-      if (town || st) loc.place = [town, st].filter(Boolean).join(", ");
-    } catch (e) {}
-    return loc;
-  }
   const time = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
   // "📍 Denver, CO · Oct 3, 2:14 PM" (opens the spot in Google Maps)
   const link = (loc, label) => !loc || typeof loc.lat !== "number" ? "" :
     `<a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener" style="color:var(--blue)">📍 ${label ? esc(label) + " · " : ""}${esc(loc.place || loc.lat.toFixed(3) + ", " + loc.lng.toFixed(3))}</a>${loc.at ? ` <span class="meta">· ${esc(time(loc.at))}</span>` : ""}`;
-  return { here, link };
+  return { link };
 })();
 
 // ===== Drivers (office side) =====
@@ -2391,144 +2336,6 @@ window.Drivers = (() => {
     syncTrips, fillSelect, byEmail, name, draw, payFor, all: () => list,
     reset(){ list = []; trips = new Map(); stmts = []; building = ""; $("drvBadge").textContent = ""; }
   };
-})();
-
-// ===== The driver app: what a driver sees after signing in =====
-window.DriverApp = (() => {
-  let unsub = null, email = "", me = null, trips = [], mine = [], truckDocs = [], truck = null, stmts = [], tab = "loads", openTrip = "", delAsk = "", pickedRcpt = null;
-  const STAGE_TXT = { booked: "Booked", pickedup: "Picked up", delivered: "Delivered", paid: "Done", funded: "Done", cancelled: "Cancelled" };
-  const LOCKED = ["paid", "funded", "cancelled"];             // the office has closed it: the driver can only look
-  const on = () => !!unsub;
-  function start(em, d){
-    stop(); email = em; me = d;
-    $("authGate").hidden = true; document.body.classList.remove("auth-lock");
-    $("officeApp").hidden = true; $("drvApp").hidden = false;
-    $("drDate").value = today();
-    unsub = Cloud.driverWatch(email, {
-      me: x => { me = x; if (!x || x.active === false) { const e = email; stop(); Access.show(e); return; } draw(); },
-      trips: r => { trips = r; draw(); }, files: r => { mine = r; draw(); }, truckFiles: r => { truckDocs = r; draw(); },
-      truck: t => { truck = t; draw(); }, statements: r => { stmts = r; draw(); },
-      shared: sh => { settings = { ...settings, company: sh.company || settings.company, driveUrl: sh.driveUrl || "" }; draw(); },
-      error: e => { console.warn("driver view", e); if (e && e.code === "permission-denied") { const em2 = email; stop(); Access.show(em2); } }
-    });
-    show(tab);
-  }
-  function stop(){ if (unsub) { unsub(); unsub = null; } $("drvApp").hidden = true; $("officeApp").hidden = false; trips = []; mine = []; truckDocs = []; stmts = []; truck = null; }
-  function show(t){
-    tab = t;
-    ["loads", "rcpt", "truck", "pay"].forEach(x => { $("d-" + x).hidden = x !== t; });
-    document.querySelectorAll("#driverNav button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.dtab === t)));
-    window.scrollTo(0, 0); draw();
-  }
-  document.querySelectorAll("#driverNav button").forEach(b => b.onclick = () => show(b.dataset.dtab));
-  const active = () => trips.filter(t => !["paid", "funded", "cancelled"].includes(t.stage)).sort((a, b) => String(a.fromDate).localeCompare(String(b.fromDate)));
-  const done = () => trips.filter(t => ["paid", "funded"].includes(t.stage)).sort((a, b) => String(b.toDate || b.fromDate).localeCompare(String(a.toDate || a.fromDate)));
-  const papersOf = id => mine.filter(f => f.loadId === id && !f.claim);
-  const paperRow = f => `<div class="pp" data-f="${esc(f.id)}"><span><b>${esc(f.kind)}</b> <span class="meta">${niceDate(String(f.created || "").slice(0, 10))}</span></span>
-    <button type="button" data-a="popen">Open</button></div>`;
-  function tripCard(t, old){
-    const pp = papersOf(t.id), open = openTrip === t.id, locked = LOCKED.includes(t.stage);
-    return `<article class="item st-${esc(t.stage)}" data-t="${esc(t.id)}">
-      <div class="top2"><div style="min-width:0"><div class="big">${esc(t.broker || "Load")}${t.loadNo ? ` <span class="mono muted" style="font-weight:500;font-size:13px">#${esc(t.loadNo)}</span>` : ""}</div>
-        <div class="lane">${esc(t.from || "?")} → ${esc(t.to || "?")}</div></div>
-        <div class="r"><span class="pill st-${esc(t.stage)}">${esc(STAGE_TXT[t.stage] || t.stage)}</span></div></div>
-      <div class="meta">${esc(t.truckName || "")} · Pickup ${niceDate(t.fromDate) || "?"} · Deliver ${niceDate(t.toDate) || "?"}${num(t.miles) + num(t.empty) ? ` · ${(num(t.miles) + num(t.empty)).toLocaleString("en-US")} mi` : ""}${t.weight ? ` · ${num(t.weight).toLocaleString("en-US")} lb` : ""}${t.commodity ? " · " + esc(t.commodity) : ""}</div>
-      ${t.stmt ? `<div class="meta">On a pay statement ✓</div>` : ""}
-      ${locked ? "" : `<div class="steps" role="group" aria-label="Load status">${[["pickedup", "Picked up"], ["delivered", "Delivered"]].map(([st, lab]) => `<button type="button" data-a="stage" data-st="${st}" aria-pressed="${t.stage === st}">${lab}</button>`).join("")}</div>`}
-      <div class="acts"><button type="button" data-a="papers" aria-expanded="${open}">📎 BOL / POD${pp.length ? ` (${pp.length})` : ""}</button></div>
-      ${open ? `<div class="papers">${pp.length ? pp.map(paperRow).join("") : `<div class="meta">${locked ? "No papers sent for this load." : "Add the signed BOL / POD here."}</div>`}
-        ${locked ? "" : `<div class="ppadd"><select data-a="pkind" aria-label="Kind of paper"><option>BOL</option><option>POD</option><option>Lumper</option><option>Scale ticket</option><option>Other</option></select>
-          <label>📷 Add<input type="file" accept="image/*,application/pdf" multiple data-a="pfile"></label></div>`}</div>` : ""}
-    </article>`;
-  }
-  function draw(){
-    if (!on()) return;
-    $("dCo").textContent = settings.company || "Dijla Trucking";
-    $("dHi").textContent = `${me && me.name ? me.name : email} · Driver`;
-    if (tab === "loads") {
-      const a = active(), d = done().slice(0, 15);
-      $("dLoadList").innerHTML = (a.length ? a.map(t => tripCard(t)).join("") : `<div class="empty"><b>No loads right now</b>When the office gives you a load it shows up here.</div>`)
-        + (d.length ? `<h2 style="margin:10px 0 0;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">Done</h2>` + d.map(t => tripCard(t, true)).join("") : "");
-    }
-    if (tab === "rcpt") {
-      $("drLoad").innerHTML = `<option value="">No load</option>` + active().map(t => `<option value="${esc(t.id)}">${esc((t.loadNo ? "#" + t.loadNo + " · " : "") + (t.from || "?") + " → " + (t.to || "?"))}</option>`).join("");
-      const rs = mine.filter(f => f.claim).sort((x, y) => String(y.created).localeCompare(String(x.created)));
-      const tag = c => c.status === "approved" ? `<span class="pill" style="background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)">Approved${c.reimburse ? (c.stmt ? " · paid back" : " · paid back on next statement") : ""}</span>`
-        : c.status === "rejected" ? `<span class="pill" style="background:rgba(224,122,122,.18);color:var(--bad)">Not approved</span>` : `<span class="pill">Waiting</span>`;
-      $("dRcptList").innerHTML = rs.length ? rs.map(f => `<article class="item" data-f="${esc(f.id)}"><div class="top2"><div style="min-width:0"><div class="big">${esc(f.claim.cat || "Receipt")}</div>
-          <div class="meta">${niceDate(f.claim.date)} · ${f.claim.paidWith === "company" ? "Company card" : "My own money"}${f.claim.note ? " · " + esc(f.claim.note) : ""}</div></div><div class="r"><b class="money">${money2(num(f.claim.amount))}</b>${tag(f.claim)}</div></div>
-          ${f.claim.status === "rejected" && f.claim.reason ? `<div class="meta" style="color:var(--bad)">${esc(f.claim.reason)}</div>` : ""}
-          <div class="acts"><button type="button" data-a="popen">Open</button></div></article>`).join("")
-        : `<div class="empty"><b>No receipts sent yet</b>Fuel, lumpers, tolls… take a photo and send it. The office approves it.</div>`;
-    }
-    if (tab === "truck") {
-      if (!me || !me.truckId) { $("dTruckBox").innerHTML = `<div class="empty"><b>No truck assigned</b>The office sets your truck in Drivers.</div>`; }
-      else {
-        const t = truck || {}, xp = d => { if (!d) return ""; const n = Papers.daysTo(d); return n < 0 ? '<span class="xp late">Expired</span>' : n <= 30 ? '<span class="xp soon">Expires soon</span>' : ""; };
-        const docs = truckDocs.slice().sort((a, b) => Papers.VKINDS.indexOf(a.kind) - Papers.VKINDS.indexOf(b.kind));
-        $("dTruckBox").innerHTML = `<div class="card stack"><h2>${esc(t.name || "My truck")}${t.unit ? ` <span class="meta" style="font-weight:500">· unit ${esc(t.unit)}</span>` : ""}</h2>
-          <div class="meta" style="font-size:14px;color:var(--text)">${[[t.year, t.make, t.model].filter(Boolean).join(" "), t.plate ? "Plate " + esc(t.plate) : "", t.vin ? "VIN " + esc(t.vin) : ""].filter(Boolean).join("<br>") || "No details yet."}</div></div>
-          <div class="card stack"><h2>Truck papers</h2><p class="meta" style="margin:0">Registration, insurance, IFTA… Keep them handy for inspections and scales.</p>
-          ${docs.length ? docs.map(f => `<div class="vdoc" data-f="${esc(f.id)}"><span><b>${esc(f.kind)}</b> ${xp(f.expiresAt)}<br><span class="meta">${f.expiresAt ? "Expires " + niceDate(f.expiresAt) + ", " + f.expiresAt.slice(0, 4) : "No expiry"}</span></span><button type="button" data-a="popen">Open</button></div>`).join("")
-            : `<div class="meta">No papers on file yet.</div>`}</div>`;
-      }
-    }
-    if (tab === "pay") {
-      const waiting = trips.filter(t => ["delivered", "paid", "funded"].includes(t.stage) && !t.stmt), wsum = waiting.reduce((x, t) => x + num(t.pay), 0);
-      const list = stmts.slice().sort((a, b) => String(b.created).localeCompare(String(a.created)));
-      $("dPayBox").innerHTML = `<div class="card stack"><h2>Coming up</h2><div style="display:flex;justify-content:space-between;align-items:baseline"><span>${waiting.length} delivered load${waiting.length === 1 ? "" : "s"} not on a statement yet</span><b class="money" style="font-size:18px">${money2(wsum)}</b></div>
-          <p class="meta" style="margin:0">${me ? esc(payText(me)) : ""}. The office adds these to your next statement.</p></div>`
-        + (list.length ? list.map(st => `<div class="card stack"><div style="display:flex;gap:8px;align-items:baseline"><h2 style="flex:1;margin:0">${esc(st.label || "Statement")}</h2><b class="money" style="font-size:18px">${money2(num(st.total))}</b></div>
-            <div class="meta">${st.status === "paid" ? `<b style="color:var(--good)">Paid ${niceDate(String(st.paidAt || "").slice(0, 10))}</b>` : "Issued " + niceDate(String(st.created).slice(0, 10)) + " · payment on its way"}</div>
-            <div class="stack" style="gap:4px;font-size:14px">${(st.items || []).map(it => `<div style="display:flex;gap:8px"><span style="flex:1">${it.loadNo ? "#" + esc(it.loadNo) + " · " : ""}${esc(it.lane)} <span class="meta">${niceDate(it.date)}${it.miles ? " · " + num(it.miles).toLocaleString("en-US") + " mi" : ""}</span></span><span class="money">${money2(num(it.pay))}</span></div>`).join("")}
-              ${(st.reimb || []).map(r => `<div style="display:flex;gap:8px"><span style="flex:1">Paid back: ${esc(r.desc)}</span><span class="money">${money2(num(r.amount))}</span></div>`).join("")}
-              ${(st.adj || []).map(a => `<div style="display:flex;gap:8px"><span style="flex:1">${esc(a.desc)}</span><span class="money ${num(a.amount) < 0 ? "neg" : ""}">${money2(num(a.amount))}</span></div>`).join("")}</div></div>`).join("")
-          : `<div class="empty"><b>No statements yet</b>Your pay statements show up here when the office issues them.</div>`);
-    }
-  }
-  // loads: Picked up / Delivered, papers
-  $("dLoadList").addEventListener("click", async e => {
-    const b = e.target.closest("button"); if (!b) return;
-    const card = b.closest("[data-t]"), t = card && trips.find(x => x.id === card.dataset.t); if (!t) return;
-    if (b.dataset.a === "stage") { if (t.stage === b.dataset.st || LOCKED.includes(t.stage)) return; b.disabled = true; const label = b.textContent; b.textContent = "Saving…"; try { const loc = await Geo.here(); await Cloud.setTripStage(t.id, b.dataset.st, loc); toast(`Marked ${label}`); } catch (err) { console.warn(err); toast("Couldn't save. Check your connection."); b.disabled = false; } return; }
-    if (b.dataset.a === "papers") { openTrip = openTrip === t.id ? "" : t.id; draw(); return; }
-    await paperClick(b);
-  });
-  $("dLoadList").addEventListener("change", async e => {
-    const inp = e.target.closest("[data-a=pfile]"); if (!inp) return;
-    const t = trips.find(x => x.id === inp.closest("[data-t]").dataset.t); if (!t) return;
-    const files = [...inp.files]; inp.value = ""; const kind = inp.closest(".ppadd").querySelector("[data-a=pkind]").value, lab = inp.closest("label");
-    lab.classList.add("busy"); lab.firstChild.textContent = "Saving… "; let ok = 0;
-    const loc = await Geo.here();
-    for (const file of files) { try { await Papers.save(file, kind, `${kind} · ${t.loadNo ? "#" + t.loadNo : (t.from || "") + " → " + (t.to || "")} · ${me.name || email}`, { driverEmail: email, loadId: t.id, ...(loc ? { loc } : {}) }); ok++; } catch (err) { console.warn(err); toast(err.message || "Couldn't save that paper."); } }
-    if (ok) toast(ok === 1 ? `${kind} sent to the office` : `${ok} papers sent`);
-    draw();
-  });
-  async function paperClick(b){
-    const row = b.closest("[data-f]"), f = row && (mine.find(x => x.id === row.dataset.f) || truckDocs.find(x => x.id === row.dataset.f)); if (!f) return;
-    if (b.dataset.a === "popen") { Papers.open(f); return; }
-  }
-  $("dRcptList").addEventListener("click", e => { const b = e.target.closest("button"); if (b) paperClick(b); });
-  $("dTruckBox").addEventListener("click", e => { const b = e.target.closest("button"); if (b) paperClick(b); });
-  // receipts
-  $("drFile").addEventListener("change", e => { pickedRcpt = e.target.files[0] || null; e.target.value = ""; $("drFileName").textContent = pickedRcpt ? "✓ " + (pickedRcpt.name || "Photo") + " ready" : ""; });
-  $("dRcptForm").onsubmit = async e => {
-    e.preventDefault();
-    const amount = Math.round(num($("drAmt").value) * 100) / 100;
-    if (!amount) { toast("Add the amount"); $("drAmt").focus(); return; }
-    if (!pickedRcpt) { toast("Add a photo of the receipt"); return; }
-    $("drSend").disabled = true; $("drSend").textContent = "Sending…";
-    const claim = { status: "pending", amount, cat: $("drCat").value, date: $("drDate").value || today(), paidWith: $("drPaid").value, note: $("drNote").value.trim().slice(0, 200) };
-    try {
-      const loc = await Geo.here();
-      await Papers.save(pickedRcpt, "Receipt", `Receipt · ${claim.cat} ${money2(amount)} · ${me.name || email}`, { driverEmail: email, claim, ...($("drLoad").value ? { loadId: $("drLoad").value } : {}), ...(loc ? { loc } : {}) });
-      pickedRcpt = null; $("drFileName").textContent = ""; $("drAmt").value = ""; $("drNote").value = ""; $("drDate").value = today();
-      toast("Receipt sent. The office will approve it.");
-    } catch (err) { console.warn(err); toast(err.message || "Couldn't send. Check your connection."); }
-    finally { $("drSend").disabled = false; $("drSend").textContent = "Send receipt"; }
-  };
-  $("dSignOut").onclick = async () => { stop(); if (window.Cloud) await Cloud.signOut(); location.reload(); };
-  return { start, stop, on, show };
 })();
 
 // ===== Team: who can sign in. The owner is fixed (also in the Firestore rules); the owner adds and removes everyone else. =====
@@ -2870,6 +2677,7 @@ window.Sync = (() => {
   document.addEventListener("focusout", () => setTimeout(() => { if (later) { later = false; redraw(); } }, 60));
   let sharedDone = false;
   function apply(k, data, meta){
+    reveal();
     if (!meta.fromCache) { gotData = true; if (k in fresh && !fresh[k]) { fresh[k] = true; setTimeout(() => { if (postRecurring()) redraw(); }, 0); } }
     // what drivers can read (company, Drive link, truck profiles): refreshed once per session from the office side
     if (k === "settings" && !meta.fromCache && !sharedDone) { sharedDone = true; setTimeout(() => Cloud.syncShared({ ...DEFAULTS, ...(data || {}) }, truckList()).catch(e => console.warn("shared", e)), 1500); }
@@ -2910,8 +2718,8 @@ window.Sync = (() => {
       if (window.Cloud) Cloud.stopOnly();
       loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; last.loads = last.expenses = last.settings = last.applications = null;
       fresh.expenses = fresh.settings = false; Team.signedOut(); Papers.reset(); Drivers.reset(); render();
-      // a driver gets the driver app; anyone else can ask for access
-      Cloud.myDriver(em).then(d => { if (d && d.active !== false) DriverApp.start(em, d); else Access.show(em); }).catch(() => Access.show(em));
+      // a driver goes to the driver page; anyone else can ask for access
+      Cloud.myDriver(em).then(d => { if (d && d.active !== false) toDriverPage(); else Access.show(em); }).catch(() => Access.show(em));
       return;
     }
     fail(err);
@@ -2919,12 +2727,17 @@ window.Sync = (() => {
   function signedIn(email){
     on = true; errored = ""; gotData = false; userEmail = email; slow = false; Team.signedIn(email);
     clearTimeout(slowT); slowT = setTimeout(() => { if (on && !gotData) { slow = true; status(); } }, 15000);
-    $("authGate").hidden = true; document.body.classList.remove("auth-lock"); status(); render();
+    // the sign-in screen stays ("Opening…") until the data answers, so nobody sees an empty Ops first
+    $("authForm").hidden = true; $("authWait").hidden = false; $("authWait").textContent = "Opening…";
+    clearTimeout(revealT); revealT = setTimeout(reveal, 4000); status(); render();
   }
+  let revealT = 0;
+  function reveal(){ clearTimeout(revealT); if (on && !$("authGate").hidden && $("authAsk").hidden) { $("authGate").hidden = true; document.body.classList.remove("auth-lock"); } }
+  function toDriverPage(){ try { localStorage.setItem("dijla_role", "driver"); } catch (e) {} location.replace("driver/"); }
   function signedOut(){
-    on = false; fresh.expenses = fresh.settings = false; loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; Team.signedOut(); Access.hide(); Papers.reset(); Drivers.reset(); DriverApp.stop(); last.loads = last.expenses = last.settings = last.applications = null;
+    on = false; fresh.expenses = fresh.settings = false; loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; Team.signedOut(); Access.hide(); Papers.reset(); Drivers.reset(); last.loads = last.expenses = last.settings = last.applications = null;
     $("authGate").hidden = false; document.body.classList.add("auth-lock");
-    $("authForm").hidden = false; $("authWait").hidden = true; $("authMsg").textContent = "";
+    clearTimeout(revealT); $("authForm").hidden = false; $("authWait").hidden = true; $("authMsg").textContent = "";
   }
   // Google sign-in. With a Google client ID we open Google's own sign-in window (works on iPhone Safari,
   // which blocks the storage Firebase's popup relies on); without one, or if Google's script can't load, Firebase's popup.
@@ -3098,30 +2911,6 @@ window.Cloud = {
     await b.commit();
   },
   async myDriver(email){ const x = await getDoc(doc(getDb(), "drivers", email)); return x.exists() ? x.data() : null; },
-  // ---- the driver's own view: their entry, trips, uploads, truck papers, statements, truck profile, app info
-  driverWatch(email, on){
-    const d = getDb(), subs = [], truckSubs = [];
-    const q = (c, f, v) => query(collection(d, c), where(f, "==", v));
-    const rows = s => s.docs.map(x => ({ ...x.data(), id: x.id }));
-    let truck = null;
-    const watchTruck = t => {
-      truckSubs.splice(0).forEach(u => u());
-      if (!t) { on.truck(null); on.truckFiles([]); return; }
-      truckSubs.push(onSnapshot(doc(d, "trucksPublic", t), s => on.truck(s.exists() ? { ...s.data(), id: t } : { id: t }), () => on.truck({ id: t })));
-      truckSubs.push(onSnapshot(q("files", "truckId", t), s => on.truckFiles(rows(s)), () => on.truckFiles([])));
-    };
-    subs.push(onSnapshot(doc(d, "drivers", email), s => {
-      const me = s.exists() ? s.data() : null; on.me(me);
-      const t = me && me.active !== false ? me.truckId || "" : "";
-      if (t !== truck) { truck = t; watchTruck(t); }
-    }, e => on.error(e)));
-    subs.push(onSnapshot(q("trips", "driverEmail", email), s => on.trips(rows(s)), e => on.error(e)));
-    subs.push(onSnapshot(q("files", "driverEmail", email), s => on.files(rows(s)), e => console.warn("my papers", e)));
-    subs.push(onSnapshot(q("statements", "driverEmail", email), s => on.statements(rows(s)), e => console.warn("statements", e)));
-    subs.push(onSnapshot(doc(d, "shared", "app"), s => on.shared(s.exists() ? s.data() : {}), () => on.shared({})));
-    return () => { subs.forEach(u => u()); truckSubs.forEach(u => u()); };
-  },
-  setTripStage(id, stage, loc){ return updateDoc(doc(getDb(), "trips", id), { stage, stageBy: "driver", stageAt: new Date().toISOString(), stageLoc: loc || null }); },
   reject(email, by){ return updateDoc(doc(getDb(), "requests", email), { status: "rejected", decidedBy: by, decided: new Date().toISOString() }); },
   clearRequest(email){ return deleteDoc(doc(getDb(), "requests", email)); },
   userName(){ return auth.currentUser && auth.currentUser.displayName || ""; },

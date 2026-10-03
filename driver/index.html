@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#f3f5f9">
+<title>Dijla Driver</title>
+<link rel="icon" type="image/png" href="../favicon-64.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dijla Driver">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="application-name" content="Dijla Driver">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root{color-scheme:light;--on-acc:#ffffff;--pill:#e8ecf3;--ink:#f3f5f9;--panel:#ffffff;--panel2:#eef1f6;--line:#dde2ea;--acc:#0f2a5c;--acc-hi:#0f2a5c;--text:#131a26;--muted:#5d6678;
+    --good:#1d8a52;--warn:#b86a00;--bad:#c23a32;--blue:#2c64d6;--violet:#7446d4;
+    --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0;background:var(--ink)}
+  .card,.item,.stats div,nav.tabs,.seg{box-shadow:0 1px 2px rgba(15,42,92,.06)}
+  body{color:var(--text);font:15px/1.45 var(--body);padding-bottom:40px}
+  .wrap{max-width:760px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) 16px 20px}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 14px}
+  button.primary{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:700}
+  button.ghost{background:transparent}
+  button.danger{border-color:rgba(224,122,122,.55);color:var(--bad);background:transparent}
+  button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc-hi);outline-offset:1px}
+  input,select,textarea{width:100%;background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 11px;font-size:16px}
+  textarea{resize:vertical}
+  label{display:grid;gap:4px;font-size:12.5px;color:var(--muted)}
+  label.chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text)}
+  label.chk input{width:20px;height:20px;accent-color:var(--acc)}
+  .mono{font-family:var(--mono)}
+  .muted{color:var(--muted)}
+  header.top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  header.top .logo{width:50px;height:auto;flex:none}
+  header.top h1{margin:0;font-size:20px;letter-spacing:.02em}
+  header.top > div{min-width:0} header.top h1{overflow-wrap:anywhere;line-height:1.15}
+  @media (max-width:370px){header.top{gap:8px} header.top .logo{width:40px} header.top h1{font-size:17px}
+    #signOutBtn{padding:8px 10px;font-size:13.5px} .hirebtn{padding:8px 9px}}
+  header.top p{margin:0;font-size:12.5px;color:var(--muted)}
+  .sync{font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .sync.ok{color:var(--good)} .sync.warn{color:var(--warn)} .sync.bad{color:var(--bad)}
+  nav.tabs{display:grid;grid-template-columns:repeat(var(--ntabs,6),1fr);gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:14px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
+  nav.tabs button{border:none;background:transparent;color:var(--muted);padding:11px 2px;border-radius:8px;font-weight:600;font-size:13.5px}
+  @media (max-width:400px){nav.tabs button{font-size:12.5px}}
+  nav.tabs button[aria-selected="true"]{background:var(--acc);color:var(--on-acc)}
+  nav.tabs svg.ni{display:none;width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  @media (max-width:760px){
+    nav.tabs{position:fixed;left:0;right:0;bottom:0;top:auto;margin:0;border-radius:0;border-width:1px 0 0;gap:0;
+      padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));z-index:60;background:color-mix(in srgb,var(--panel) 94%,transparent);
+      -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 -2px 14px rgba(15,42,92,.08)}
+    nav.tabs button{display:grid;justify-items:center;gap:3px;padding:5px 0 3px;font-size:11px;font-weight:600;border-radius:12px;letter-spacing:0}
+    nav.tabs svg.ni{display:block;padding:3px 14px;box-sizing:content-box;border-radius:14px;transition:background .15s}
+    nav.tabs button[aria-selected="true"]{background:transparent;color:var(--acc)}
+    nav.tabs button[aria-selected="true"] svg.ni{background:color-mix(in srgb,var(--acc) 13%,transparent)}
+    body{padding-bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+    .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px)) !important}
+  }
+  @media (max-width:350px){nav.tabs button{font-size:10px} nav.tabs svg.ni{padding:3px 10px}}
+  .installhint{display:flex;gap:10px;align-items:center;border:1px solid color-mix(in srgb,var(--blue) 40%,transparent);background:color-mix(in srgb,var(--blue) 7%,transparent);border-radius:12px;padding:10px 12px;font-size:14px}
+  .iosguide{position:fixed;inset:0;z-index:90;background:rgba(6,14,32,.55);display:flex;align-items:flex-end;justify-content:center;padding:12px 12px calc(84px + env(safe-area-inset-bottom,0px))}
+  .iosguide .sheet{background:var(--panel,#fff);color:var(--text,#111);width:100%;max-width:420px;border-radius:18px;padding:18px 18px 16px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+  .iosguide h3{margin:0 0 4px;font-size:18px} .iosguide .sub{margin:0 0 12px;font-size:13.5px;opacity:.75}
+  .iosguide ol{margin:0;padding:0;list-style:none;display:grid;gap:10px;counter-reset:s}
+  .iosguide li{counter-increment:s;display:flex;gap:12px;align-items:center;font-size:15px;line-height:1.35}
+  .iosguide li::before{content:counter(s);flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--acc,#0f2a5c);color:#fff;font-weight:800;font-size:13px}
+  .iosguide .shr{width:20px;height:20px;vertical-align:-4px;color:#1a73e8}
+  .iosguide .dots{display:inline-block;padding:0 6px;border:1px solid currentColor;border-radius:8px;font-weight:900;line-height:16px;opacity:.8}
+  .iosguide .ok{margin-top:14px;width:100%}
+  .iosguide .arrow{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:34px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5);animation:bob 1.1s ease-in-out infinite}
+  .iosguide.ipad{align-items:flex-start;padding-top:70px} .iosguide.ipad .arrow{left:auto;right:74px;bottom:auto;top:8px;transform:rotate(180deg);animation:none}
+  @keyframes bob{50%{transform:translate(-50%,8px)}}
+  .installhint b{flex:1} .installhint button{padding:7px 10px;font-size:13px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .card h2{margin:0 0 10px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--acc-hi)}
+  .stack{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+  .stack>*{min-width:0}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  @media (max-width:430px){.row3{grid-template-columns:1fr 1fr}.row3>:last-child{grid-column:1/-1}}
+  .btns{display:flex;flex-wrap:wrap;gap:8px}
+  .wide{width:100%}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .stats div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid}
+  .stats b{font:600 19px/1.2 var(--mono);color:var(--acc-hi);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stats span{font-size:11.5px;color:var(--muted)}
+  .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+  .chip{flex:none;border-radius:999px;padding:7px 12px;font-size:13px;color:var(--muted);background:var(--panel)}
+  .chip span{opacity:.7;margin-left:3px}
+  .seg{display:grid;grid-template-columns:1fr 1fr;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+  .seg button{border:0;background:none;border-radius:8px;padding:9px 6px;font-weight:600;color:var(--muted)}
+  .seg button[aria-pressed="true"]{background:var(--acc);color:var(--on-acc)}
+  .item.paused{opacity:.6}
+  .hirebtn{position:relative;padding:10px 12px}
+  .hirebtn .badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;border-radius:10px;background:var(--bad);color:#fff;font:700 11.5px/20px var(--body);text-align:center;padding:0 5px}
+  .hirebtn .badge:empty{display:none}
+  nav.tabs button{position:relative}
+  .tabbadge{position:absolute;top:2px;right:calc(50% - 22px);min-width:18px;height:18px;border-radius:9px;background:var(--bad);color:#fff;font:700 11px/18px var(--body);text-align:center;padding:0 5px}
+  .tabbadge:empty{display:none}
+  .appfacts{display:flex;flex-wrap:wrap;gap:6px}
+  .appfacts span{background:var(--panel2);border-radius:6px;padding:3px 8px;font-size:12.5px}
+  .appfacts .flag{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+  .appfacts .ok{background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--good)}
+  .appnote{white-space:pre-wrap;background:var(--panel2);border-radius:8px;padding:9px 11px;font-size:14px}
+  .hirestages{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+  .hirestages button{padding:8px 2px;font-size:12px;border-radius:8px}
+  .hirestages button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:700}
+  .rhint{font-size:12.5px;color:var(--muted);margin:0}
+  .chip[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+  .list{display:grid;gap:10px}
+  .item{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:10px;padding:13px;display:grid;gap:8px}
+  .top2{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .top2 .r{display:grid;justify-items:end;gap:4px;text-align:right}
+  .big{font-weight:700;font-size:16px}
+  .lane{font-size:14.5px}
+  .meta{font-size:12.5px;color:var(--muted)}
+  .pill{font:700 10.5px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;border-radius:4px;padding:4px 7px;background:var(--pill);color:var(--muted);white-space:nowrap}
+  .st-booked{--c:var(--muted)} .st-dispatched{--c:var(--blue)} .st-pickedup{--c:var(--violet)} .st-delivered{--c:var(--warn)}
+  .st-submitted{--c:var(--acc)} .st-funded{--c:var(--good)} .st-cancelled{--c:#666}
+  .item[class*="st-"]{border-left-color:var(--c)} .pill[class*="st-"]{color:var(--c);background:color-mix(in srgb,var(--c) 16%,transparent)}
+  .item.st-cancelled{opacity:.7}
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+  .steps button{padding:10px 2px;font-size:13px;color:var(--muted)}
+  .steps button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+  .acts{display:flex;gap:6px;flex-wrap:wrap}
+  .acts button{padding:8px 12px;font-size:13px}
+  .meter{position:relative;height:14px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+  .meter .fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--good);border-radius:7px 0 0 7px;transition:width .4s}
+  .meter.warn .fill{background:#d9a21b} .meter.full .fill{background:var(--bad)}
+  .meter .half{position:absolute;top:-2px;bottom:-2px;left:50%;width:2px;background:var(--text);opacity:.45}
+  .trk{display:grid;grid-template-columns:1fr 76px auto auto;gap:6px;align-items:center}
+  .vprof{grid-column:1/-1;display:grid;gap:8px;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .vprof .vrow3{display:grid;grid-template-columns:70px 1fr 1fr;gap:6px}
+  .vprof label{font-size:12px}
+  .vdoc{display:flex;align-items:center;gap:8px;font-size:14px;flex-wrap:wrap}
+  .vdoc>span{flex:1 1 150px;min-width:0;overflow-wrap:anywhere}
+  .vdoc button{padding:6px 10px;font-size:13px}
+  .vadd{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:end}
+  .vadd>label:first-child{grid-column:1/-1}
+  .vadd input[type=date]{min-width:0}
+  .vadd label.addbtn{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .vadd label.addbtn.busy{opacity:.6;pointer-events:none}
+  .vadd input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
+  .xp{font:700 10.5px/1 var(--body);letter-spacing:.06em;text-transform:uppercase;border-radius:4px;padding:4px 6px;white-space:nowrap}
+  .xp.soon{background:rgba(224,164,88,.18);color:#9a5b00} .xp.late{background:rgba(224,122,122,.18);color:var(--bad)}
+  .trk input{padding:9px 10px}
+  .trk button{padding:9px 11px;font-size:13px}
+  .trkhead{font-size:12.5px;color:var(--muted)}
+  .trk.retired input{opacity:.55}
+  .papers{display:grid;gap:6px;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px}
+  .pp{display:flex;align-items:center;gap:8px;font-size:14px}
+  .pp>span{flex:1;min-width:0;overflow-wrap:anywhere}
+  .pp button{padding:6px 10px;font-size:13px}
+  .ppadd{display:flex;gap:8px;align-items:center}
+  .ppadd select{flex:1;min-width:0;padding:8px;font-size:15px}
+  .ppadd label{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .ppadd label.busy{opacity:.6;pointer-events:none}
+  .ppadd input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
+  .confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13.5px}
+  .confirm span{flex:1;min-width:150px}
+  .hist{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:12px;color:var(--muted)} .hist b{color:var(--text);font-weight:600}
+  .money{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .pos{color:var(--good)} .neg{color:var(--bad)}
+  .empty{border:1px dashed var(--line);border-radius:12px;padding:24px 16px;text-align:center;color:var(--muted)}
+  .empty b{display:block;color:var(--text);margin-bottom:4px}
+  .calc{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);background:var(--ink);border-radius:8px;padding:9px 11px}
+  .calc b{color:var(--text)}
+  table.sum{width:100%;border-collapse:collapse;font-size:14px}
+  #taxQ{font-size:13px} #taxQ th,#taxQ td{padding:8px 4px}
+  table.sum th,table.sum td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  table.sum th:first-child,table.sum td:first-child{text-align:left;color:var(--muted);font-weight:500;position:sticky;left:0;background:var(--panel);z-index:1;box-shadow:6px 0 6px -6px rgba(15,42,92,.18)}
+  table.sum thead th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--acc-hi)}
+  table.sum tr.key td{font-weight:700}
+  .scroll{overflow-x:auto}
+  .bars{display:grid;gap:7px}
+  .bar{display:grid;grid-template-columns:110px 1fr auto;gap:8px;align-items:center;font-size:13px}
+  .bar i{display:block;height:10px;border-radius:5px;background:var(--acc)}
+  .bar .t{background:var(--panel2);border-radius:5px}
+  .alert{border:1px solid rgba(224,164,88,.5);background:rgba(224,164,88,.08);border-radius:10px;padding:11px 13px;font-size:14px}
+  .scanbtn{position:relative;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--acc);border-radius:10px;padding:13px;color:var(--acc-hi);font-weight:700;font-size:15px;cursor:pointer}
+  .scanbtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .scanbtn.busy{opacity:.6;pointer-events:none}
+  .scanmsg{margin:-4px 0 0;font-size:12.5px;color:var(--muted)} .scanmsg.ok{color:var(--good)} .scanmsg.bad{color:var(--bad)}
+  .billplan{display:grid;gap:8px;background:var(--ink);border:1px solid var(--good);border-radius:10px;padding:12px}
+  .billplan .bp{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;font-size:14px}
+  .filled{border-color:var(--good) !important;box-shadow:0 0 0 1px var(--good) inset}
+  .depq{display:grid;grid-template-columns:1fr auto;gap:8px}
+  .deprow{display:flex;justify-content:space-between;align-items:center;gap:8px} .deprow button{padding:6px 12px;font-size:13px;flex:none}
+  .taxbig{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+  .taxbig div{background:var(--ink);border-radius:10px;padding:10px 12px;display:grid}
+  .taxbig b{font:700 18px/1.2 var(--mono);color:var(--acc-hi);white-space:nowrap} .taxbig span{font-size:11.5px;color:var(--muted)}
+  @media (max-width:430px){.taxbig{grid-template-columns:1fr 1fr}}
+  @media print{
+    body{background:#fff;color:#000} .wrap{max-width:none;padding:0}
+    header.top,nav.tabs,.noprint,.toast{display:none !important}
+    section[id^=tab-]:not(#tab-tax){display:none !important} #tab-tax{display:grid !important}
+    .card{background:#fff;border:1px solid #bbb;break-inside:avoid} .card h2{color:#000}
+    table.sum th,table.sum td{border-color:#ccc;color:#000} table.sum thead th{color:#000} .taxbig div{background:#f3f3f3} .taxbig b{color:#000}
+    .meta{color:#333} .pos{color:#000} .neg{color:#000}
+  }
+  .pdfview{position:fixed;inset:0;z-index:150;background:#dfe3ea;display:flex;flex-direction:column}
+  .pv-top{display:flex;justify-content:space-between;align-items:center;padding:max(10px,env(safe-area-inset-top)) 16px 10px;color:var(--acc-hi)}
+  .pv-top button{padding:8px 12px}
+  .pv-pages{flex:1;overflow-y:auto;padding:0 12px 16px;display:grid;gap:12px;align-content:start;justify-items:center}
+  .pv-pages canvas{max-width:760px;background:#fff;border-radius:4px;box-shadow:0 4px 16px rgba(15,42,92,.18)}
+  .pv-bar{display:flex;flex-wrap:wrap;gap:10px;padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--ink)}
+  .pv-bar button{flex:1;padding:14px;font-size:16px}
+  .pv-msg{flex-basis:100%;margin:0;text-align:center;font-size:13px;color:var(--good)} .pv-msg:empty{display:none}
+  .rangebar{display:grid;grid-template-columns:1fr auto 1fr auto;gap:8px;align-items:center}
+  .rangebar input{padding:9px 8px;font-size:15px;min-width:0}
+  .rangebar button{padding:9px 11px}
+  .stagechips{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;overflow:visible}
+  .stagechips .chip{padding:8px 2px;font-size:12.5px;text-align:center;white-space:nowrap}
+  .stagechips .chip span{display:block;margin:1px 0 0;font-size:11.5px}
+  .stats4{grid-template-columns:1fr 1fr}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--acc);color:var(--on-acc);font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
+  .toast.show{opacity:1}
+  body.auth-lock{overflow:hidden}
+  .authgate{position:fixed;inset:0;z-index:200;background:var(--ink);display:grid;place-items:center;padding:24px 16px}
+  .authbox{width:100%;max-width:320px;display:grid;gap:12px;text-align:center}
+  .authbox .logo{width:150px;height:auto;justify-self:center;margin-bottom:4px}
+  .authbox h1{margin:0 0 6px;font-size:22px;letter-spacing:.12em}
+  .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px;font-weight:600;font-size:16px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:10px}
+  .gbtn svg{width:22px;height:22px}
+  .authalt{background:none;border:0;padding:6px;margin-top:4px;color:var(--blue);font-size:13.5px;text-decoration:underline;cursor:pointer}
+  .authmsg{min-height:20px;margin:0;font-size:14px;color:var(--bad)}
+  .authnote{margin:0;font-size:12.5px;color:var(--muted)}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body class="auth-lock">
+<div class="iosguide" id="iosGuide" hidden role="dialog" aria-modal="true" aria-labelledby="iosT">
+  <div class="sheet">
+    <h3 id="iosT">Install Dijla Driver on your iPhone</h3>
+    <p class="sub" id="iosSub">Apple doesn't let websites install themselves, so it takes 3 taps in Safari:</p>
+    <ol id="iosSteps"></ol>
+    <button type="button" class="primary ok" id="iosOk">Got it</button>
+  </div>
+  <div class="arrow" id="iosArrow" aria-hidden="true">⬇</div>
+</div>
+<div class="authgate" id="authGate">
+  <div class="authbox" id="authForm" hidden>
+    <img class="logo" src="../logo.png" alt="Dijla Trucking">
+    <h1 style="font-size:15px;letter-spacing:.3em;color:var(--muted)">DRIVER</h1>
+    <button type="button" class="gbtn" id="authBtn"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</button>
+    <p class="authmsg" id="authMsg" role="status"></p>
+    <button type="button" class="authalt" id="authAlt" hidden>Trouble signing in? Try another way</button>
+    <p class="authnote">Sign in with the Gmail the office has for you. New driver? Sign in and ask the office to add you.</p>
+  </div>
+  <div class="authbox" id="authAsk" hidden>
+    <img class="logo" src="../logo.png" alt="Dijla Trucking">
+    <h1 style="font-size:15px;letter-spacing:.3em;color:var(--muted)">DRIVER</h1>
+    <p id="askWho" style="margin:0;font-size:14.5px"></p>
+    <div id="askNew" class="stack" hidden style="text-align:left">
+      <p class="authnote" style="font-size:14px;text-align:center">This Gmail isn't set up as a driver yet.</p>
+      <label>Your name<input id="askName" maxlength="60" autocomplete="name" placeholder="First and last name"></label>
+      <button type="button" class="primary" id="askSend" style="padding:13px;font-size:16px">Ask the office to add me</button>
+    </div>
+    <div id="askPending" hidden>
+      <p style="margin:0 0 6px;font-weight:700;font-size:16px">Request sent ✓</p>
+      <p class="authnote" style="font-size:14px">Waiting for the office. Leave this open: your loads show up as soon as you're added.</p>
+      <button type="button" class="authalt" id="askCancel">Cancel my request</button>
+    </div>
+    <p id="askRejected" class="authmsg" hidden>The office didn't approve this account.</p>
+    <div id="askOffice" hidden>
+      <p style="margin:0 0 6px;font-weight:700;font-size:16px">You're on the office team</p>
+      <p class="authnote" style="font-size:14px">This page is for drivers. Your loads, expenses and settings are in Dijla Ops.</p>
+      <a class="gbtn" id="askOfficeGo" href="../" style="text-decoration:none;justify-content:center;margin-top:10px">Open Dijla Ops</a>
+    </div>
+    <p class="authmsg" id="askMsg" role="status"></p>
+    <button type="button" class="authalt" id="askOther">Use a different Google account</button>
+  </div>
+  <p class="muted" id="authWait">Connecting…</p>
+</div>
+
+<div class="wrap" id="drvApp" hidden>
+  <header class="top">
+    <img class="logo" src="../logo.png" alt="Dijla Trucking">
+    <div style="flex:1;min-width:0">
+      <h1 id="dCo">Dijla Trucking</h1>
+      <p class="meta" id="dHi" style="margin:2px 0 0"></p>
+    </div>
+    <button type="button" class="ghost" id="dSignOut">Sign out</button>
+  </header>
+  <div class="installhint" id="dInstall" hidden><span aria-hidden="true">📲</span><b id="dInstallTxt">Install the driver app on your phone</b><button type="button" class="primary" id="dInstallBtn">Install app</button></div>
+  <nav class="tabs" id="driverNav" role="tablist" aria-label="Driver" style="--ntabs:4">
+    <button type="button" role="tab" data-dtab="loads" aria-selected="true"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3.5 3.5v2.5h-7.5"/><circle cx="6.5" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/></svg><span>My loads</span></button>
+    <button type="button" role="tab" data-dtab="rcpt" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span>Receipts</span></button>
+    <button type="button" role="tab" data-dtab="truck" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3.5 3.5v2.5h-7.5"/></svg><span>My truck</span></button>
+    <button type="button" role="tab" data-dtab="pay" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Pay</span></button>
+  </nav>
+  <section class="stack" id="d-loads"><div class="list" id="dLoadList"></div></section>
+  <section class="stack" id="d-rcpt" hidden>
+    <form class="card stack" id="dRcptForm" autocomplete="off" novalidate>
+      <h2>Send a receipt</h2>
+      <div class="row2">
+        <label>What for<select id="drCat"><option>Fuel</option><option>DEF</option><option>Lumper</option><option>Tolls</option><option>Scale</option><option>Parking</option><option>Repairs</option><option>Other</option></select></label>
+        <label>Amount ($)<input id="drAmt" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label>
+      </div>
+      <div class="row2">
+        <label>Date<input id="drDate" type="date"></label>
+        <label>Paid with<select id="drPaid"><option value="own">My own money</option><option value="company">Company card</option></select></label>
+      </div>
+      <label>Load (optional)<select id="drLoad"></select></label>
+      <label>Note (optional)<input id="drNote" maxlength="200" placeholder="e.g. Pilot #123, Boise"></label>
+      <label class="addbtn" id="drPick" style="display:flex;justify-content:center;gap:8px;padding:12px;border:1px dashed var(--line);border-radius:10px;cursor:pointer;font-weight:700">📷 Photo of the receipt<input type="file" id="drFile" accept="image/*,application/pdf" style="position:absolute;width:1px;height:1px;opacity:0"></label>
+      <p class="meta" id="drFileName" style="margin:0"></p>
+      <button type="submit" class="primary" id="drSend">Send receipt</button>
+    </form>
+    <div class="list" id="dRcptList"></div>
+  </section>
+  <section class="stack" id="d-truck" hidden><div id="dTruckBox"></div></section>
+  <section class="stack" id="d-pay" hidden><div id="dPayBox" class="stack"></div></section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
+const money2 = n => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const niceDate = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month:"short", day:"numeric" }) : "";
+const newId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+function toast(msg){
+  let t = document.querySelector(".toast");
+  if (!t) { t = document.createElement("div"); t.className = "toast"; t.setAttribute("role","status"); document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2400);
+}
+const OWNER_EMAIL = "dijlatrucking@gmail.com";
+// which app this phone opens: Dijla Ops (the office page) sends a driver here, and this page's "Open Dijla Ops" undoes that
+const ROLE_KEY = "dijla_role";
+const setRole = r => { try { if (r) localStorage.setItem(ROLE_KEY, r); else localStorage.removeItem(ROLE_KEY); } catch (e) {} };
+// what the office shares with drivers: company name and the Drive script link (for papers already cleared to Drive)
+let settings = { company: "Dijla Trucking", driveUrl: "" };
+const PAY_TYPES = { perMile: "per mile", perLoadedMile: "per loaded mile", percent: "% of load", flat: "per load" };
+const payText = d => !d || !num(d.payRate) ? "Pay not set" : d.payType === "percent" ? `${num(d.payRate)}% of load` : `${money2(num(d.payRate))} ${PAY_TYPES[d.payType || "perMile"]}`;
+
+// ===== Papers the driver sends (BOL, POD, receipts) and opens (their own, their truck's) =====
+// Same format as Dijla Ops: a record in "files" plus the scan split into parts in "fileData".
+window.Papers = (() => {
+  const PART = 700000, MAX_PARTS = 7;
+  const VKINDS = ["Registration / cab card", "Insurance card", "IFTA license", "IRP / apportioned", "Annual DOT inspection", "Title", "Lease", "Permit", "Other"];
+  const readUrl = f => new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => bad(r.error); r.readAsDataURL(f); });
+  async function decode(file){
+    if (window.createImageBitmap) { try { return await createImageBitmap(file, { imageOrientation: "from-image" }); } catch (e) {} }
+    const url = URL.createObjectURL(file);
+    try { const img = new Image(); img.src = url; await img.decode(); return img; } finally { URL.revokeObjectURL(url); }
+  }
+  async function toData(file){
+    const pdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
+    if (pdf) {
+      const data = (await readUrl(file)).replace(/^data:[^;,]*;/, "data:application/pdf;");
+      if (data.length > PART * MAX_PARTS) throw new Error("That PDF is too big to keep (over about 3.5 MB). Take a photo of the pages instead.");
+      return { data, type: "pdf" };
+    }
+    if (!/^image\//.test(file.type || "")) throw new Error("Use a photo or a PDF.");
+    const img = await decode(file), w0 = img.width, h0 = img.height;
+    let max = 2000, q = 0.75;
+    for (let i = 0; i < 8; i++) {
+      const sc = Math.min(1, max / Math.max(w0, h0)), c = document.createElement("canvas");
+      c.width = Math.round(w0 * sc); c.height = Math.round(h0 * sc);
+      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      const data = c.toDataURL("image/jpeg", q);
+      if (data.length <= PART) return { data, type: "jpg" };
+      max = Math.round(max * 0.82); q = Math.max(0.45, q - 0.06);
+    }
+    throw new Error("Couldn't shrink that photo enough. Try again a little closer to the page.");
+  }
+  const bytesOf = data => { const b64 = data.slice(data.indexOf(",") + 1); return Math.floor(b64.length * 3 / 4) - (b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0); };
+  async function save(file, kind, name, link){
+    const { data, type } = await toData(file);
+    const id = newId("pp"), parts = [];
+    for (let i = 0; i < data.length; i += PART) parts.push(data.slice(i, i + PART));
+    const meta = { kind, name: String(name || kind).slice(0, 120), type, parts: parts.length, chars: data.length, bytes: bytesOf(data),
+      created: new Date().toISOString(), by: Cloud.email(), ...link };
+    await Cloud.saveFile(id, meta, parts);
+    return id;
+  }
+  // a paper already moved to Google Drive comes back through the office's backup script (which checks who's asking)
+  async function fromDrive(id){
+    const u = String(settings.driveUrl || "");
+    if (!u) throw new Error("This paper is in the office's Google Drive. Ask the office for a copy.");
+    const r = await fetch(u, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ fetch: true, id, idToken: await Cloud.idToken() }) });
+    let j; try { j = await r.json(); } catch (e) { throw new Error("Couldn't get that paper from Google Drive. Try again later."); }
+    if (!j.ok) throw new Error(j.error || "Couldn't get that paper from Google Drive.");
+    return j.data;
+  }
+  async function dataOf(f){
+    if (!f.freed) { const d = await Cloud.fileData(f.id, f.parts || 1).catch(() => null); if (d) return d; }
+    if (!f.driveFileId) throw new Error("This paper's file is missing.");
+    return fromDrive(f.id);
+  }
+  async function open(f){
+    const w = window.open("", "_blank");
+    try {
+      const blob = await (await fetch(await dataOf(f))).blob(), url = URL.createObjectURL(blob);
+      if (w) w.location = url; else location.href = url;
+    } catch (e) {
+      if (w) w.close(); console.warn(e);
+      toast(e && e.message && !/fetch/i.test(e.message) ? e.message : "Couldn't open that paper. Check your connection.");
+    }
+  }
+  const daysTo = d => Math.round((new Date(d + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5);
+  return { VKINDS, save, open, daysTo };
+})();
+
+// ===== Location stamps: only when the driver taps Picked up / Delivered or sends a paper (never in the background) =====
+const Geo = (() => {
+  const timeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
+  async function here(){
+    if (!navigator.geolocation) return null;
+    const pos = await timeout(new Promise(res => navigator.geolocation.getCurrentPosition(res, () => res(null), { enableHighAccuracy: true, timeout: 7000, maximumAge: 120000 })), 7500);
+    if (!pos || !pos.coords) return null;
+    const loc = { lat: Math.round(pos.coords.latitude * 1e5) / 1e5, lng: Math.round(pos.coords.longitude * 1e5) / 1e5, acc: Math.round(pos.coords.accuracy || 0), at: new Date().toISOString() };
+    try {
+      const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3500);
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&lat=${loc.lat}&lon=${loc.lng}`, { signal: ctl.signal, headers: { Accept: "application/json" } });
+      const a = (await r.json()).address || {}, st = String(a["ISO3166-2-lvl4"] || "").split("-")[1] || a.state || "";
+      const town = a.city || a.town || a.village || a.hamlet || a.municipality || a.county || "";
+      if (town || st) loc.place = [town, st].filter(Boolean).join(", ");
+    } catch (e) {}
+    return loc;
+  }
+  return { here };
+})();
+
+// ===== The driver app: what a driver sees after signing in =====
+window.DriverApp = (() => {
+  let unsub = null, email = "", me = null, trips = [], mine = [], truckDocs = [], truck = null, stmts = [], tab = "loads", openTrip = "", delAsk = "", pickedRcpt = null;
+  const STAGE_TXT = { booked: "Booked", pickedup: "Picked up", delivered: "Delivered", paid: "Done", funded: "Done", cancelled: "Cancelled" };
+  const LOCKED = ["paid", "funded", "cancelled"];             // the office has closed it: the driver can only look
+  const on = () => !!unsub;
+  function start(em, d){
+    stop(); email = em; me = d;
+    $("authGate").hidden = true; document.body.classList.remove("auth-lock");
+    $("drvApp").hidden = false;
+    $("drDate").value = today();
+    unsub = Cloud.driverWatch(email, {
+      me: x => { me = x; if (!x || x.active === false) { Gate.lost(email); return; } draw(); },
+      trips: r => { trips = r; draw(); }, files: r => { mine = r; draw(); }, truckFiles: r => { truckDocs = r; draw(); },
+      truck: t => { truck = t; draw(); }, statements: r => { stmts = r; draw(); },
+      shared: sh => { settings = { ...settings, company: sh.company || settings.company, driveUrl: sh.driveUrl || "" }; draw(); },
+      error: e => { console.warn("driver view", e); if (e && e.code === "permission-denied") Gate.lost(email); }
+    });
+    show(tab);
+  }
+  function stop(){ if (unsub) { unsub(); unsub = null; } $("drvApp").hidden = true; trips = []; mine = []; truckDocs = []; stmts = []; truck = null; }
+  function show(t){
+    tab = t;
+    ["loads", "rcpt", "truck", "pay"].forEach(x => { $("d-" + x).hidden = x !== t; });
+    document.querySelectorAll("#driverNav button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.dtab === t)));
+    window.scrollTo(0, 0); draw();
+  }
+  document.querySelectorAll("#driverNav button").forEach(b => b.onclick = () => show(b.dataset.dtab));
+  const active = () => trips.filter(t => !["paid", "funded", "cancelled"].includes(t.stage)).sort((a, b) => String(a.fromDate).localeCompare(String(b.fromDate)));
+  const done = () => trips.filter(t => ["paid", "funded"].includes(t.stage)).sort((a, b) => String(b.toDate || b.fromDate).localeCompare(String(a.toDate || a.fromDate)));
+  const papersOf = id => mine.filter(f => f.loadId === id && !f.claim);
+  const paperRow = f => `<div class="pp" data-f="${esc(f.id)}"><span><b>${esc(f.kind)}</b> <span class="meta">${niceDate(String(f.created || "").slice(0, 10))}</span></span>
+    <button type="button" data-a="popen">Open</button></div>`;
+  function tripCard(t, old){
+    const pp = papersOf(t.id), open = openTrip === t.id, locked = LOCKED.includes(t.stage);
+    return `<article class="item st-${esc(t.stage)}" data-t="${esc(t.id)}">
+      <div class="top2"><div style="min-width:0"><div class="big">${esc(t.broker || "Load")}${t.loadNo ? ` <span class="mono muted" style="font-weight:500;font-size:13px">#${esc(t.loadNo)}</span>` : ""}</div>
+        <div class="lane">${esc(t.from || "?")} → ${esc(t.to || "?")}</div></div>
+        <div class="r"><span class="pill st-${esc(t.stage)}">${esc(STAGE_TXT[t.stage] || t.stage)}</span></div></div>
+      <div class="meta">${esc(t.truckName || "")} · Pickup ${niceDate(t.fromDate) || "?"} · Deliver ${niceDate(t.toDate) || "?"}${num(t.miles) + num(t.empty) ? ` · ${(num(t.miles) + num(t.empty)).toLocaleString("en-US")} mi` : ""}${t.weight ? ` · ${num(t.weight).toLocaleString("en-US")} lb` : ""}${t.commodity ? " · " + esc(t.commodity) : ""}</div>
+      ${t.stmt ? `<div class="meta">On a pay statement ✓</div>` : ""}
+      ${locked ? "" : `<div class="steps" role="group" aria-label="Load status">${[["pickedup", "Picked up"], ["delivered", "Delivered"]].map(([st, lab]) => `<button type="button" data-a="stage" data-st="${st}" aria-pressed="${t.stage === st}">${lab}</button>`).join("")}</div>`}
+      <div class="acts"><button type="button" data-a="papers" aria-expanded="${open}">📎 BOL / POD${pp.length ? ` (${pp.length})` : ""}</button></div>
+      ${open ? `<div class="papers">${pp.length ? pp.map(paperRow).join("") : `<div class="meta">${locked ? "No papers sent for this load." : "Add the signed BOL / POD here."}</div>`}
+        ${locked ? "" : `<div class="ppadd"><select data-a="pkind" aria-label="Kind of paper"><option>BOL</option><option>POD</option><option>Lumper</option><option>Scale ticket</option><option>Other</option></select>
+          <label>📷 Add<input type="file" accept="image/*,application/pdf" multiple data-a="pfile"></label></div>`}</div>` : ""}
+    </article>`;
+  }
+  function draw(){
+    if (!on()) return;
+    $("dCo").textContent = settings.company || "Dijla Trucking";
+    $("dHi").textContent = `${me && me.name ? me.name : email} · Driver`;
+    if (tab === "loads") {
+      const a = active(), d = done().slice(0, 15);
+      $("dLoadList").innerHTML = (a.length ? a.map(t => tripCard(t)).join("") : `<div class="empty"><b>No loads right now</b>When the office gives you a load it shows up here.</div>`)
+        + (d.length ? `<h2 style="margin:10px 0 0;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">Done</h2>` + d.map(t => tripCard(t, true)).join("") : "");
+    }
+    if (tab === "rcpt") {
+      $("drLoad").innerHTML = `<option value="">No load</option>` + active().map(t => `<option value="${esc(t.id)}">${esc((t.loadNo ? "#" + t.loadNo + " · " : "") + (t.from || "?") + " → " + (t.to || "?"))}</option>`).join("");
+      const rs = mine.filter(f => f.claim).sort((x, y) => String(y.created).localeCompare(String(x.created)));
+      const tag = c => c.status === "approved" ? `<span class="pill" style="background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)">Approved${c.reimburse ? (c.stmt ? " · paid back" : " · paid back on next statement") : ""}</span>`
+        : c.status === "rejected" ? `<span class="pill" style="background:rgba(224,122,122,.18);color:var(--bad)">Not approved</span>` : `<span class="pill">Waiting</span>`;
+      $("dRcptList").innerHTML = rs.length ? rs.map(f => `<article class="item" data-f="${esc(f.id)}"><div class="top2"><div style="min-width:0"><div class="big">${esc(f.claim.cat || "Receipt")}</div>
+          <div class="meta">${niceDate(f.claim.date)} · ${f.claim.paidWith === "company" ? "Company card" : "My own money"}${f.claim.note ? " · " + esc(f.claim.note) : ""}</div></div><div class="r"><b class="money">${money2(num(f.claim.amount))}</b>${tag(f.claim)}</div></div>
+          ${f.claim.status === "rejected" && f.claim.reason ? `<div class="meta" style="color:var(--bad)">${esc(f.claim.reason)}</div>` : ""}
+          <div class="acts"><button type="button" data-a="popen">Open</button></div></article>`).join("")
+        : `<div class="empty"><b>No receipts sent yet</b>Fuel, lumpers, tolls… take a photo and send it. The office approves it.</div>`;
+    }
+    if (tab === "truck") {
+      if (!me || !me.truckId) { $("dTruckBox").innerHTML = `<div class="empty"><b>No truck assigned</b>The office sets your truck in Drivers.</div>`; }
+      else {
+        const t = truck || {}, xp = d => { if (!d) return ""; const n = Papers.daysTo(d); return n < 0 ? '<span class="xp late">Expired</span>' : n <= 30 ? '<span class="xp soon">Expires soon</span>' : ""; };
+        const docs = truckDocs.slice().sort((a, b) => Papers.VKINDS.indexOf(a.kind) - Papers.VKINDS.indexOf(b.kind));
+        $("dTruckBox").innerHTML = `<div class="card stack"><h2>${esc(t.name || "My truck")}${t.unit ? ` <span class="meta" style="font-weight:500">· unit ${esc(t.unit)}</span>` : ""}</h2>
+          <div class="meta" style="font-size:14px;color:var(--text)">${[[t.year, t.make, t.model].filter(Boolean).join(" "), t.plate ? "Plate " + esc(t.plate) : "", t.vin ? "VIN " + esc(t.vin) : ""].filter(Boolean).join("<br>") || "No details yet."}</div></div>
+          <div class="card stack"><h2>Truck papers</h2><p class="meta" style="margin:0">Registration, insurance, IFTA… Keep them handy for inspections and scales.</p>
+          ${docs.length ? docs.map(f => `<div class="vdoc" data-f="${esc(f.id)}"><span><b>${esc(f.kind)}</b> ${xp(f.expiresAt)}<br><span class="meta">${f.expiresAt ? "Expires " + niceDate(f.expiresAt) + ", " + f.expiresAt.slice(0, 4) : "No expiry"}</span></span><button type="button" data-a="popen">Open</button></div>`).join("")
+            : `<div class="meta">No papers on file yet.</div>`}</div>`;
+      }
+    }
+    if (tab === "pay") {
+      const waiting = trips.filter(t => ["delivered", "paid", "funded"].includes(t.stage) && !t.stmt), wsum = waiting.reduce((x, t) => x + num(t.pay), 0);
+      const list = stmts.slice().sort((a, b) => String(b.created).localeCompare(String(a.created)));
+      $("dPayBox").innerHTML = `<div class="card stack"><h2>Coming up</h2><div style="display:flex;justify-content:space-between;align-items:baseline"><span>${waiting.length} delivered load${waiting.length === 1 ? "" : "s"} not on a statement yet</span><b class="money" style="font-size:18px">${money2(wsum)}</b></div>
+          <p class="meta" style="margin:0">${me ? esc(payText(me)) : ""}. The office adds these to your next statement.</p></div>`
+        + (list.length ? list.map(st => `<div class="card stack"><div style="display:flex;gap:8px;align-items:baseline"><h2 style="flex:1;margin:0">${esc(st.label || "Statement")}</h2><b class="money" style="font-size:18px">${money2(num(st.total))}</b></div>
+            <div class="meta">${st.status === "paid" ? `<b style="color:var(--good)">Paid ${niceDate(String(st.paidAt || "").slice(0, 10))}</b>` : "Issued " + niceDate(String(st.created).slice(0, 10)) + " · payment on its way"}</div>
+            <div class="stack" style="gap:4px;font-size:14px">${(st.items || []).map(it => `<div style="display:flex;gap:8px"><span style="flex:1">${it.loadNo ? "#" + esc(it.loadNo) + " · " : ""}${esc(it.lane)} <span class="meta">${niceDate(it.date)}${it.miles ? " · " + num(it.miles).toLocaleString("en-US") + " mi" : ""}</span></span><span class="money">${money2(num(it.pay))}</span></div>`).join("")}
+              ${(st.reimb || []).map(r => `<div style="display:flex;gap:8px"><span style="flex:1">Paid back: ${esc(r.desc)}</span><span class="money">${money2(num(r.amount))}</span></div>`).join("")}
+              ${(st.adj || []).map(a => `<div style="display:flex;gap:8px"><span style="flex:1">${esc(a.desc)}</span><span class="money ${num(a.amount) < 0 ? "neg" : ""}">${money2(num(a.amount))}</span></div>`).join("")}</div></div>`).join("")
+          : `<div class="empty"><b>No statements yet</b>Your pay statements show up here when the office issues them.</div>`);
+    }
+  }
+  // loads: Picked up / Delivered, papers
+  $("dLoadList").addEventListener("click", async e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const card = b.closest("[data-t]"), t = card && trips.find(x => x.id === card.dataset.t); if (!t) return;
+    if (b.dataset.a === "stage") { if (t.stage === b.dataset.st || LOCKED.includes(t.stage)) return; b.disabled = true; const label = b.textContent; b.textContent = "Saving…"; try { const loc = await Geo.here(); await Cloud.setTripStage(t.id, b.dataset.st, loc); toast(`Marked ${label}`); } catch (err) { console.warn(err); toast("Couldn't save. Check your connection."); b.disabled = false; } return; }
+    if (b.dataset.a === "papers") { openTrip = openTrip === t.id ? "" : t.id; draw(); return; }
+    await paperClick(b);
+  });
+  $("dLoadList").addEventListener("change", async e => {
+    const inp = e.target.closest("[data-a=pfile]"); if (!inp) return;
+    const t = trips.find(x => x.id === inp.closest("[data-t]").dataset.t); if (!t) return;
+    const files = [...inp.files]; inp.value = ""; const kind = inp.closest(".ppadd").querySelector("[data-a=pkind]").value, lab = inp.closest("label");
+    lab.classList.add("busy"); lab.firstChild.textContent = "Saving… "; let ok = 0;
+    const loc = await Geo.here();
+    for (const file of files) { try { await Papers.save(file, kind, `${kind} · ${t.loadNo ? "#" + t.loadNo : (t.from || "") + " → " + (t.to || "")} · ${me.name || email}`, { driverEmail: email, loadId: t.id, ...(loc ? { loc } : {}) }); ok++; } catch (err) { console.warn(err); toast(err.message || "Couldn't save that paper."); } }
+    if (ok) toast(ok === 1 ? `${kind} sent to the office` : `${ok} papers sent`);
+    draw();
+  });
+  async function paperClick(b){
+    const row = b.closest("[data-f]"), f = row && (mine.find(x => x.id === row.dataset.f) || truckDocs.find(x => x.id === row.dataset.f)); if (!f) return;
+    if (b.dataset.a === "popen") { Papers.open(f); return; }
+  }
+  $("dRcptList").addEventListener("click", e => { const b = e.target.closest("button"); if (b) paperClick(b); });
+  $("dTruckBox").addEventListener("click", e => { const b = e.target.closest("button"); if (b) paperClick(b); });
+  // receipts
+  $("drFile").addEventListener("change", e => { pickedRcpt = e.target.files[0] || null; e.target.value = ""; $("drFileName").textContent = pickedRcpt ? "✓ " + (pickedRcpt.name || "Photo") + " ready" : ""; });
+  $("dRcptForm").onsubmit = async e => {
+    e.preventDefault();
+    const amount = Math.round(num($("drAmt").value) * 100) / 100;
+    if (!amount) { toast("Add the amount"); $("drAmt").focus(); return; }
+    if (!pickedRcpt) { toast("Add a photo of the receipt"); return; }
+    $("drSend").disabled = true; $("drSend").textContent = "Sending…";
+    const claim = { status: "pending", amount, cat: $("drCat").value, date: $("drDate").value || today(), paidWith: $("drPaid").value, note: $("drNote").value.trim().slice(0, 200) };
+    try {
+      const loc = await Geo.here();
+      await Papers.save(pickedRcpt, "Receipt", `Receipt · ${claim.cat} ${money2(amount)} · ${me.name || email}`, { driverEmail: email, claim, ...($("drLoad").value ? { loadId: $("drLoad").value } : {}), ...(loc ? { loc } : {}) });
+      pickedRcpt = null; $("drFileName").textContent = ""; $("drAmt").value = ""; $("drNote").value = ""; $("drDate").value = today();
+      toast("Receipt sent. The office will approve it.");
+    } catch (err) { console.warn(err); toast(err.message || "Couldn't send. Check your connection."); }
+    finally { $("drSend").disabled = false; $("drSend").textContent = "Send receipt"; }
+  };
+  $("dSignOut").onclick = async () => { stop(); setRole(""); if (window.Cloud) await Cloud.signOut(); location.reload(); };
+  return { start, stop, on, show };
+})();
+
+// ===== Sign-in and who gets in: a driver on the office's list gets the app; anyone else can ask to be added =====
+window.Gate = (() => {
+  let reqUnsub = null, email = "", run = 0;
+  const msg = t => { $("askMsg").textContent = t || ""; };
+  function box(which){
+    $("authGate").hidden = false; document.body.classList.add("auth-lock");
+    $("authForm").hidden = which !== "form"; $("authAsk").hidden = which !== "ask"; $("authWait").hidden = which !== "wait";
+  }
+  // signed in: find out what this account is
+  async function signedIn(em){
+    email = String(em || "").toLowerCase(); const me = ++run;
+    $("authWait").textContent = "Opening…"; box("wait");
+    let d = null;
+    try { d = await Cloud.myDriver(email); } catch (e) { console.warn("driver entry", e); }
+    if (me !== run) return;
+    if (d && d.active !== false) { stopAsk(); setRole("driver"); DriverApp.start(email, d); return; }
+    ask(d);                                   // not a driver (or turned off)
+  }
+  async function ask(d){
+    const me = run;
+    box("ask"); msg("");
+    ["askNew", "askPending", "askRejected", "askOffice"].forEach(id => { $(id).hidden = true; });
+    $("askWho").innerHTML = `Signed in as <b>${esc(email)}</b>`;
+    if (d && d.active === false) { $("askRejected").hidden = false; $("askRejected").textContent = "This driver account is turned off. Talk to the office."; return; }
+    // office people belong in Dijla Ops
+    let office = email === OWNER_EMAIL;
+    if (!office) { try { office = await Cloud.onTeam(email); } catch (e) {} }
+    if (me !== run) return;
+    if (office) { $("askOffice").hidden = false; return; }
+    $("askRejected").textContent = "The office didn't approve this account.";
+    stopAsk();
+    reqUnsub = Cloud.watchMyRequest(email, (r, err) => {
+      if (err) { msg("Couldn't check for a request. Check your connection."); return; }
+      // approved: open the driver app (or, if they were added to the office team, point them there)
+      if (r && r.status === "approved") { stopAsk(); signedIn(email); setTimeout(() => Cloud.cancelRequest(email).catch(() => {}), 3000); return; }
+      $("askNew").hidden = !!r; $("askPending").hidden = !(r && r.status === "pending"); $("askRejected").hidden = !(r && r.status === "rejected");
+      if (!r && !$("askName").value) $("askName").value = Cloud.userName() || "";
+    });
+  }
+  function stopAsk(){ if (reqUnsub) { reqUnsub(); reqUnsub = null; } }
+  function signedOut(){
+    run++; stopAsk(); DriverApp.stop(); email = "";
+    $("authMsg").textContent = ""; box("form");
+  }
+  $("askSend").onclick = async () => {
+    const name = $("askName").value.trim().slice(0, 60);
+    if (!name) { msg("Add your name so the office knows who's asking."); $("askName").focus(); return; }
+    $("askSend").disabled = true; msg("");
+    try { await Cloud.requestAccess(email, name); }
+    catch (e) { console.warn(e); msg(e && e.code === "permission-denied" ? "Couldn't send the request. If you asked before, the office needs to clear it first." : "Couldn't send. Check your connection and try again."); }
+    finally { $("askSend").disabled = false; }
+  };
+  $("askCancel").onclick = async () => { try { await Cloud.cancelRequest(email); } catch (e) { msg("Couldn't cancel. Check your connection."); } };
+  $("askOther").onclick = async () => { stopAsk(); setRole(""); if (window.Cloud) await Cloud.signOut(); location.reload(); };
+  $("askOfficeGo").onclick = () => { setRole(""); };
+
+  // Google sign-in (same as Dijla Ops): Google's own sign-in window, or Firebase's popup if that can't load
+  const GCLIENT = "548103427278-i96hlr9kgdcvasb8h8jjg1ka39d0v1k5.apps.googleusercontent.com";
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let tokenClient = null;
+  const authFail = err => {
+    const c = err && err.code || "";
+    $("authMsg").textContent = c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request"
+        ? (isIOS && !tokenClient ? "Sign-in didn't finish. On iPhone, turn off Settings → Safari → Prevent Cross-Site Tracking, then try again." : "")
+      : c === "auth/network-request-failed" ? "No connection. Check your internet and try again."
+      : c === "auth/unauthorized-domain" ? "This site isn't on Firebase's authorized domains list yet."
+      : c === "auth/invalid-credential" ? "Google sign-in didn't go through. Try again." : "Couldn't sign in. Try again.";
+  };
+  let gisState = "loading";
+  const btnLabel = $("authBtn").lastChild, btnText = btnLabel.textContent;
+  const gisDone = st => { if (gisState !== "loading") return; gisState = st; btnLabel.textContent = btnText; $("authBtn").disabled = false; $("authAlt").hidden = st !== "ready"; };
+  btnLabel.textContent = "Loading sign-in…"; $("authBtn").disabled = true;
+  setTimeout(() => gisDone("failed"), 8000);
+  const gs = document.createElement("script"); gs.src = "https://accounts.google.com/gsi/client"; gs.async = true;
+  gs.onerror = () => gisDone("failed");
+  gs.onload = () => {
+    try {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GCLIENT, scope: "openid email profile",
+        callback: async resp => {
+          if (!resp || resp.error || !resp.access_token) { $("authBtn").disabled = false; $("authMsg").textContent = resp && resp.error === "access_denied" ? "" : "Couldn't sign in. Try again."; return; }
+          try { await Cloud.signInWithToken(resp.access_token); } catch (err) { authFail(err); } finally { $("authBtn").disabled = false; }
+        },
+        error_callback: e => { $("authBtn").disabled = false;
+          $("authMsg").textContent = e && e.type === "popup_failed_to_open" ? "The sign-in window was blocked. Allow pop-ups for this site and try again." : ""; }
+      });
+    } catch (e) { tokenClient = null; }
+    gisDone(tokenClient ? "ready" : "failed");
+  };
+  document.head.appendChild(gs);
+  $("authAlt").onclick = async () => {
+    if (!window.Cloud) { $("authMsg").textContent = "Still connecting. Check your internet and try again."; return; }
+    $("authMsg").textContent = ""; $("authAlt").disabled = true;
+    try { await Cloud.signIn(); } catch (err) { authFail(err); } finally { $("authAlt").disabled = false; }
+  };
+  $("authBtn").onclick = async () => {
+    if (!window.Cloud) { $("authMsg").textContent = "Still connecting. Check your internet and try again."; return; }
+    $("authMsg").textContent = "";
+    if (tokenClient) { $("authBtn").disabled = true; tokenClient.requestAccessToken({ prompt: "select_account" }); setTimeout(() => { $("authBtn").disabled = false; }, 4000); return; }
+    $("authBtn").disabled = true;
+    try { await Cloud.signIn(); } catch (err) { authFail(err); } finally { $("authBtn").disabled = false; }
+  };
+  setTimeout(() => { if (!window.Cloud) $("authWait").textContent = "Couldn't reach the sign-in service. Check your internet and reload."; }, 12000);
+  return { signedIn, signedOut, lost: em => { DriverApp.stop(); setRole(""); signedIn(em); } };
+})();
+
+// ----- Install on the phone (its own app: "Dijla Driver") -----
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOSDevice = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let installEvt = null;
+function installUI(){
+  const st = isStandalone();
+  $("dInstall").hidden = st;                       // stays until the app is installed
+  if (!st) $("dInstallTxt").textContent = "Install the driver app on your phone";
+}
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; installUI(); });
+addEventListener("appinstalled", () => { installEvt = null; installUI(); toast("Dijla Driver installed"); });
+function iosGuide(){
+  const ua = navigator.userAgent, iPad = /iPad/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const other = /CriOS|FxiOS|EdgiOS/.test(ua), inApp = /FBAN|FBAV|Instagram|Line\/|GSA\//.test(ua);
+  const SH = '<svg class="shr" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 10H6.5A1.5 1.5 0 0 0 5 11.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 17.5 10H16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  $("iosT").textContent = "Install Dijla Driver on your " + (iPad ? "iPad" : "iPhone");
+  $("iosSub").textContent = inApp ? "This page is open inside another app. Open it in Safari first, then:" : other ? "Takes 3 taps:" : "Apple doesn't let websites install themselves, so it takes 3 taps in Safari:";
+  $("iosSteps").innerHTML = (other
+      ? `<li><span>Tap ${SH} <b>Share</b> at the top right, next to the address bar.</span></li>`
+      : `<li><span>Tap ${SH} <b>Share</b> ${iPad ? "at the top right" : "at the bottom of the screen"}. Don't see it? Tap <span class="dots">•••</span> first, then <b>Share</b>.</span></li>`)
+    + `<li><span>Scroll down and tap <b>Add to Home Screen</b>.</span></li>`
+    + `<li><span>Leave <b>Open as Web App</b> on and tap <b>Add</b>. Then open <b>Dijla Driver</b> from your home screen and sign in once.</span></li>`;
+  const g = $("iosGuide"); g.classList.toggle("ipad", iPad); $("iosArrow").hidden = other || inApp; g.hidden = false; $("iosOk").focus();
+}
+$("iosOk").onclick = () => { $("iosGuide").hidden = true; };
+$("iosGuide").onclick = e => { if (e.target.id === "iosGuide") $("iosGuide").hidden = true; };
+$("dInstallBtn").onclick = async () => {
+  if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {} installEvt = null; installUI(); return; }
+  if (isIOSDevice) { iosGuide(); return; }
+  $("dInstallTxt").innerHTML = "In <b>Chrome</b>: tap the <b>⋮</b> menu (top right) → <b>Add to Home screen</b> or <b>Install app</b>.";
+};
+installUI();
+if ("serviceWorker" in navigator && location.hostname !== "localhost") addEventListener("load", () => { navigator.serviceWorker.register("../sw.js").catch(() => {}); });
+</script>
+<script type="module">
+// ===== Dijla Driver cloud: Firebase Google sign-in + only what a driver may read (the Firestore rules decide) =====
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, signOut }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
+         collection, doc, onSnapshot, getDoc, query, where, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp, terminate, clearIndexedDbPersistence }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const app = initializeApp({
+  "apiKey": "AIzaSyCK7StNNquwyFNTkUAgm6rzt2PPAiJ0WlU",
+  "authDomain": "dijla-trucking.firebaseapp.com",
+  "projectId": "dijla-trucking",
+  "storageBucket": "dijla-trucking.firebasestorage.app",
+  "messagingSenderId": "548103427278",
+  "appId": "1:548103427278:web:9c5c8bb4fe56d67d036c9f"
+});
+const auth = getAuth(app);
+let db = null;
+function getDb(){
+  if (db) return db;
+  try { db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+  catch (e) { db = initializeFirestore(app, { localCache: memoryLocalCache() }); }
+  return db;
+}
+window.Cloud = {
+  async myDriver(email){ const x = await getDoc(doc(getDb(), "drivers", email)); return x.exists() ? x.data() : null; },
+  // on the office team? (only team members can read the team list)
+  async onTeam(email){ try { const x = await getDoc(doc(getDb(), "team", email)); return x.exists(); } catch (e) { if (e && e.code === "permission-denied") return false; throw e; } },
+  // the driver's own view: their entry, trips, uploads, truck papers, statements, truck profile, app info
+  driverWatch(email, on){
+    const d = getDb(), subs = [], truckSubs = [];
+    const q = (c, f, v) => query(collection(d, c), where(f, "==", v));
+    const rows = s => s.docs.map(x => ({ ...x.data(), id: x.id }));
+    let truck = null;
+    const watchTruck = t => {
+      truckSubs.splice(0).forEach(u => u());
+      if (!t) { on.truck(null); on.truckFiles([]); return; }
+      truckSubs.push(onSnapshot(doc(d, "trucksPublic", t), s => on.truck(s.exists() ? { ...s.data(), id: t } : { id: t }), () => on.truck({ id: t })));
+      truckSubs.push(onSnapshot(q("files", "truckId", t), s => on.truckFiles(rows(s)), () => on.truckFiles([])));
+    };
+    subs.push(onSnapshot(doc(d, "drivers", email), s => {
+      const me = s.exists() ? s.data() : null; on.me(me);
+      const t = me && me.active !== false ? me.truckId || "" : "";
+      if (t !== truck) { truck = t; watchTruck(t); }
+    }, e => on.error(e)));
+    subs.push(onSnapshot(q("trips", "driverEmail", email), s => on.trips(rows(s)), e => on.error(e)));
+    subs.push(onSnapshot(q("files", "driverEmail", email), s => on.files(rows(s)), e => console.warn("my papers", e)));
+    subs.push(onSnapshot(q("statements", "driverEmail", email), s => on.statements(rows(s)), e => console.warn("statements", e)));
+    subs.push(onSnapshot(doc(d, "shared", "app"), s => on.shared(s.exists() ? s.data() : {}), () => on.shared({})));
+    return () => { subs.forEach(u => u()); truckSubs.forEach(u => u()); };
+  },
+  setTripStage(id, stage, loc){ return updateDoc(doc(getDb(), "trips", id), { stage, stageBy: "driver", stageAt: new Date().toISOString(), stageLoc: loc || null }); },
+  async saveFile(id, meta, parts){
+    const d = getDb(), b = writeBatch(d);
+    b.set(doc(d, "files", id), meta);
+    parts.forEach((data, i) => b.set(doc(d, "fileData", id + "_" + i), { data }));
+    await b.commit();
+  },
+  async fileData(id, n){
+    const d = getDb(), snaps = await Promise.all(Array.from({ length: n }, (_, i) => getDoc(doc(d, "fileData", id + "_" + i))));
+    if (snaps.some(x => !x.exists())) return null;
+    return snaps.map(x => x.data().data).join("");
+  },
+  // asking to be added
+  watchMyRequest(email, cb){ return onSnapshot(doc(getDb(), "requests", email), s => cb(s.exists() ? s.data() : null), e => cb(null, e)); },
+  requestAccess(email, name){ return setDoc(doc(getDb(), "requests", email), { email, name, status: "pending", requested: serverTimestamp() }); },
+  cancelRequest(email){ return deleteDoc(doc(getDb(), "requests", email)); },
+  userName(){ return auth.currentUser && auth.currentUser.displayName || ""; },
+  email(){ return (auth.currentUser && auth.currentUser.email || "").toLowerCase(); },
+  idToken(){ if (!auth.currentUser) return Promise.reject(new Error("Sign in again.")); return auth.currentUser.getIdToken(); },
+  async signIn(){
+    const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: "select_account" });
+    try { await signInWithPopup(auth, p); }
+    catch (e) { if (e && e.code === "auth/popup-blocked") await signInWithRedirect(auth, p); else throw e; }
+  },
+  signInWithToken(accessToken){ return signInWithCredential(auth, GoogleAuthProvider.credential(null, accessToken)); },
+  async signOut(){ try { await signOut(auth); } catch (e) {} if (db) { try { await terminate(db); await clearIndexedDbPersistence(db); } catch (e) {} } }
+};
+getRedirectResult(auth).catch(() => {});
+onAuthStateChanged(auth, user => { if (user) Gate.signedIn(user.email || ""); else Gate.signedOut(); });
+</script>
+</body>
+</html>

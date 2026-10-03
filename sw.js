@@ -1,8 +1,8 @@
 // Dijla Ops service worker: keeps the app's own files on the phone so it opens fast and with a weak signal.
 // Your loads, expenses and applicants are NOT stored here; they stay in Firebase (which has its own offline copy).
-const VERSION = "dijla-ops-drvinstall1";
+const VERSION = "dijla-ops-driverpage1";
 const ROOT = new URL("./", self.registration.scope).pathname;          // "/" on dijlatrucking.github.io
-const SHELL = ["./", "./logo.png", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./apple-touch-icon.png", "./favicon-64.png", "./manifest.webmanifest"];
+const SHELL = ["./", "./logo.png", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./apple-touch-icon.png", "./favicon-64.png", "./manifest.webmanifest", "./driver/", "./driver/manifest.webmanifest"];
 const FIREBASE = "https://www.gstatic.com/firebasejs/";                // versioned URLs, never change
 
 self.addEventListener("install", e => {
@@ -42,5 +42,6 @@ self.addEventListener("fetch", e => {
   const path = url.pathname;
   if (path.startsWith(ROOT + "jobs")) return;                                            // hiring page: left alone
   if (req.mode === "navigate" && (path === ROOT || path === ROOT + "index.html")) { e.respondWith(networkFirst(req, "./", 2500)); return; }
+  if (req.mode === "navigate" && (path === ROOT + "driver/" || path === ROOT + "driver/index.html")) { e.respondWith(networkFirst(req, "./driver/", 2500)); return; }
   if (SHELL.some(s => new URL(s, self.registration.scope).pathname === path)) e.respondWith(networkFirst(req, req, 2500));
 });
