@@ -18,6 +18,9 @@ service cloud.firestore {
     match /loads/{id}    { allow read, write: if isMember(); }
     match /expenses/{id} { allow read, write: if isMember(); }
     match /meta/{id}     { allow read, write: if isMember(); }
+    // papers (rate cons, receipts, BOLs…): the record, and its scan split into parts
+    match /files/{id}    { allow read, write: if isMember(); }
+    match /fileData/{id} { allow read, write: if isMember(); }
 
     // Team list: everyone on the team can see it; only the owner adds or removes people.
     match /team/{email} {

@@ -18,23 +18,30 @@
 // - Files land only in your own Drive. Nobody else gets access unless you share the folder.
 //
 // What it makes, in Drive → "Dijla Ops Backups":
-//   Dijla Ops backup (Google Sheet)   tabs: Loads, Expenses, Recurring, Applicants, Settings, About.
+//   Dijla Ops backup (Google Sheet)   tabs: Loads, Expenses, Papers, Recurring, Applicants, Settings, About.
 //                                      Rewritten on every backup, so it always matches the app.
-//   Daily snapshots / dijla-ops-YYYY-MM-DD.json
-//                                      Everything, exactly as stored, one file per day (the last 90 days).
+//   Snapshots / dijla-ops-YYYY-MM-DD.json
+//                                      Every record, exactly as stored, one file per backup day (last 90 days).
 //                                      This is what a restore would use.
+//   Papers / 2026-10 / 2026-10-03 · BOL · Echo #4471823.jpg
+//                                      Every rate con, receipt, BOL, POD… saved in Ops. Once a copy here is
+//                                      checked, Ops may clear its own copy to save space; it then opens this one.
+//   Reports / Loads - all time.pdf, Expenses - all time.pdf, 1099 2026 - Truck 1.pdf …
+//                                      Remade on every backup.
 
 const FIREBASE_API_KEY = "AIzaSyCK7StNNquwyFNTkUAgm6rzt2PPAiJ0WlU";
 const PROJECT_ID = "dijla-trucking";
 const ROOT_FOLDER = "Dijla Ops Backups";
-const SNAP_FOLDER = "Daily snapshots";
+const SNAP_FOLDER = "Snapshots", OLD_SNAP_FOLDER = "Daily snapshots";
+const PAPERS_FOLDER = "Papers", REPORTS_FOLDER = "Reports";
+const MARK = "Dijla Ops paper ";
 const SHEET_NAME = "Dijla Ops backup";
 const KEEP_DAYS = 90;
 
 function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || "{}");
-    if (body.ping) return reply({ ok: true, ping: "pong", version: 1 });
+    if (body.ping) return reply({ ok: true, ping: "pong", version: 2 });
     const token = String(body.idToken || "");
     if (!token) return reply({ ok: false, error: "Sign in to Dijla Ops again." });
     const email = whoIs(token);
@@ -45,6 +52,10 @@ function doPost(e) {
     if (settingsDoc === DENIED) return reply({ ok: false, error: email + " isn't approved for Dijla Ops." });
 
     if (body.backup) return reply(backup(token, email, settingsDoc));
+    if (body.papers) return reply({ ok: true, results: (body.ids || []).slice(0, 10).map((id) => copyPaper(String(id), token)) });
+    if (body.verify) return reply({ ok: true, results: (body.items || []).slice(0, 200).map(verifyPaper) });
+    if (body.fetch) return reply(fetchPaper(String(body.id || ""), token));
+    if (body.savePdf) return reply(savePdf(String(body.name || ""), String(body.data || "")));
     return reply({ ok: false, error: "Unknown request" });
   } catch (err) {
     return reply({ ok: false, error: String((err && err.message) || err) });
@@ -64,12 +75,15 @@ function backup(token, email, settingsDoc) {
     loads: fsList("loads", token),
     expenses: fsList("expenses", token),
     applications: fsList("applications", token, true),
+    files: fsList("files", token, true),
     settings: settingsDoc || {}
   };
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     const root = folder(DriveApp.getRootFolder(), ROOT_FOLDER);
+    const old = root.getFoldersByName(OLD_SNAP_FOLDER);            // first version called it "Daily snapshots"
+    if (old.hasNext() && !root.getFoldersByName(SNAP_FOLDER).hasNext()) old.next().setName(SNAP_FOLDER);
     const snaps = folder(root, SNAP_FOLDER);
     const day = Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd");
     const name = "dijla-ops-" + day + ".json";
@@ -82,7 +96,7 @@ function backup(token, email, settingsDoc) {
     const sheet = writeSheet(root, data);
     return {
       ok: true, at: data.backedUpAt, by: email,
-      loads: data.loads.length, expenses: data.expenses.length, applicants: data.applications.length,
+      loads: data.loads.length, expenses: data.expenses.length, applicants: data.applications.length, papers: data.files.length,
       folderUrl: root.getUrl(), sheetUrl: sheet.getUrl(), snapshot: name
     };
   } finally { lock.releaseLock(); }
@@ -128,6 +142,11 @@ function writeSheet(root, data) {
   const apps = data.applications.slice().sort(byNew("created"));
   tab(ss, "Loads", LOAD_COLS, loads);
   tab(ss, "Expenses", EXP_COLS, exps);
+  const loadName = {}; data.loads.forEach((l) => { loadName[l.id] = [l.broker, l.loadNo ? "#" + l.loadNo : ""].filter(Boolean).join(" "); });
+  tab(ss, "Papers", [["created", "Saved"], ["kind", "Kind"], ["name", "Name"], ["load", "Load"], ["type", "Type"], ["driveUrl", "Google Drive copy"],
+    ["freed", "Only in Drive"], ["by", "Saved by"], ["id", "ID"]],
+    (data.files || []).slice().sort(byNew("created")).map((f) => ({ created: f.created, kind: f.kind, name: f.name, load: f.loadId ? loadName[f.loadId] || f.loadId : "",
+      type: f.type, driveUrl: f.driveUrl || "", freed: !!f.freed, by: f.by, id: f.id })));
   tab(ss, "Recurring", [["name", "Name"], ["cat", "Category"], ["amount", "Amount"], ["truck", "Truck"], ["freq", "How often"],
     ["start", "Starts"], ["paidWith", "Paid with"], ["note", "Note"], ["skip", "Skipped"], ["created", "Created"], ["id", "ID"]],
     (Array.isArray(s.recurring) ? s.recurring : []).map((r) => Object.assign({}, r, { truck: truckName(r.truck) })));
@@ -137,8 +156,8 @@ function writeSheet(root, data) {
   tab(ss, "About", [["what", ""], ["value", ""]], [
     { what: "Backed up", value: Utilities.formatDate(new Date(data.backedUpAt), "America/Chicago", "MMM d, yyyy h:mm a") + " (Central)" },
     { what: "By", value: data.backedUpBy },
-    { what: "Loads", value: loads.length }, { what: "Expenses", value: exps.length }, { what: "Applicants", value: apps.length },
-    { what: "Note", value: "This sheet is rewritten on every backup. Edits here are not sent back to Dijla Ops. Full daily copies are in the 'Daily snapshots' folder." }
+    { what: "Loads", value: loads.length }, { what: "Expenses", value: exps.length }, { what: "Papers", value: (data.files || []).length }, { what: "Applicants", value: apps.length },
+    { what: "Note", value: "This sheet is rewritten on every backup. Edits here are not sent back to Dijla Ops. Full copies are in the 'Snapshots' folder, papers in 'Papers', reports in 'Reports'." }
   ]);
   const blank = ss.getSheetByName("Sheet1");
   if (blank && ss.getSheets().length > 1) ss.deleteSheet(blank);
@@ -170,6 +189,78 @@ function tab(ss, name, cols, rows) {
   sh.setFrozenRows(1);
   return sh;
 }
+
+// ---------- papers ----------
+// Copy one paper into Drive (or confirm the copy that's already there). Reads it from Firestore as the person.
+function copyPaper(id, token) {
+  try {
+    const meta = fsGet("files/" + id, token);
+    if (!meta || meta === DENIED) return { id: id, ok: false, error: "paper not found" };
+    const have = paperCopy(id, meta.driveFileId);
+    if (have) return { id: id, ok: true, fileId: have.getId(), url: have.getUrl(), bytes: have.getSize(), existed: true };
+    if (meta.freed) return { id: id, ok: false, error: "only copy was in Drive and it's gone" };
+    let data = "";
+    for (let i = 0; i < (meta.parts || 1); i++) {
+      const part = fsGet("fileData/" + id + "_" + i, token);
+      if (!part || part === DENIED || !part.data) return { id: id, ok: false, error: "scan part " + i + " missing" };
+      data += part.data;
+    }
+    const m = /^data:([^;,]+);base64,(.*)$/.exec(data);
+    if (!m) return { id: id, ok: false, error: "unreadable scan" };
+    const pdf = m[1] === "application/pdf", bytes = Utilities.base64Decode(m[2]);
+    const day = String(meta.created || "").slice(0, 10) || Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd");
+    const lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+    let f;
+    try {
+      const where = folder(folder(folder(DriveApp.getRootFolder(), ROOT_FOLDER), PAPERS_FOLDER), day.slice(0, 7));
+      const base = clean(day + " · " + (meta.name || meta.kind || "Paper"));
+      f = where.createFile(Utilities.newBlob(bytes, pdf ? "application/pdf" : "image/jpeg", base + (pdf ? ".pdf" : ".jpg")));
+      f.setDescription(MARK + id);
+    } finally { lock.releaseLock(); }
+    return { id: id, ok: true, fileId: f.getId(), url: f.getUrl(), bytes: f.getSize() };
+  } catch (err) { return { id: id, ok: false, error: String((err && err.message) || err) }; }
+}
+
+// The Drive copy recorded for a paper, if it's still there (not in the trash) and really is that paper.
+function paperCopy(id, fileId) {
+  if (!fileId) return null;
+  try { const f = DriveApp.getFileById(fileId); return !f.isTrashed() && String(f.getDescription() || "") === MARK + id ? f : null; }
+  catch (e) { return null; }
+}
+
+// Before Ops clears its own copy: is the Drive copy there, whole (same size), and the right paper?
+function verifyPaper(it) {
+  const f = paperCopy(String(it.id || ""), String(it.fileId || ""));
+  if (!f) return { id: it.id, ok: false, error: "not in Drive" };
+  if (Number(it.bytes) > 0 && f.getSize() !== Number(it.bytes)) return { id: it.id, ok: false, error: "size doesn't match" };
+  return { id: it.id, ok: true };
+}
+
+// Open a paper whose scan now lives only in Drive.
+function fetchPaper(id, token) {
+  const meta = fsGet("files/" + id, token);
+  if (!meta || meta === DENIED) return { ok: false, error: "That paper isn't in Dijla Ops anymore." };
+  const f = paperCopy(id, meta.driveFileId);
+  if (!f) return { ok: false, error: "That paper's copy isn't in Google Drive anymore." };
+  const blob = f.getBlob();
+  return { ok: true, data: "data:" + blob.getContentType() + ";base64," + Utilities.base64Encode(blob.getBytes()) };
+}
+
+// Reports: one PDF per name, replaced on every backup.
+function savePdf(name, b64) {
+  name = clean(name).slice(0, 120);
+  if (!/\.pdf$/i.test(name)) name += ".pdf";
+  const bytes = Utilities.base64Decode(b64);
+  if (String.fromCharCode.apply(null, bytes.slice(0, 4)) !== "%PDF") return { ok: false, error: "not a PDF" };
+  const reports = folder(folder(DriveApp.getRootFolder(), ROOT_FOLDER), REPORTS_FOLDER);
+  const same = reports.getFilesByName(name);
+  while (same.hasNext()) same.next().setTrashed(true);
+  const f = reports.createFile(Utilities.newBlob(bytes, "application/pdf", name));
+  return { ok: true, url: f.getUrl() };
+}
+
+function clean(s) { return String(s || "").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim() || "Paper"; }
 
 // ---------- Firebase / Firestore (as the signed-in person) ----------
 const DENIED = { denied: true };

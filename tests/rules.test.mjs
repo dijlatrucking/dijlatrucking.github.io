@@ -87,6 +87,16 @@ await t("public can send a valid application", addDoc(collection(anon, "applicat
 await t("public can't send a bad application", addDoc(collection(anon, "applications"), { ...app(), status: "hired" }), false);
 await t("public can't read applications", getDocs(collection(anon, "applications")), false);
 
+// papers
+await t("member saves a paper record", setDoc(doc(member, "files/pp1"), { kind: "BOL", loadId: "L1", parts: 1 }), true);
+await t("member saves a paper scan", setDoc(doc(member, "fileData/pp1_0"), { data: "data:image/jpeg;base64,AAAA" }), true);
+await t("member opens a paper scan", getDoc(doc(member, "fileData/pp1_0")), true);
+await t("owner frees a scan after backup", deleteDoc(doc(owner, "fileData/pp1_0")), true);
+await t("outsider can't list papers", getDocs(collection(outsider, "files")), false);
+await t("outsider can't open a scan", getDoc(doc(outsider, "fileData/pp1_0")), false);
+await t("outsider can't add a paper", setDoc(doc(outsider, "files/x"), { kind: "BOL" }), false);
+await t("signed out: can't open a scan", getDoc(doc(anon, "fileData/pp1_0")), false);
+
 // access requests
 const newbie = who("newbie@gmail.com"), other = who("other@gmail.com");
 const req = (email, extra = {}) => ({ email, name: "New Person", status: "pending", requested: serverTimestamp(), ...extra });

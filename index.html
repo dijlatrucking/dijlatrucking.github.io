@@ -129,6 +129,19 @@
   .steps button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
   .acts{display:flex;gap:6px;flex-wrap:wrap}
   .acts button{padding:8px 12px;font-size:13px}
+  .meter{position:relative;height:14px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+  .meter .fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--good);border-radius:7px 0 0 7px;transition:width .4s}
+  .meter.warn .fill{background:#d9a21b} .meter.full .fill{background:var(--bad)}
+  .meter .half{position:absolute;top:-2px;bottom:-2px;left:50%;width:2px;background:var(--text);opacity:.45}
+  .papers{display:grid;gap:6px;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px}
+  .pp{display:flex;align-items:center;gap:8px;font-size:14px}
+  .pp>span{flex:1;min-width:0;overflow-wrap:anywhere}
+  .pp button{padding:6px 10px;font-size:13px}
+  .ppadd{display:flex;gap:8px;align-items:center}
+  .ppadd select{flex:1;min-width:0;padding:8px;font-size:15px}
+  .ppadd label{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .ppadd label.busy{opacity:.6;pointer-events:none}
+  .ppadd input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
   .confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13.5px}
   .confirm span{flex:1;min-width:150px}
   .hist{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:12px;color:var(--muted)} .hist b{color:var(--text);font-weight:600}
@@ -299,7 +312,7 @@
     <form class="card stack" id="loadForm" hidden autocomplete="off">
       <h2 id="loadFormTitle">New load</h2>
       <label class="scanbtn" id="scanWrap"><input type="file" id="rcFile" accept="application/pdf,.pdf,image/*"><span>📄 Scan rate con</span></label>
-      <p class="scanmsg" id="rcMsg" role="status">Fills in the load for you. The file is read on this phone and never uploaded or saved.</p>
+      <p class="scanmsg" id="rcMsg" role="status">Fills in the load for you, and keeps the rate con with the load.</p>
       <div class="row2">
         <label>Truck<select id="lTruck"></select></label>
         <label>Rate ($)<input id="lRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label>
@@ -359,7 +372,7 @@
     <form class="card stack" id="expForm" hidden autocomplete="off">
       <h2 id="expFormTitle">New expense</h2>
       <label class="scanbtn" id="billWrap"><input type="file" id="billFile" accept="application/pdf,.pdf,image/*"><span>📄 Scan bill / receipt</span></label>
-      <p class="scanmsg" id="billMsg" role="status">Fuel receipts, IFTA service bills and statements. Read on this phone, never uploaded or saved.</p>
+      <p class="scanmsg" id="billMsg" role="status">Fuel receipts, IFTA service bills and statements. Fills in the expense and keeps the receipt with it.</p>
       <div class="billplan" id="billPlan" hidden></div>
       <div class="row2">
         <label>Category<select id="eCat"></select></label>
@@ -462,17 +475,20 @@
       </form>
     </div>
     <div class="card stack" id="driveCard">
-      <h2>Google Drive backup</h2>
+      <h2>Cloud storage &amp; backup</h2>
+      <div class="meter" role="meter" aria-label="Cloud storage used" aria-valuemin="0" aria-valuemax="100" id="stMeter"><div class="fill" id="stFill"></div><i class="half" title="Half full: backup and clear"></i></div>
+      <p class="meta" id="stTxt" style="margin:0"></p>
       <div class="stack" id="driveOn" hidden>
         <p class="meta" id="driveLast" style="margin:0"></p>
         <div class="btns">
           <button type="button" class="primary" id="driveNow" style="flex:1">Back up now</button>
-          <button type="button" id="driveOpen" style="flex:1">Open in Drive</button>
+          <button type="button" id="driveFree" style="flex:1">Back up &amp; free space</button>
         </div>
-        <p class="meta" style="margin:0">Backs up by itself once a day when Ops is open: a Google Sheet with every load, expense and applicant, plus a full daily copy (kept 90 days). <button type="button" class="ghost" id="driveChange" style="padding:0;border:0;color:var(--blue);font-size:12.5px;text-decoration:underline">Change link</button></p>
+        <div class="btns"><button type="button" id="driveOpen" style="flex:1">Open in Drive</button><button type="button" id="driveCopy2" style="flex:1">Copy the script</button></div>
+        <p class="meta" style="margin:0">When storage reaches half (512 MB), Ops backs up everything to Google Drive by itself: records, every paper and the reports. It checks each copy, then clears the papers from here so the bar drops. Cleared papers still open from Drive. <button type="button" class="ghost" id="driveChange" style="padding:0;border:0;color:var(--blue);font-size:12.5px;text-decoration:underline">Change link</button></p>
       </div>
       <div class="stack" id="driveSetup">
-        <p class="meta" style="margin:0">Keeps a copy of everything in your Google Drive: a Sheet you can open anytime, and a full copy every day. Set up once (about 5 minutes, best on a computer):</p>
+        <p class="meta" style="margin:0">Connect Google Drive so Ops can back everything up and clear space when it fills up. Set up once (about 5 minutes, best on a computer):</p>
         <ol class="meta" style="margin:0;padding-left:20px;display:grid;gap:4px">
           <li>Tap <b>Copy the script</b>.</li>
           <li>Open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener" style="color:var(--blue)">script.google.com</a> with the Google account that should keep the backups. Delete what's in the editor, paste, and click 💾 Save.</li>
@@ -929,7 +945,7 @@ function renderLoads(){
   const shown = list.slice(0, loadLimit), rest = list.length - shown.length;   // long histories: newest first, 100 at a time
   $("loadList").innerHTML = shown.map(l => {
     const last = (l.hist && l.hist.length) ? l.hist[l.hist.length - 1].d : lDate(l);
-    const ds = daysSince(last);
+    const ds = daysSince(last), pp = Papers.ofLoad(l.id);
     return `<article class="item st-${l.stage}" data-id="${esc(l.id)}">
       <div class="top2">
         <div style="min-width:0"><div class="big">${esc(l.broker || "No broker")}${l.loadNo ? ` <span class="mono muted" style="font-weight:500;font-size:13px">#${esc(l.loadNo)}</span>` : ""}</div>
@@ -943,8 +959,9 @@ function renderLoads(){
       ${l.hist && l.hist.length ? `<div class="hist">${l.hist.map(h => `<span>${esc(stLabel(h.s))} <b>${niceDate(h.d)}</b></span>`).join("")}</div>` : ""}
       ${l.notes ? `<div class="meta" style="color:var(--text)">${esc(l.notes)}</div>` : ""}
       <div class="steps" role="group" aria-label="Set stage">${STAGES().map(([id, lab]) => `<button type="button" data-a="stage" data-st="${id}" aria-pressed="${l.stage === id}">${esc(lab)}</button>`).join("")}</div>
-      <div class="acts"><button type="button" data-a="edit">Edit</button>${l.link ? `<button type="button" data-a="link">Paperwork</button>` : ""}<button type="button" data-a="del" class="danger">Delete</button></div>
-      <div class="confirm" hidden><span>Delete this load for good?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
+      <div class="acts"><button type="button" data-a="edit">Edit</button><button type="button" data-a="papers" aria-expanded="${openPapers.has(l.id)}">📎 Papers${pp.length ? ` (${pp.length})` : ""}</button>${l.link ? `<button type="button" data-a="link">Paperwork link</button>` : ""}<button type="button" data-a="del" class="danger">Delete</button></div>
+      ${openPapers.has(l.id) ? papersPanel(pp, ["BOL", "POD", "Lumper", "Rate con", "Receipt", "Other"]) : ""}
+      <div class="confirm" hidden><span>Delete this load${pp.length ? ` and its ${pp.length} paper${pp.length === 1 ? "" : "s"}` : ""} for good?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
     </article>`;
   }).join("") + (rest ? `<button type="button" class="ghost" id="loadMore" style="width:100%">Show ${Math.min(100, rest)} more · ${rest} older load${rest === 1 ? "" : "s"}</button>` : "");
 }
@@ -970,7 +987,7 @@ function openLoadForm(l){
   $("lWeight").value = v.weight || ""; $("lCommodity").value = v.commodity || ""; $("lFactored").checked = v.factored !== false;
   $("lNotes").value = v.notes || ""; $("lLink").value = v.link || "";
   document.querySelectorAll("#loadForm .filled").forEach(el => el.classList.remove("filled"));
-  $("rcMsg").textContent = "Fills in the load for you. The file is read on this phone and never uploaded or saved."; $("rcMsg").className = "scanmsg";
+  $("rcMsg").textContent = "Fills in the load for you, and keeps the rate con with the load."; $("rcMsg").className = "scanmsg"; pendingRc = null;
   loadCalc(); $("loadForm").hidden = false; $("loadNewBtn").hidden = true;
   $("loadForm").scrollIntoView({ block: "start", behavior: "smooth" });
 }
@@ -986,14 +1003,22 @@ $("loadForm").onsubmit = e => {
     weight: Math.round(num($("lWeight").value)), commodity: $("lCommodity").value.trim(),
     deposit: $("lDeposit").value === "" ? null : Math.round(num($("lDeposit").value) * 100) / 100,
     notes: $("lNotes").value.trim(), link: $("lLink").value.trim() };
-  const was = editingLoad;
+  const was = editingLoad, lid = was || newId("ld");
   if (was) Object.assign(loads.find(x => x.id === was), f);
-  else loads.unshift({ id: newId("ld"), stage: "booked", hist: [{ s: "booked", d: today() }], created: new Date().toISOString(), ...f });
+  else loads.unshift({ id: lid, stage: "booked", hist: [{ s: "booked", d: today() }], created: new Date().toISOString(), ...f });
+  const rc = pendingRc; pendingRc = null;
   Sync.push("loads"); closeLoadForm(); renderLoads(); toast(was ? "Load saved" : "Load added");
+  if (rc) Papers.save(rc, "Rate con", "Rate con · " + loadLabel({ ...f, id: lid }), { loadId: lid })
+    .then(() => toast("Rate con kept with the load")).catch(err => { console.warn(err); toast(err.message || "Couldn't keep the rate con."); });
 };
 $("loadTruckChips").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) { loadTruck = b.dataset.t; loadLimit = 100; renderLoads(); } });
 $("loadFilters").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (b) { loadFilter = b.dataset.f; loadLimit = 100; renderLoads(); } });
 $("loadSearch").addEventListener("input", e => { loadQuery = e.target.value; loadLimit = 100; renderLoads(); });
+const papersClickSync = (b, redraw) => ["popen", "pdel"].includes(b.dataset.a) ? (papersClick(b, redraw), true) : false;
+$("loadList").addEventListener("change", e => {
+  const inp = e.target.closest("[data-a=pfile]"); if (!inp) return;
+  const l = loads.find(x => x.id === inp.closest(".item").dataset.id); if (l) papersAdd(inp, { loadId: l.id }, loadLabel(l));
+});
 $("loadList").addEventListener("click", e => {
   if (e.target.closest("#loadMore")) { loadLimit += 100; renderLoads(); return; }
   const b = e.target.closest("[data-a]"); if (!b) return;
@@ -1011,15 +1036,23 @@ $("loadList").addEventListener("click", e => {
     l.deposit = Math.round(num(v) * 100) / 100; Sync.push("loads"); renderLoads(); toast("Deposit saved");
   }
   if (a === "edit") openLoadForm(l);
+  if (a === "papers") { openPapers.has(l.id) ? openPapers.delete(l.id) : openPapers.add(l.id); renderLoads(); return; }
+  if (papersClickSync(b, renderLoads)) return;
   if (a === "link") window.open(l.link, "_blank", "noopener");
   if (a === "del") card.querySelector(".confirm").hidden = false;
   if (a === "nodel") card.querySelector(".confirm").hidden = true;
-  if (a === "yesdel") { loads = loads.filter(x => x !== l); Sync.push("loads"); renderLoads(); toast("Load deleted"); }
+  if (a === "yesdel") {
+    const pp = Papers.ofLoad(l.id);
+    loads = loads.filter(x => x !== l); Sync.push("loads"); renderLoads(); toast("Load deleted");
+    if (pp.length) Papers.remove(pp).catch(e => console.warn("papers not deleted", e));
+  }
 });
 
-// ----- Scan a rate con (read on the phone, never stored) -----
+// ----- Scan a rate con (read on the phone; the file is kept with the load when it's saved) -----
+let pendingRc = null, pendingBill = null;
 $("rcFile").addEventListener("change", async e => {
   const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+  pendingRc = file;
   const msg = $("rcMsg"), wrap = $("scanWrap");
   const say = (t, cls) => { msg.textContent = t; msg.className = "scanmsg " + (cls || ""); };
   wrap.classList.add("busy"); say("Reading…");
@@ -1041,9 +1074,9 @@ $("rcFile").addEventListener("change", async e => {
     if (set("lWeight", f.weight)) got.push("weight");
     set("lCommodity", f.commodity);
     loadCalc();
-    if (!got.length) { say("Couldn't find the load details in that file. Fill it in by hand.", "bad"); return; }
+    if (!got.length) { say("Couldn't find the load details in that file. Fill it in by hand (the file is still kept with the load).", "bad"); return; }
     const dup = f.loadNo && loads.find(l => l.loadNo === f.loadNo && l.id !== editingLoad);
-    say(`Filled in: ${got.join(", ")}. Check the green fields${f.miles ? "" : ", add the miles"} ${truckByUnit(f.truckNo) ? "" : " and pick the truck"}.` + (dup ? ` Heads up: load #${f.loadNo} is already saved.` : ""), dup ? "bad" : "ok");
+    say(`Filled in: ${got.join(", ")}. Check the green fields${f.miles ? "" : ", add the miles"} ${truckByUnit(f.truckNo) ? "" : " and pick the truck"}. The rate con is kept with the load when you save.` + (dup ? ` Heads up: load #${f.loadNo} is already saved.` : ""), dup ? "bad" : "ok");
   } catch (err) {
     console.warn(err); say("Couldn't read that file. Check your connection and try again, or fill it in by hand.", "bad");
   } finally { wrap.classList.remove("busy"); }
@@ -1055,6 +1088,7 @@ document.getElementById("expForm").addEventListener("input", e => e.target.class
 let billUnits = null;
 $("billFile").addEventListener("change", async e => {
   const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+  pendingBill = file;
   const msg = $("billMsg"), wrap = $("billWrap"), plan = $("billPlan");
   const say = (t, cls) => { msg.textContent = t; msg.className = "scanmsg " + (cls || ""); };
   wrap.classList.add("busy"); plan.hidden = true; billUnits = null; say("Reading…");
@@ -1103,16 +1137,58 @@ $("billPlan").addEventListener("change", e => { const s = e.target.closest("[dat
 $("billPlan").addEventListener("click", e => {
   if (e.target.id !== "billAdd" || !billUnits) return;
   if (billUnits.some(u => !u.truck)) { toast("Pick a truck for each unit"); return; }
-  const plan = $("billPlan"), learn = {};
+  const plan = $("billPlan"), learn = {}, ids = [];
   billUnits.forEach(u => {
-    expenses.push({ id: newId("ex"), created: new Date().toISOString(), cat: "IFTA service fee", amount: u.total, truck: u.truck, date: plan.dataset.date,
+    const id = newId("ex"); ids.push(id);
+    expenses.push({ id, created: new Date().toISOString(), cat: "IFTA service fee", amount: u.total, truck: u.truck, date: plan.dataset.date,
       paidWith: "own", gallons: 0, state: "", link: "", note: `${plan.dataset.label} · unit ${u.unit} · tax reporting ${money2(u.tax)} + licensing ${money2(u.lic)}` });
     if (!truckByUnit(u.unit)) learn[u.truck === "t1" ? "u1" : "u2"] = u.unit;       // remember which unit is which truck
   });
   if (Object.keys(learn).length) { settings = { ...settings, ...learn }; Sync.push("settings"); }
   Sync.push("expenses"); toast(`Added ${billUnits.length} expense${billUnits.length === 1 ? "" : "s"}`);
+  const bill = pendingBill; pendingBill = null;
+  if (bill) Papers.save(bill, "Receipt", "Receipt · " + (plan.dataset.label || "IFTA service bill"), { expenseIds: ids })
+    .then(() => toast("Bill kept with the expenses")).catch(err => { console.warn(err); toast(err.message || "Couldn't keep the bill."); });
   billUnits = null; plan.hidden = true; closeExpForm(); renderExp();
 });
+
+// ----- Papers panel (shared by loads and expenses) -----
+const openPapers = new Set();                      // cards whose papers are shown (kept open through redraws)
+let paperDel = "";                                 // a paper waiting for its second "Delete?" tap
+function papersPanel(list, kinds){
+  return `<div class="papers">${list.length ? list.map(f => `<div class="pp" data-f="${esc(f.id)}"><span><b>${esc(f.kind)}</b> <span class="meta">${niceDate(String(f.created || "").slice(0, 10))}${f.type === "pdf" ? " · PDF" : ""}${f.freed ? " · in Google Drive" : ""}</span></span>
+      <button type="button" data-a="popen">Open</button><button type="button" data-a="pdel" class="danger">${paperDel === f.id ? "Delete?" : "✕"}</button></div>`).join("")
+    : `<div class="meta">No papers yet.</div>`}
+    <div class="ppadd"><select data-a="pkind" aria-label="Kind of paper">${kinds.map(k => `<option>${k}</option>`).join("")}</select>
+      <label>📷 Add<input type="file" accept="image/*,application/pdf" multiple data-a="pfile"></label></div></div>`;
+}
+// clicks inside a panel: open / delete a paper. Returns true when handled.
+async function papersClick(b, redraw){
+  const row = b.closest("[data-f]"), f = row && Papers.all().find(x => x.id === row.dataset.f);
+  if (b.dataset.a === "popen" && f) { Papers.open(f); return true; }
+  if (b.dataset.a === "pdel" && f) {
+    if (paperDel !== f.id) { paperDel = f.id; redraw(); setTimeout(() => { if (paperDel === f.id) { paperDel = ""; redraw(); } }, 4000); return true; }
+    paperDel = ""; b.disabled = true;
+    try { await Papers.remove([f]); toast("Paper deleted"); } catch (e) { console.warn(e); toast("Couldn't delete. Check your connection."); }
+    return true;
+  }
+  return false;
+}
+// files picked in a panel: save each one to that load / expense
+async function papersAdd(input, link, label){
+  const files = [...input.files]; input.value = ""; if (!files.length) return;
+  const kind = input.closest(".ppadd").querySelector("[data-a=pkind]").value, lab = input.closest("label");
+  lab.classList.add("busy"); const was = lab.firstChild.textContent; lab.firstChild.textContent = "Saving… ";
+  let ok = 0;
+  for (const file of files) {
+    try { await Papers.save(file, kind, `${kind} · ${label}`, link); ok++; }
+    catch (e) { console.warn(e); toast(e.message || "Couldn't save that paper."); }
+  }
+  lab.classList.remove("busy"); lab.firstChild.textContent = was;
+  if (ok) toast(ok === 1 ? `${kind} saved` : `${ok} papers saved`);
+}
+const loadLabel = l => [l.broker, l.loadNo ? "#" + l.loadNo : ""].filter(Boolean).join(" ") || "load " + niceDate(lDate(l));
+const expLabel = x => `${x.cat} ${money2(num(x.amount))} ${x.date || ""}`.trim();
 
 // ----- Expenses -----
 let expTruck = "all", expPer = "month", editingExp = null, exFrom = "", exTo = "", exCat = "";
@@ -1141,8 +1217,9 @@ function renderExp(){
         <div class="r"><b class="money">${money2(num(e.amount))}</b></div>
       </div>
       ${e.note ? `<div class="meta" style="color:var(--text)">${esc(e.note)}</div>` : ""}
-      <div class="acts"><button type="button" data-a="edit">Edit</button>${e.link ? `<button type="button" data-a="link">Receipt</button>` : ""}<button type="button" data-a="del" class="danger">Delete</button></div>
-      <div class="confirm" hidden><span>Delete this expense?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
+      <div class="acts"><button type="button" data-a="edit">Edit</button><button type="button" data-a="papers" aria-expanded="${openPapers.has(e.id)}">📎 Receipt${Papers.ofExp(e.id).length ? ` (${Papers.ofExp(e.id).length})` : ""}</button>${e.link ? `<button type="button" data-a="link">Receipt link</button>` : ""}<button type="button" data-a="del" class="danger">Delete</button></div>
+      ${openPapers.has(e.id) ? papersPanel(Papers.ofExp(e.id), ["Receipt", "Lumper", "Other"]) : ""}
+      <div class="confirm" hidden><span>Delete this expense${Papers.ofExp(e.id).length ? " and its receipt" : ""}?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
     </article>`).join("");
 }
 $("eCat").innerHTML = CATS.map(c => `<option>${c}</option>`).join("");
@@ -1159,7 +1236,7 @@ function openExpForm(x){
   paidTouched = !!x; $("ePaid").value = v.paidWith || (["Fuel", "DEF"].includes(v.cat) ? "gap" : "own");
   $("eGal").value = v.gallons ?? ""; $("eState").value = v.state || ""; $("eNote").value = v.note || ""; $("eLink").value = v.link || "";
   document.querySelectorAll("#expForm .filled").forEach(el => el.classList.remove("filled"));
-  $("billPlan").hidden = true; billUnits = null; $("billMsg").className = "scanmsg"; $("billMsg").textContent = "Fuel receipts, IFTA service bills and statements. Read on this phone, never uploaded or saved.";
+  $("billPlan").hidden = true; billUnits = null; pendingBill = null; $("billMsg").className = "scanmsg"; $("billMsg").textContent = "Fuel receipts, IFTA service bills and statements. Fills in the expense and keeps the receipt with it.";
   fuelToggle(); $("expForm").hidden = false; $("expNewBtn").hidden = true;
   $("expForm").scrollIntoView({ block: "start", behavior: "smooth" });
 }
@@ -1173,10 +1250,13 @@ $("expForm").onsubmit = e => {
   const f = { cat: $("eCat").value, amount: Math.round(num($("eAmt").value) * 100) / 100, truck: $("eTruck").value, date: $("eDate").value || today(),
     paidWith: $("ePaid").value,
     gallons: fuel ? num($("eGal").value) : 0, state: fuel ? $("eState").value.trim().toUpperCase().slice(0, 2) : "", note: $("eNote").value.trim(), link: $("eLink").value.trim() };
-  const was = editingExp;
+  const was = editingExp, xid = was || newId("ex");
   if (was) Object.assign(expenses.find(x => x.id === was), f);
-  else expenses.push({ id: newId("ex"), created: new Date().toISOString(), ...f });
+  else expenses.push({ id: xid, created: new Date().toISOString(), ...f });
+  const bill = pendingBill; pendingBill = null;
   Sync.push("expenses"); closeExpForm(); renderExp(); toast(was ? "Expense saved" : "Expense added");
+  if (bill) Papers.save(bill, "Receipt", "Receipt · " + expLabel(f), { expenseIds: [xid] })
+    .then(() => toast("Receipt kept with the expense")).catch(err => { console.warn(err); toast(err.message || "Couldn't keep the receipt."); });
 };
 $("expTruckChips").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) { expTruck = b.dataset.t; renderExp(); } });
 $("expPerChips").addEventListener("click", e => { const b = e.target.closest("[data-p]"); if (b) { expPer = b.dataset.p; renderExp(); } });
@@ -1184,15 +1264,24 @@ const onExRange = () => { exFrom = $("exFrom").value; exTo = $("exTo").value; if
 $("exFrom").addEventListener("change", onExRange); $("exTo").addEventListener("change", onExRange);
 $("exClear").onclick = () => { exFrom = exTo = ""; expPer = "month"; renderExp(); };
 $("exCat").addEventListener("change", () => { exCat = $("exCat").value; renderExp(); });
+$("expList").addEventListener("change", e => {
+  const inp = e.target.closest("[data-a=pfile]"); if (!inp) return;
+  const x = expenses.find(y => y.id === inp.closest(".item").dataset.id); if (x) papersAdd(inp, { expenseIds: [x.id] }, expLabel(x));
+});
 $("expList").addEventListener("click", e => {
   const b = e.target.closest("[data-a]"); if (!b) return;
   const card = b.closest(".item"), x = expenses.find(y => y.id === card.dataset.id); if (!x) return;
   const a = b.dataset.a;
   if (a === "edit") openExpForm(x);
+  if (a === "papers") { openPapers.has(x.id) ? openPapers.delete(x.id) : openPapers.add(x.id); renderExp(); return; }
+  if (papersClickSync(b, renderExp)) return;
   if (a === "link") window.open(x.link, "_blank", "noopener");
   if (a === "del") card.querySelector(".confirm").hidden = false;
   if (a === "nodel") card.querySelector(".confirm").hidden = true;
   if (a === "yesdel") {
+    // its receipt goes too, unless the same receipt also belongs to another expense (an IFTA bill split by truck)
+    const pp = Papers.ofExp(x.id).filter(f => (f.expenseIds || []).every(id => id === x.id || !expenses.some(y => y.id === id)));
+    if (pp.length) Papers.remove(pp).catch(err => console.warn("receipt not deleted", err));
     expenses = expenses.filter(y => y !== x); Sync.push("expenses");
     const it = x.rec && recItems().find(r => r.id === x.rec);          // don't re-add a deleted recurring charge
     if (it && !(it.skip || []).includes(x.date)) { it.skip = [...(it.skip || []), x.date]; Sync.push("settings"); }
@@ -1756,6 +1845,79 @@ $("setForm").onsubmit = e => {
   Sync.push("settings"); document.activeElement.blur(); render(); toast("Settings saved");
 };
 
+// ===== Papers: rate cons, receipts, BOLs, PODs… kept with their load or expense =====
+// Each paper is a record in "files" plus its scan in "fileData" (split into ~700 KB parts, since a Firestore
+// document holds at most 1 MB). Photos are shrunk first. After a backup has copied a paper to Google Drive and
+// checked the copy, "free space" removes the scan here (freed: true); opening it then fetches it from Drive.
+window.Papers = (() => {
+  const PART = 700000, MAX_PARTS = 7;                      // ~3.5 MB PDFs at most
+  const KINDS = ["BOL", "POD", "Lumper", "Rate con", "Receipt", "Other"];
+  let files = [];
+  const readUrl = f => new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => bad(r.error); r.readAsDataURL(f); });
+  async function decode(file){
+    if (window.createImageBitmap) { try { return await createImageBitmap(file, { imageOrientation: "from-image" }); } catch (e) {} }
+    const url = URL.createObjectURL(file);
+    try { const img = new Image(); img.src = url; await img.decode(); return img; } finally { URL.revokeObjectURL(url); }
+  }
+  // a photo shrunk until it fits one part; a PDF as it is (up to MAX_PARTS parts)
+  async function toData(file){
+    const pdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
+    if (pdf) {
+      const url = await readUrl(file);
+      const data = url.replace(/^data:[^;,]*;/, "data:application/pdf;");
+      if (data.length > PART * MAX_PARTS) throw new Error("That PDF is too big to keep (over about 3.5 MB). Take a photo of the pages instead.");
+      return { data, type: "pdf" };
+    }
+    if (!/^image\//.test(file.type || "")) throw new Error("Use a photo or a PDF.");
+    const img = await decode(file), w0 = img.width, h0 = img.height;
+    let max = 2000, q = 0.75;
+    for (let i = 0; i < 8; i++) {
+      const sc = Math.min(1, max / Math.max(w0, h0)), c = document.createElement("canvas");
+      c.width = Math.round(w0 * sc); c.height = Math.round(h0 * sc);
+      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      const data = c.toDataURL("image/jpeg", q);
+      if (data.length <= PART) return { data, type: "jpg" };
+      max = Math.round(max * 0.82); q = Math.max(0.45, q - 0.06);
+    }
+    throw new Error("Couldn't shrink that photo enough. Try again a little closer to the page.");
+  }
+  const bytesOf = data => { const b64 = data.slice(data.indexOf(",") + 1); return Math.floor(b64.length * 3 / 4) - (b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0); };
+  // save one paper; link: { loadId } or { expenseIds: [...] }
+  async function save(file, kind, name, link){
+    const { data, type } = await toData(file);
+    const id = newId("pp"), parts = [];
+    for (let i = 0; i < data.length; i += PART) parts.push(data.slice(i, i + PART));
+    const meta = { kind, name: String(name || kind).slice(0, 120), type, parts: parts.length, chars: data.length, bytes: bytesOf(data),
+      created: new Date().toISOString(), by: Cloud.email(), ...link };
+    await Cloud.saveFile(id, meta, parts);
+    return id;
+  }
+  async function dataOf(f){
+    if (!f.freed) { const d = await Cloud.fileData(f.id, f.parts || 1).catch(() => null); if (d) return d; }
+    if (!f.driveFileId) throw new Error("This paper's file is missing.");
+    return (await Drive.fetchPaper(f.id)).data;
+  }
+  async function open(f){
+    const w = window.open("", "_blank");
+    try {
+      const blob = await (await fetch(await dataOf(f))).blob(), url = URL.createObjectURL(blob);
+      if (w) w.location = url; else location.href = url;
+    } catch (e) {
+      if (w) w.close(); console.warn(e);
+      toast(e && e.message && !/fetch/i.test(e.message) ? e.message : "Couldn't open that paper. Check your connection.");
+    }
+  }
+  async function remove(list){ for (const f of list) await Cloud.deleteFile(f.id, f.freed ? 0 : (f.parts || 1)); }
+  const ofLoad = id => files.filter(f => f.loadId === id).sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || String(a.created).localeCompare(String(b.created)));
+  const ofExp = id => files.filter(f => (f.expenseIds || []).includes(id));
+  return {
+    KINDS, save, open, remove, ofLoad, ofExp, toData,
+    all: () => files,
+    apply(rows){ files = rows; if (typeof renderLoads === "function" && !$("tab-loads").hidden) renderLoads(); if (!$("tab-exp").hidden) renderExp(); Drive.draw(); Drive.maybeAuto(); },
+    reset(){ files = []; }
+  };
+})();
+
 // ===== Team: who can sign in. The owner is fixed (also in the Firestore rules); the owner adds and removes everyone else. =====
 const OWNER_EMAIL = "dijlatrucking@gmail.com";
 window.Team = (() => {
@@ -1882,60 +2044,141 @@ window.Access = (() => {
   return { show, hide };
 })();
 
-// ===== Google Drive backup (through the owner's Apps Script: backup/DijlaOpsBackup.gs) =====
-// Ops sends only the signed-in person's sign-in token; the script reads the data from Firestore as that person
-// (so the approved-accounts rules decide) and writes a Sheet + a daily JSON copy into the script owner's Drive.
+// ===== Cloud storage + Google Drive backup (through the owner's Apps Script: backup/DijlaOpsBackup.gs) =====
+// Ops sends only the signed-in person's sign-in token and paper ids; the script reads everything from Firestore as that
+// person (so the team rules decide) and writes into the script owner's Drive. The storage bar is an estimate of what
+// Firestore holds (free plan: 1 GB). At half full Ops backs everything up, checks each paper's Drive copy, then clears
+// the checked papers here.
 window.Drive = (() => {
-  const DAY = 20 * 3600e3;                       // "once a day", with slack for opening Ops at different times
-  let busy = false, editing = false, scriptText = "", autoDone = false;
+  const GB = 1024 * 1024 * 1024, HALF = GB / 2;
+  let busy = false, editing = false, scriptText = "", autoTried = 0;
   const url = () => String(settings.driveUrl || "");
   const okUrl = u => /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u) || /^https:\/\/script\.google\.com\/a\/macros\/[^/]+\/s\/[\w-]+\/exec$/.test(u);
   const msg = (t, bad) => { $("driveMsg").textContent = t || ""; $("driveMsg").style.color = bad ? "var(--bad)" : ""; };
-  async function call(u, payload){
+  const mb = b => !b ? "0 MB" : b >= GB ? (b / GB).toFixed(2) + " GB" : b >= 1048576 ? (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+  const n = (x, w) => { x = Number(x) || 0; return x.toLocaleString("en-US") + " " + w + (x === 1 ? "" : "s"); };
+  async function call(payload, u = url()){
     // text/plain keeps this a "simple" request, which Apps Script accepts from any site
     const r = await fetch(u, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
-    let j; try { j = await r.json(); } catch (e) { throw new Error("The script didn't answer. Check it's deployed with access: Anyone."); }
+    let j; try { j = await r.json(); } catch (e) { throw new Error("The backup script didn't answer. Check it's deployed with access: Anyone."); }
     if (!j.ok) throw new Error(j.error || "The backup script said no.");
     return j;
   }
-  const when = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
-  const n = (x, w) => { x = Number(x) || 0; return x.toLocaleString("en-US") + " " + w + (x === 1 ? "" : "s"); };
-  function draw(){
-    const on = !!url() && !editing, b = settings.backup || {};
-    $("driveOn").hidden = !on; $("driveSetup").hidden = on;
-    $("driveCancel").hidden = !url();
-    if (on) $("driveLast").innerHTML = b.at
-      ? `Last backup <b>${esc(when(b.at))}</b> · ${n(b.loads, "load")}, ${n(b.expenses, "expense")}, ${n(b.applicants, "applicant")}${b.by ? " · by " + esc(String(b.by).split("@")[0]) : ""}`
-      : "Connected. No backup yet.";
-    $("driveOpen").disabled = !b.folderUrl; $("driveNow").disabled = busy;
-    if (!on && document.activeElement !== $("driveUrl")) $("driveUrl").value = url();
-    if (!on && !scriptText) fetch("backup/DijlaOpsBackup.gs", { cache: "no-cache" }).then(r => r.ok ? r.text() : "").then(t => { scriptText = t; }).catch(() => {});
+  const signed = async p => call({ ...p, idToken: await Cloud.idToken() });
+  // what Firestore holds, roughly: the papers' scans, plus the records (doubled for Firestore's own indexes)
+  function usage(){
+    const ps = Papers.all(), here = ps.filter(f => !f.freed);
+    const scans = here.reduce((t, f) => t + (Number(f.chars) || 0), 0);
+    const recs = 2 * JSON.stringify([loads, expenses, applicants, settings, ps]).length;
+    return { scans, recs, total: scans + recs, here: here.length, inDrive: ps.length - here.length, toCopy: here.filter(f => !f.driveFileId).length };
   }
-  async function backup(auto){
+  const when = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+  function draw(){
+    if (!$("driveCard")) return;
+    const u = usage(), pct = Math.min(100, u.total / GB * 100), on = !!url() && !editing, b = settings.backup || {};
+    $("stFill").style.width = Math.max(pct, u.total ? 0.6 : 0) + "%";
+    $("stMeter").className = "meter" + (pct >= 50 ? " full" : pct >= 40 ? " warn" : "");
+    $("stMeter").setAttribute("aria-valuenow", pct.toFixed(1));
+    $("stTxt").innerHTML = `<b>${mb(u.total)}</b> of 1 GB used (${pct < 1 ? pct.toFixed(1) : Math.round(pct)}%) · papers ${mb(u.scans)}${u.here ? ` (${n(u.here, "paper")} here)` : ""}${u.inDrive ? ` · ${u.inDrive} cleared to Drive` : ""} · records ${mb(u.recs)}`
+      + (pct >= 50 && !url() ? `<br><b style="color:var(--bad)">Half full. Connect Google Drive below so Ops can back up and clear space.</b>` : "");
+    $("driveOn").hidden = !on; $("driveSetup").hidden = on; $("driveCancel").hidden = !url();
+    if (on) $("driveLast").innerHTML = b.at
+      ? `Last backup <b>${esc(when(b.at))}</b> · ${n(b.loads, "load")}, ${n(b.expenses, "expense")}, ${n(b.papers, "paper")}${b.by ? " · by " + esc(String(b.by).split("@")[0]) : ""}`
+        + (b.freedAt ? `<br>Last cleared ${esc(when(b.freedAt))}: ${n(b.freed, "paper")} moved to Drive only` : "")
+      : "Connected. No backup yet.";
+    $("driveOpen").disabled = !b.folderUrl; $("driveNow").disabled = busy; $("driveFree").disabled = busy;
+    if (!on && document.activeElement !== $("driveUrl")) $("driveUrl").value = url();
+    if (!scriptText) fetch("backup/DijlaOpsBackup.gs", { cache: "no-cache" }).then(r => r.ok ? r.text() : "").then(t => { scriptText = t; }).catch(() => {});
+  }
+  // the reports, remade on every backup: all loads, all expenses, this year's 1099 per truck
+  async function reports(){
+    await loadJs(JSPDF); await getLogo();
+    const co = settings.company || "Dijla Trucking", out = [], year = new Date().getFullYear();
+    const keep = ids => ids.map(id => [id, $(id).value, $(id).innerHTML]);
+    const back = saved => saved.forEach(([id, v, html]) => { $(id).innerHTML = html; $(id).value = v; });
+    const all = '<option value="all">All</option>';
+    let saved = keep(["rpFrom", "rpTo", "rpTruck", "rpStatus", "rpBroker"]);
+    try { $("rpFrom").value = ""; $("rpTo").value = ""; $("rpTruck").innerHTML = all; $("rpTruck").value = "all"; $("rpStatus").value = "all"; $("rpBroker").innerHTML = '<option value="">All brokers</option>'; $("rpBroker").value = "";
+      out.push(["Loads - all time.pdf", buildLoadsPdf()]); } finally { back(saved); }
+    saved = keep(["erFrom", "erTo", "erTruck", "erCat", "erPaid"]);
+    try { $("erFrom").value = ""; $("erTo").value = ""; $("erTruck").innerHTML = all; $("erTruck").value = "all"; $("erCat").innerHTML = '<option value="">All categories</option>'; $("erCat").value = ""; $("erPaid").value = "all";
+      out.push(["Expenses - all time.pdf", buildExpPdf()]); } finally { back(saved); }
+    TRUCKS().forEach(([id, name]) => out.push([`1099 ${year} - ${name}.pdf`, buildTaxPdf(year, id)]));
+    let ok = 0;
+    for (const [name, doc] of out) {
+      try { await signed({ savePdf: true, name: `${co} - ${name}`, data: doc.output("datauristring").split(",")[1] }); ok++; }
+      catch (e) { console.warn("report", name, e); }
+    }
+    return { ok, of: out.length };
+  }
+  // the full backup: records → Sheet + snapshot; papers → Drive; reports; then (free) check each copy and clear it here
+  async function backup({ free = false, auto = false } = {}){
     if (busy || !url()) return;
     if (!Sync.ready()) { if (!auto) toast("Still loading from the cloud. Try again in a moment."); return; }
-    busy = true; draw(); if (!auto) msg("Backing up…");
+    busy = true; draw();
+    const say = t => msg(t);
     try {
-      const j = await call(url(), { backup: true, idToken: await Cloud.idToken() });
-      settings.backup = { at: j.at, by: j.by, loads: j.loads, expenses: j.expenses, applicants: j.applicants, folderUrl: j.folderUrl, sheetUrl: j.sheetUrl };
-      Sync.push("settings"); msg(""); if (!auto) toast("Backed up to Google Drive");
+      const v = await call({ ping: true });
+      if ((v.version || 1) < 2) throw new Error("Update the backup script first: Copy the script below → paste it over the old one in script.google.com → Save → Deploy → Manage deployments → ✏ → Version: New version → Deploy.");
+      say("Backing up records…");
+      const j = await signed({ backup: true });
+      // papers not in Drive yet
+      const local = new Map(Papers.all().map(f => [f.id, { ...f }]));
+      const todo = [...local.values()].filter(f => !f.freed && !f.driveFileId);
+      let copied = 0, failed = 0;
+      for (let i = 0; i < todo.length; i += 5) {
+        say(`Copying papers to Drive… ${Math.min(i + 5, todo.length)} of ${todo.length}`);
+        const r = await signed({ papers: true, ids: todo.slice(i, i + 5).map(f => f.id) });
+        for (const x of r.results) {
+          if (!x.ok) { failed++; console.warn("paper not copied", x); continue; }
+          const patch = { driveFileId: x.fileId, driveUrl: x.url, backedUpAt: new Date().toISOString() };
+          await Cloud.updateFile(x.id, patch); Object.assign(local.get(x.id) || {}, patch); copied++;
+        }
+      }
+      say("Saving reports…");
+      const rep = await reports();
+      // clear space: only papers whose Drive copy is checked (there, not in the trash, right size)
+      let freed = 0, notFreed = 0;
+      if (free) {
+        const cand = [...local.values()].filter(f => !f.freed && f.driveFileId);
+        for (let i = 0; i < cand.length; i += 100) {
+          say(`Checking Drive copies… ${Math.min(i + 100, cand.length)} of ${cand.length}`);
+          const chunk = cand.slice(i, i + 100);
+          const r = await signed({ verify: true, items: chunk.map(f => ({ id: f.id, fileId: f.driveFileId, bytes: f.bytes })) });
+          for (const x of r.results) {
+            const f = local.get(x.id); if (!f) continue;
+            if (x.ok) { await Cloud.freeFile(f.id, f.parts || 1, { freedAt: new Date().toISOString() }); freed++; }
+            else { await Cloud.updateFile(f.id, { driveFileId: null, driveUrl: null }); notFreed++; }   // copy again next time
+          }
+        }
+      }
+      const now = new Date().toISOString();
+      settings.backup = { at: j.at || now, by: j.by, loads: j.loads, expenses: j.expenses, applicants: j.applicants, papers: j.papers ?? local.size,
+        folderUrl: j.folderUrl, sheetUrl: j.sheetUrl,
+        ...(free ? { freedAt: now, freed } : { freedAt: (settings.backup || {}).freedAt, freed: (settings.backup || {}).freed }) };
+      Sync.push("settings");
+      const parts = [`Backed up${copied ? `, ${n(copied, "paper")} copied` : ""}`, free ? `${n(freed, "paper")} cleared from Ops` : "", rep.ok < rep.of ? `${rep.of - rep.ok} report(s) didn't save` : ""].filter(Boolean);
+      const warn = failed || notFreed ? ` · ${failed + notFreed} paper(s) need another try and were kept in Ops` : "";
+      msg(parts.join(" · ") + warn, !!warn); toast(free ? "Backed up and space freed" : "Backed up to Google Drive");
     } catch (e) {
       console.warn("Drive backup", e);
-      msg((auto ? "Today's automatic backup didn't go through: " : "") + (e.message === "Failed to fetch" ? "Couldn't reach the backup script. Check your connection." : e.message), true);
+      msg((auto ? "The automatic backup didn't finish: " : "") + (e.message === "Failed to fetch" ? "Couldn't reach the backup script. Check your connection." : e.message), true);
     } finally { busy = false; draw(); }
   }
-  // once per day, when Ops is open and up to date
+  // half full → back up and clear, by itself (once an hour at most, so a failure doesn't loop)
   function maybeAuto(){
-    if (autoDone || busy || !url() || !Sync.ready() || document.hidden) return;
-    const last = Date.parse((settings.backup || {}).at || "") || 0;
-    if (Date.now() - last < DAY) return;
-    autoDone = true; backup(true);
+    if (busy || !url() || !Sync.ready() || document.hidden || Date.now() - autoTried < 3600e3) return;
+    if (usage().total < HALF) return;
+    autoTried = Date.now(); backup({ free: true, auto: true });
   }
-  setTimeout(maybeAuto, 8000); setInterval(maybeAuto, 60e3); document.addEventListener("visibilitychange", () => { if (!document.hidden) { autoDone = false; setTimeout(maybeAuto, 5000); } });
-  $("driveNow").onclick = () => backup(false);
+  setTimeout(maybeAuto, 8000); setInterval(maybeAuto, 120e3);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(maybeAuto, 5000); });
+  $("driveNow").onclick = () => backup({});
+  $("driveFree").onclick = () => backup({ free: true });
   $("driveOpen").onclick = () => { const b = settings.backup || {}; if (b.folderUrl) window.open(b.folderUrl, "_blank", "noopener"); };
   $("driveChange").onclick = () => { editing = true; msg(""); draw(); $("driveUrl").focus(); };
   $("driveCancel").onclick = () => { editing = false; msg(""); draw(); };
+  $("driveCopy2").onclick = () => $("driveCopy").click();
   $("driveCopy").onclick = async () => {
     if (!scriptText) { msg("Still loading the script. Tap again in a second, or use View script.", true); draw(); return; }
     try { await navigator.clipboard.writeText(scriptText); }
@@ -1947,13 +2190,14 @@ window.Drive = (() => {
     if (!okUrl(u)) { msg("That doesn't look like the Web app URL. It starts with https://script.google.com/macros/s/ and ends with /exec.", true); return; }
     $("driveConnect").disabled = true; msg("Checking the script…");
     try {
-      await call(u, { ping: true });
+      const p = await call({ ping: true }, u);
+      if ((p.version || 1) < 2) throw new Error("That's the older backup script. Paste the new one (Copy the script), then Deploy → Manage deployments → ✏ → Version: New version → Deploy.");
       settings.driveUrl = u; editing = false; Sync.push("settings"); draw();
-      await backup(false);
+      await backup({});
     } catch (e) { msg(e.message === "Failed to fetch" ? "Couldn't reach that script. Make sure it's deployed as a Web app with access: Anyone." : e.message, true); }
     finally { $("driveConnect").disabled = false; }
   };
-  return { draw, maybeAuto };
+  return { draw, maybeAuto, usage, fetchPaper: id => signed({ fetch: true, id }), version: () => call({ ping: true }) };
 })();
 
 // ===== Cloud sync (talks to the Firebase module through window.Cloud) =====
@@ -2027,7 +2271,7 @@ window.Sync = (() => {
       const em = userEmail;
       if (window.Cloud) Cloud.stopOnly();
       loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; last.loads = last.expenses = last.settings = last.applications = null;
-      fresh.expenses = fresh.settings = false; Team.signedOut(); render();
+      fresh.expenses = fresh.settings = false; Team.signedOut(); Papers.reset(); render();
       Access.show(em); return;
     }
     fail(err);
@@ -2038,7 +2282,7 @@ window.Sync = (() => {
     $("authGate").hidden = true; document.body.classList.remove("auth-lock"); status(); render();
   }
   function signedOut(){
-    on = false; fresh.expenses = fresh.settings = false; loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; Team.signedOut(); Access.hide(); last.loads = last.expenses = last.settings = last.applications = null;
+    on = false; fresh.expenses = fresh.settings = false; loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; Team.signedOut(); Access.hide(); Papers.reset(); last.loads = last.expenses = last.settings = last.applications = null;
     $("authGate").hidden = false; document.body.classList.add("auth-lock");
     $("authForm").hidden = false; $("authWait").hidden = true; $("authMsg").textContent = "";
   }
@@ -2109,7 +2353,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
-         collection, doc, onSnapshot, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp, terminate, clearIndexedDbPersistence }
+         collection, doc, onSnapshot, getDoc, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp, terminate, clearIndexedDbPersistence }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -2151,6 +2395,9 @@ function startSync(){
     unsubs.push(onSnapshot(collection(d, "requests"), snap => live() && window.Team.applyRequests(snap.docs.map(x => {
       const v = x.data(); return { ...v, email: x.id, requested: v.requested && typeof v.requested.toDate === "function" ? v.requested.toDate().toISOString() : v.requested };
     })), err => console.warn("requests not readable", err)));
+  // papers (records only; the scans themselves are read when opened)
+  unsubs.push(onSnapshot(collection(d, "files"), snap => live() && window.Papers.apply(snap.docs.map(x => ({ ...x.data(), id: x.id }))),
+    err => console.warn("papers not readable", err)));
   // who's on the team (shown in Settings; only the owner can change it)
   unsubs.push(onSnapshot(collection(d, "team"), snap => live() && window.Team.apply(snap.docs.map(x => ({ ...x.data(), email: x.id }))),
     err => console.warn("team list not readable", err)));
@@ -2183,6 +2430,33 @@ window.Cloud = {
   reject(email, by){ return updateDoc(doc(getDb(), "requests", email), { status: "rejected", decidedBy: by, decided: new Date().toISOString() }); },
   clearRequest(email){ return deleteDoc(doc(getDb(), "requests", email)); },
   userName(){ return auth.currentUser && auth.currentUser.displayName || ""; },
+  email(){ return (auth.currentUser && auth.currentUser.email || "").toLowerCase(); },
+  // papers: one record + its scan in parts (fileData/<id>_<n>)
+  async saveFile(id, meta, parts){
+    const d = getDb(), b = writeBatch(d);
+    b.set(doc(d, "files", id), meta);
+    parts.forEach((data, i) => b.set(doc(d, "fileData", id + "_" + i), { data }));
+    await b.commit();
+  },
+  async fileData(id, n){
+    const d = getDb(), snaps = await Promise.all(Array.from({ length: n }, (_, i) => getDoc(doc(d, "fileData", id + "_" + i))));
+    if (snaps.some(x => !x.exists())) return null;
+    return snaps.map(x => x.data().data).join("");
+  },
+  updateFile(id, patch){ return updateDoc(doc(getDb(), "files", id), patch); },
+  async deleteFile(id, n){
+    const d = getDb(), b = writeBatch(d);
+    b.delete(doc(d, "files", id));
+    for (let i = 0; i < n; i++) b.delete(doc(d, "fileData", id + "_" + i));
+    await b.commit();
+  },
+  // after a checked Drive copy: drop the scan here, keep the record
+  async freeFile(id, n, patch){
+    const d = getDb(), b = writeBatch(d);
+    for (let i = 0; i < n; i++) b.delete(doc(d, "fileData", id + "_" + i));
+    b.update(doc(d, "files", id), { ...patch, freed: true });
+    await b.commit();
+  },
   stopOnly(){ session++; stop(); },
   restart(){ startSync(); },
   removeMember(email){ return deleteDoc(doc(getDb(), "team", email)); },
