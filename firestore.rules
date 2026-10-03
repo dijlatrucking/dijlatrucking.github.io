@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // The owner is fixed here and can never be removed. Everyone else is on the team list
+    // (team/{email}), which only the owner can change, from Dijla Ops → Settings → Team.
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true
+        && request.auth.token.email is string;
+    }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function isOwner() { return signedIn() && myEmail() == 'dijlatrucking@gmail.com'; }
+    function isMember() {
+      return isOwner() || (signedIn() && exists(/databases/$(database)/documents/team/$(myEmail())));
+    }
+
+    // Truck Ops data: owner and team members.
+    match /loads/{id}    { allow read, write: if isMember(); }
+    match /expenses/{id} { allow read, write: if isMember(); }
+    match /meta/{id}     { allow read, write: if isMember(); }
+
+    // Team list: everyone on the team can see it; only the owner adds or removes people.
+    match /team/{email} {
+      allow read: if isMember();
+      allow create, update: if isOwner() && validMember(email, request.resource.data);
+      allow delete: if isOwner();
+    }
+    function validMember(email, d) {
+      return email == email.lower() && email.matches('^[^@\\s/]+@[^@\\s/]+\\.[a-z]{2,}$')
+        && email != 'dijlatrucking@gmail.com'
+        && d.keys().hasOnly(['email', 'name', 'addedBy', 'added'])
+        && d.email == email && str(d.addedBy, 3, 120) && str(d.added, 10, 40)
+        && (!('name' in d) || str(d.name, 0, 60));
+    }
+
+    // Hiring page: anyone can SEND an application. Only the team can read, change or delete one.
+    match /applications/{appId} {
+      allow read, update, delete: if isMember();
+      allow create: if isMember() || validApplication(request.resource.data);
+    }
+
+    function str(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+
+    function validApplication(d) {
+      return d.keys().hasOnly(['name','phone','email','city','state','cdl','years','reefer','medcard','endorse','violations','accidents','start','notes','consent','status','created'])
+        && d.keys().hasAll(['name','phone','city','state','cdl','years','reefer','medcard','violations','accidents','start','consent','status','created'])
+        && str(d.name, 2, 80) && str(d.phone, 7, 30) && str(d.city, 1, 60) && str(d.state, 2, 2)
+        && str(d.cdl, 1, 40) && str(d.years, 1, 20) && str(d.reefer, 1, 5) && str(d.medcard, 1, 5)
+        && str(d.violations, 1, 5) && str(d.accidents, 1, 5) && str(d.start, 1, 40)
+        && (!('email' in d) || str(d.email, 0, 100))
+        && (!('notes' in d) || str(d.notes, 0, 1500))
+        && (!('endorse' in d) || (d.endorse is list && d.endorse.size() <= 6))
+        && d.consent == true && d.status == 'new' && d.created == request.time;
+    }
+  }
+}

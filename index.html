@@ -215,7 +215,7 @@
     <button type="button" class="gbtn" id="authBtn"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</button>
     <p class="authmsg" id="authMsg" role="status"></p>
     <button type="button" class="authalt" id="authAlt" hidden>Trouble signing in? Try another way</button>
-    <p class="authnote">Only approved accounts can sign in.</p>
+    <p class="authnote">Only accounts on the Dijla Trucking team can sign in.</p>
   </div>
   <p class="muted" id="authWait">Connecting…</p>
 </div>
@@ -428,6 +428,18 @@
       <label>Dashboard counts loads by<select id="sBy"><option value="pickup">Pickup date</option><option value="delivery">Delivery date</option></select></label>
       <div class="btns"><button type="submit" class="primary">Save settings</button></div>
     </form>
+    <div class="card stack" id="teamCard">
+      <h2>Team</h2>
+      <p class="meta" id="teamTxt" style="margin:0"></p>
+      <div id="teamList" style="display:grid;gap:0"></div>
+      <form class="stack" id="teamForm" autocomplete="off" novalidate hidden>
+        <div class="row2">
+          <label>Gmail address<input id="tEmail" type="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="name@gmail.com"></label>
+          <label>Name (optional)<input id="tName" maxlength="60" placeholder="e.g. Bakr"></label>
+        </div>
+        <div class="btns"><button type="submit" class="primary" style="flex:1">Add person</button></div>
+      </form>
+    </div>
     <div class="card stack" id="driveCard">
       <h2>Google Drive backup</h2>
       <div class="stack" id="driveOn" hidden>
@@ -462,7 +474,7 @@
       <p class="meta" style="margin:0">Public page where drivers read about you and apply. Applications show up under 👥 at the top.</p>
       <div class="btns"><a class="primary" id="jobsOpen" href="jobs/" target="_blank" rel="noopener" style="text-decoration:none;text-align:center;padding:10px 14px;border-radius:9px;background:var(--acc);color:var(--on-acc);font-weight:700;flex:1">Open hiring page</a><button type="button" id="jobsCopy" style="flex:1">Copy link</button></div>
     </div>
-    <p class="muted" style="font-size:13px;margin:0">Everything saves to the cloud and shows up on every device signed in with an approved account.</p>
+    <p class="muted" style="font-size:13px;margin:0">Everything saves to the cloud and shows up on every device signed in with a team account.</p>
   </section>
 
   <!-- ===== DRIVER APPLICANTS ===== -->
@@ -790,7 +802,7 @@ function render(){
   if (tab === "dash") renderDash();
   if (tab === "loads") renderLoads();
   if (tab === "exp") { renderExp(); renderRec(); }
-  if (tab === "set") { fillSettings(); Drive.draw(); }
+  if (tab === "set") { fillSettings(); Drive.draw(); Team.draw(); }
   if (tab === "tax") renderTax();
   if (tab === "hire") renderHire();
   hireBadge();
@@ -1723,6 +1735,59 @@ $("setForm").onsubmit = e => {
   Sync.push("settings"); document.activeElement.blur(); render(); toast("Settings saved");
 };
 
+// ===== Team: who can sign in. The owner is fixed (also in the Firestore rules); the owner adds and removes everyone else. =====
+const OWNER_EMAIL = "dijlatrucking@gmail.com";
+window.Team = (() => {
+  let list = [], me = "", asking = "";
+  const isOwner = () => me === OWNER_EMAIL;
+  const okEmail = e => /^[^@\s/]+@[^@\s/]+\.[a-z]{2,}$/.test(e);
+  function draw(){
+    if (!$("teamCard")) return;
+    const owner = isOwner();
+    $("teamTxt").textContent = owner
+      ? "These Google accounts can sign in to Dijla Ops and see everything. Add someone by their Gmail address; remove them and they're locked out right away."
+      : `Only the owner (${OWNER_EMAIL}) can add or remove people.`;
+    $("teamForm").hidden = !owner;
+    const rows = [{ email: OWNER_EMAIL, name: "", owner: true }, ...list.slice().sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email))];
+    $("teamList").innerHTML = rows.map(r => `<div data-email="${esc(r.email)}" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)">
+      <div style="min-width:0;flex:1"><div style="font-weight:600;overflow-wrap:anywhere">${esc(r.name || r.email)}${r.email === me ? ' <span class="meta">(you)</span>' : ""}</div>${r.name ? `<div class="meta" style="overflow-wrap:anywhere">${esc(r.email)}</div>` : ""}</div>
+      ${r.owner ? '<span class="pill">Owner</span>'
+        : !owner ? ""
+        : asking === r.email ? `<button type="button" data-a="yes" class="danger" style="padding:7px 10px">Remove</button><button type="button" data-a="no" style="padding:7px 10px">Keep</button>`
+        : `<button type="button" data-a="rm" class="danger" style="padding:7px 10px">Remove</button>`}
+    </div>`).join("");
+  }
+  $("teamList").addEventListener("click", async e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const email = b.closest("[data-email]").dataset.email;
+    if (b.dataset.a === "rm") { asking = email; draw(); return; }
+    if (b.dataset.a === "no") { asking = ""; draw(); return; }
+    if (b.dataset.a === "yes") {
+      asking = ""; b.disabled = true;
+      try { await Cloud.removeMember(email); toast("Removed " + email); } catch (err) { console.warn(err); toast("Couldn't remove. Check your connection."); draw(); }
+    }
+  });
+  $("teamForm").onsubmit = async e => {
+    e.preventDefault();
+    const email = $("tEmail").value.trim().toLowerCase(), name = $("tName").value.trim().slice(0, 60);
+    if (!okEmail(email)) { toast("Type their full Gmail address"); $("tEmail").focus(); return; }
+    if (email === OWNER_EMAIL || list.some(x => x.email === email)) { toast("Already on the team"); return; }
+    const btn = $("teamForm").querySelector("button"); btn.disabled = true;
+    try {
+      await Cloud.addMember({ email, ...(name ? { name } : {}), addedBy: me, added: new Date().toISOString() });
+      $("tEmail").value = ""; $("tName").value = ""; document.activeElement.blur();
+      toast(`Added. ${email} can sign in now.`);
+    } catch (err) { console.warn(err); toast(err && err.code === "permission-denied" ? "Only the owner can add people." : "Couldn't add. Check your connection."); }
+    finally { btn.disabled = false; }
+  };
+  return {
+    apply(rows){ list = rows; draw(); },
+    signedIn(email){ me = String(email || "").toLowerCase(); draw(); },
+    signedOut(){ list = []; me = ""; asking = ""; },
+    draw
+  };
+})();
+
 // ===== Google Drive backup (through the owner's Apps Script: backup/DijlaOpsBackup.gs) =====
 // Ops sends only the signed-in person's sign-in token; the script reads the data from Firestore as that person
 // (so the approved-accounts rules decide) and writes a Sheet + a daily JSON copy into the script owner's Drive.
@@ -1862,20 +1927,21 @@ window.Sync = (() => {
     status(); console.warn(err);
   }
   async function error(k, err){
-    if (err && err.code === "permission-denied" && !gotData) {
+    // not on the team (or just removed from it): back to the sign-in screen with a clear reason
+    if (err && err.code === "permission-denied") {
       if (!on) return; on = false;
       if (window.Cloud) await Cloud.signOutOnly();
-      signedOut(); $("authMsg").textContent = `${userEmail || "That account"} isn't approved for Dijla Trucking.`; return;
+      signedOut(); $("authMsg").textContent = `${userEmail || "That account"} isn't on the Dijla Trucking team. Ask the owner (${OWNER_EMAIL}) to add you in Settings → Team.`; return;
     }
     fail(err);
   }
   function signedIn(email){
-    on = true; errored = ""; gotData = false; userEmail = email; slow = false;
+    on = true; errored = ""; gotData = false; userEmail = email; slow = false; Team.signedIn(email);
     clearTimeout(slowT); slowT = setTimeout(() => { if (on && !gotData) { slow = true; status(); } }, 15000);
     $("authGate").hidden = true; document.body.classList.remove("auth-lock"); status(); render();
   }
   function signedOut(){
-    on = false; fresh.expenses = fresh.settings = false; loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; last.loads = last.expenses = last.settings = last.applications = null;
+    on = false; fresh.expenses = fresh.settings = false; loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; Team.signedOut(); last.loads = last.expenses = last.settings = last.applications = null;
     $("authGate").hidden = false; document.body.classList.add("auth-lock");
     $("authForm").hidden = false; $("authWait").hidden = true; $("authMsg").textContent = "";
   }
@@ -1946,7 +2012,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
-         collection, doc, onSnapshot, writeBatch, setDoc, terminate, clearIndexedDbPersistence }
+         collection, doc, onSnapshot, writeBatch, setDoc, deleteDoc, terminate, clearIndexedDbPersistence }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -1983,6 +2049,9 @@ function startSync(){
   unsubs.push(onSnapshot(collection(d, "applications"), { includeMetadataChanges: true },
     snap => live() && S.apply("applications", snap.docs.map(x => { const v = x.data(); return [x.id, { ...v, created: iso(v.created) }]; }), snap.metadata),
     err => console.warn("applications not readable yet (check Firestore rules)", err)));   // never blocks the rest of the app
+  // who's on the team (shown in Settings; only the owner can change it)
+  unsubs.push(onSnapshot(collection(d, "team"), snap => live() && window.Team.apply(snap.docs.map(x => ({ ...x.data(), email: x.id }))),
+    err => console.warn("team list not readable", err)));
   unsubs.push(onSnapshot(doc(d, "meta", "settings"), { includeMetadataChanges: true },
     snap => live() && S.apply("settings", snap.exists() ? snap.data() : null, snap.metadata), err => live() && S.error("settings", err)));
 }
@@ -1998,9 +2067,11 @@ window.Cloud = {
     }
   },
   writeSettings(data){ return setDoc(doc(getDb(), "meta", "settings"), data); },
+  addMember(m){ return setDoc(doc(getDb(), "team", m.email), m); },
+  removeMember(email){ return deleteDoc(doc(getDb(), "team", email)); },
   // for the Drive backup script, which reads the data as the signed-in person
   idToken(){ if (!auth.currentUser) return Promise.reject(new Error("Sign in again.")); return auth.currentUser.getIdToken(); },
-  // Who may read or write is decided by the Firestore rules (an email allow-list), not here.
+  // Who may read or write is decided by the Firestore rules (the owner plus the team list), not here.
   async signIn(){
     const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: "select_account" });
     try { await signInWithPopup(auth, p); }

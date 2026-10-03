@@ -5,6 +5,10 @@
 
 Static site on GitHub Pages. Data lives in Firebase (project dijla-trucking); only approved Google accounts can sign in.
 
+## Who can sign in
+
+The owner (dijlatrucking@gmail.com) is fixed in `firestore.rules`. Everyone else is on the team list (`team/{email}`), which only the owner changes, from Ops → Settings → Team. `tests/rules.test.mjs` checks the rules (runs in GitHub Actions).
+
 ## Google Drive backup
 
 `backup/DijlaOpsBackup.gs` is an Apps Script you deploy once from the Google account that should keep the backups
