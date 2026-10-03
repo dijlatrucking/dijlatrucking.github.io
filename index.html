@@ -2125,6 +2125,7 @@ window.Papers = (() => {
     KINDS, VKINDS, save, open, remove, ofLoad, ofExp, ofTruck, expiring, daysTo, toData, data: dataOf,
     all: () => files,
     apply(rows){ files = rows; if (typeof renderLoads === "function" && !$("tab-loads").hidden) renderLoads(); if (!$("tab-exp").hidden) renderExp();
+      if (rows.some(f => !f.freed && !f.driveFileId)) Drive.soon();          // a new paper: copy it to Drive shortly
       if (!$("tab-set").hidden && trkRows) drawTrucks(); if (!$("tab-dash").hidden) render(); Drive.draw(); Drive.maybeAuto(); },
     reset(){ files = []; }
   };
@@ -2685,7 +2686,9 @@ window.Drive = (() => {
     $("stFill").style.width = Math.max(pct, u.total ? 0.6 : 0) + "%";
     $("stMeter").className = "meter" + (pct >= 50 ? " full" : pct >= 40 ? " warn" : "");
     $("stMeter").setAttribute("aria-valuenow", pct.toFixed(1));
+    const ps = Papers.all(), inDriveN = ps.filter(f => f.driveFileId).length;
     $("stTxt").innerHTML = `<b>${mb(u.total)}</b> of 1 GB used (${pct < 1 ? pct.toFixed(1) : Math.round(pct)}%) · papers ${mb(u.scans)}${u.here ? ` (${n(u.here, "paper")} here)` : ""}${u.inDrive ? ` · ${u.inDrive} cleared to Drive` : ""} · records ${mb(u.recs)}`
+      + (ps.length ? `<br>Papers in Google Drive: <b>${inDriveN} of ${ps.length}</b>${url() && inDriveN < ps.length ? " (the rest copy over in a few seconds while Ops is open)" : ""}` : "")
       + (pct >= 50 && !url() ? `<br><b style="color:var(--bad)">Half full. Connect Google Drive below so Ops can back up and clear space.</b>` : "");
     $("driveOn").hidden = !on; $("driveSetup").hidden = on; $("driveCancel").hidden = !url();
     if (on) $("driveLast").innerHTML = b.at
@@ -2704,7 +2707,25 @@ window.Drive = (() => {
     if (done.length) await Cloud.clearTrash(done);
     return r.results.filter(x => x.trashed).length;
   }
-  // after something is deleted in Ops: trash its Drive copies and rewrite the Sheet and snapshot
+  // copy every paper not in Drive yet (5 per call); returns how many made it and the first problem, if any
+  let lastPaperError = "";
+  async function copyPapers(local, say){
+    const todo = [...local.values()].filter(f => !f.freed && !f.driveFileId);
+    let copied = 0, failed = 0, firstErr = "";
+    for (let i = 0; i < todo.length; i += 5) {
+      if (say) say(`Copying papers to Drive… ${Math.min(i + 5, todo.length)} of ${todo.length}`);
+      const r = await signed({ papers: true, ids: todo.slice(i, i + 5).map(f => f.id) });
+      for (const x of r.results || []) {
+        if (!x.ok) { failed++; firstErr = firstErr || x.error || "unknown"; console.warn("paper not copied", x); continue; }
+        const patch = { driveFileId: x.fileId, driveUrl: x.url, backedUpAt: new Date().toISOString() };
+        await Cloud.updateFile(x.id, patch); Object.assign(local.get(x.id) || {}, patch); copied++;
+      }
+    }
+    lastPaperError = failed ? `${n(failed, "paper")} didn't reach Drive (${firstErr}). They stay in Ops and are tried again.` : "";
+    return { copied, failed, firstErr };
+  }
+  // after something is deleted in Ops, or a new paper comes in: trash deleted papers' Drive copies, copy new
+  // papers, and rewrite the Sheet and snapshot (quietly, a few seconds later, so a burst makes one update)
   // (quietly, a few seconds later, so several deletes make one update)
   let soonT = 0, trashChecked = false;
   function soon(){
@@ -2717,6 +2738,8 @@ window.Drive = (() => {
       try {
         const v = await call({ ping: true }); if ((v.version || 1) < 3) return;
         await emptyTrash();
+        await copyPapers(new Map(Papers.all().map(f => [f.id, { ...f }])));
+        if (lastPaperError) msg(lastPaperError, true);
         const j = await signed({ backup: true });
         settings.backup = { ...(settings.backup || {}), at: j.at, by: j.by, loads: j.loads, expenses: j.expenses, applicants: j.applicants, papers: j.papers, folderUrl: j.folderUrl, sheetUrl: j.sheetUrl };
         Sync.push("settings");
@@ -2738,17 +2761,7 @@ window.Drive = (() => {
       const j = await signed({ backup: true });
       // papers not in Drive yet
       const local = new Map(Papers.all().map(f => [f.id, { ...f }]));
-      const todo = [...local.values()].filter(f => !f.freed && !f.driveFileId);
-      let copied = 0, failed = 0;
-      for (let i = 0; i < todo.length; i += 5) {
-        say(`Copying papers to Drive… ${Math.min(i + 5, todo.length)} of ${todo.length}`);
-        const r = await signed({ papers: true, ids: todo.slice(i, i + 5).map(f => f.id) });
-        for (const x of r.results) {
-          if (!x.ok) { failed++; console.warn("paper not copied", x); continue; }
-          const patch = { driveFileId: x.fileId, driveUrl: x.url, backedUpAt: new Date().toISOString() };
-          await Cloud.updateFile(x.id, patch); Object.assign(local.get(x.id) || {}, patch); copied++;
-        }
-      }
+      const { copied, failed, firstErr } = await copyPapers(local, say);
       // clear space: only papers whose Drive copy is checked (there, not in the trash, right size)
       let freed = 0, notFreed = 0;
       if (free) {
@@ -2770,7 +2783,7 @@ window.Drive = (() => {
         ...(free ? { freedAt: now, freed } : { freedAt: (settings.backup || {}).freedAt, freed: (settings.backup || {}).freed }) };
       Sync.push("settings");
       const parts = [`Backed up${copied ? `, ${n(copied, "paper")} copied` : ""}`, free ? `${n(freed, "paper")} cleared from Ops` : ""].filter(Boolean);
-      const warn = failed || notFreed ? ` · ${failed + notFreed} paper(s) need another try and were kept in Ops` : "";
+      const warn = failed || notFreed ? ` · ${failed + notFreed} paper(s) need another try and were kept in Ops${firstErr ? " (" + firstErr + ")" : ""}` : "";
       msg(parts.join(" · ") + warn, !!warn); toast(free ? "Backed up and space freed" : "Backed up to Google Drive");
     } catch (e) {
       console.warn("Drive backup", e);
