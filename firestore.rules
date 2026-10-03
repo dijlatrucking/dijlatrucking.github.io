@@ -41,7 +41,8 @@ service cloud.firestore {
     function validDriverPaper(d) {
       return d.get('driverEmail', '') == myEmail() && !('truckId' in d) && !('expenseIds' in d) && !('driveFileId' in d) && !('freed' in d)
         && (d.get('loadId', null) == null || get(/databases/$(database)/documents/trips/$(d.loadId)).data.get('driverEmail', '') == myEmail())
-        && (!('claim' in d) || (d.claim.get('status', '') == 'pending' && d.claim.amount is number && d.claim.amount >= 0 && d.claim.amount < 100000));
+        && (!('claim' in d) || (d.claim.get('status', '') == 'pending' && d.claim.amount is number && d.claim.amount >= 0 && d.claim.amount < 100000))
+        && validLoc(d.get('loc', null));
     }
     match /fileData/{id} {
       function paperId() { return id.split('_')[0]; }
@@ -70,8 +71,14 @@ service cloud.firestore {
       allow read: if isMember() || (isDriver() && resource.data.driverEmail == myEmail());
       allow create, delete: if isMember();
       allow update: if isMember() || (isDriver() && resource.data.driverEmail == myEmail()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage', 'stageBy', 'stageAt'])
-        && request.resource.data.stage in ['pickedup', 'delivered'] && request.resource.data.stageBy == 'driver');
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage', 'stageBy', 'stageAt', 'stageLoc'])
+        && request.resource.data.stage in ['pickedup', 'delivered'] && request.resource.data.stageBy == 'driver'
+        && validLoc(request.resource.data.get('stageLoc', null)));
+    }
+    // a location stamp: where the driver was when they tapped Picked up / Delivered
+    function validLoc(l) {
+      return l == null || (l is map && l.keys().hasOnly(['lat', 'lng', 'acc', 'at', 'place'])
+        && l.lat is number && l.lng is number && l.lat >= -90 && l.lat <= 90 && l.lng >= -180 && l.lng <= 180);
     }
     // pay statements: the office issues them; the driver reads their own
     match /statements/{id} {

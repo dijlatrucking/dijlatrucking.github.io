@@ -1063,6 +1063,7 @@ function renderLoads(){
       ${OPEN.includes(l.stage) ? `<div class="meta">${ds} day${ds === 1 ? "" : "s"} in this stage</div>` : ""}
       ${l.hist && l.hist.length ? `<div class="hist">${l.hist.map(h => `<span>${esc(stLabel(h.s))} <b>${niceDate(h.d)}</b></span>`).join("")}</div>` : ""}
       ${l.notes ? `<div class="meta" style="color:var(--text)">${esc(l.notes)}</div>` : ""}
+      ${l.locs ? `<div class="meta" style="display:grid;gap:2px">${["pickedup", "delivered"].filter(k => l.locs[k]).map(k => `<span>${Geo.link(l.locs[k], k === "pickedup" ? "Picked up" : "Delivered")}</span>`).join("")}</div>` : ""}
       <div class="steps" role="group" aria-label="Set stage">${STAGES().map(([id, lab]) => `<button type="button" data-a="stage" data-st="${id}" aria-pressed="${l.stage === id}">${esc(lab)}</button>`).join("")}</div>
       <div class="acts"><button type="button" data-a="edit">Edit</button><button type="button" data-a="papers" aria-expanded="${openPapers.has(l.id)}">📎 Papers${pp.length ? ` (${pp.length})` : ""}</button>${l.link ? `<button type="button" data-a="link">Paperwork link</button>` : ""}<button type="button" data-a="del" class="danger">Delete</button></div>
       ${openPapers.has(l.id) ? papersPanel(pp, ["BOL", "POD", "Lumper", "Rate con", "Receipt", "Other"]) : ""}
@@ -1267,7 +1268,7 @@ $("billPlan").addEventListener("click", e => {
 const openPapers = new Set();                      // cards whose papers are shown (kept open through redraws)
 let paperDel = "";                                 // a paper waiting for its second "Delete?" tap
 function papersPanel(list, kinds){
-  return `<div class="papers">${list.length ? list.map(f => `<div class="pp" data-f="${esc(f.id)}"><span><b>${esc(f.kind)}</b> <span class="meta">${niceDate(String(f.created || "").slice(0, 10))}${f.type === "pdf" ? " · PDF" : ""}${f.freed ? " · in Google Drive" : ""}</span></span>
+  return `<div class="papers">${list.length ? list.map(f => `<div class="pp" data-f="${esc(f.id)}"><span><b>${esc(f.kind)}</b> <span class="meta">${niceDate(String(f.created || "").slice(0, 10))}${f.type === "pdf" ? " · PDF" : ""}${f.freed ? " · in Google Drive" : ""}${f.driverEmail ? " · from " + esc(Drivers.name(f.driverEmail)) : ""}</span>${f.loc ? `<br><span class="meta">${Geo.link(f.loc)}</span>` : ""}</span>
       <button type="button" data-a="popen">Open</button><button type="button" data-a="pdel" class="danger">${paperDel === f.id ? "Delete?" : "✕"}</button></div>`).join("")
     : `<div class="meta">No papers yet.</div>`}
     <div class="ppadd"><select data-a="pkind" aria-label="Kind of paper">${kinds.map(k => `<option>${k}</option>`).join("")}</select>
@@ -2129,6 +2130,32 @@ window.Papers = (() => {
   };
 })();
 
+// ===== Location stamps: where a driver was when they tapped Picked up / Delivered or sent a paper =====
+// Only taken at those moments (never in the background). If the phone says no or can't tell, it's simply left out.
+const Geo = (() => {
+  const timeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
+  async function here(){
+    if (!navigator.geolocation) return null;
+    const pos = await timeout(new Promise(res => navigator.geolocation.getCurrentPosition(res, () => res(null), { enableHighAccuracy: true, timeout: 7000, maximumAge: 120000 })), 7500);
+    if (!pos || !pos.coords) return null;
+    const loc = { lat: Math.round(pos.coords.latitude * 1e5) / 1e5, lng: Math.round(pos.coords.longitude * 1e5) / 1e5, acc: Math.round(pos.coords.accuracy || 0), at: new Date().toISOString() };
+    // the town for it (OpenStreetMap); if that's slow or offline, the map link still has the exact spot
+    try {
+      const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3500);
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&lat=${loc.lat}&lon=${loc.lng}`, { signal: ctl.signal, headers: { Accept: "application/json" } });
+      const a = (await r.json()).address || {}, st = String(a["ISO3166-2-lvl4"] || "").split("-")[1] || a.state || "";
+      const town = a.city || a.town || a.village || a.hamlet || a.municipality || a.county || "";
+      if (town || st) loc.place = [town, st].filter(Boolean).join(", ");
+    } catch (e) {}
+    return loc;
+  }
+  const time = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+  // "📍 Denver, CO · Oct 3, 2:14 PM" (opens the spot in Google Maps)
+  const link = (loc, label) => !loc || typeof loc.lat !== "number" ? "" :
+    `<a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener" style="color:var(--blue)">📍 ${label ? esc(label) + " · " : ""}${esc(loc.place || loc.lat.toFixed(3) + ", " + loc.lng.toFixed(3))}</a>${loc.at ? ` <span class="meta">· ${esc(time(loc.at))}</span>` : ""}`;
+  return { here, link };
+})();
+
 // ===== Drivers (office side) =====
 // drivers/{email}: name, pay, truck, active. Each load with a driver gets a "trip" (trips/{loadId}): the same load without
 // the rate or fees, plus the driver's pay, which is all the driver can read. Drivers send BOLs/PODs and receipts (papers with
@@ -2168,6 +2195,8 @@ window.Drivers = (() => {
     rows.forEach(t => {
       if (t.stageBy !== "driver") return;
       const l = loads.find(x => x.id === t.id); if (!l || l.driver !== t.driverEmail) return;
+      // where they were when they tapped it
+      if (t.stageLoc && typeof t.stageLoc.lat === "number" && !(l.locs && l.locs[t.stage])) { l.locs = { ...(l.locs || {}), [t.stage]: t.stageLoc }; moved++; }
       if ((STAGE_RANK[t.stage] ?? 0) <= (STAGE_RANK[l.stage] ?? 0)) return;
       l.stage = t.stage; l.hist = (l.hist || []).filter(h => h.s !== l.stage); l.hist.push({ s: l.stage, d: today() });
       if (l.stage === "delivered" && !l.toDate) l.toDate = today();
@@ -2187,6 +2216,7 @@ window.Drivers = (() => {
     $("rcptList").innerHTML = p.map(f => `<div data-f="${esc(f.id)}" style="display:grid;gap:6px;padding:10px 0;border-top:1px solid var(--line)">
         <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap"><b style="flex:1">${esc(f.claim.cat || "Receipt")} · ${money2(num(f.claim.amount))}</b><span class="meta">${esc(name(f.driverEmail))} · ${niceDate(f.claim.date)}</span></div>
         <div class="meta">${f.claim.paidWith === "company" ? "Company card" : "Paid with their own money"}${f.loadId ? " · load " + esc(loadLabel(loads.find(l => l.id === f.loadId) || {})) : ""}${f.claim.note ? " · " + esc(f.claim.note) : ""}</div>
+        ${f.loc ? `<div class="meta">Sent from ${Geo.link(f.loc)}</div>` : ""}
         ${asking === f.id ? `<div class="btns"><input data-r="reason" placeholder="Why? (the driver sees this)" style="flex:2;min-width:150px"><button type="button" data-a="rjgo" class="danger">Reject</button><button type="button" data-a="rjno">Back</button></div>`
           : `<div class="btns"><button type="button" data-a="ropen">Open</button><label class="chk" style="font-size:13px"><input type="checkbox" data-r="reimb" ${f.claim.paidWith === "company" ? "" : "checked"}> Pay back on statement</label>
              <button type="button" data-a="rok" class="primary">Approve</button><button type="button" data-a="rno" class="danger">Reject</button></div>`}
@@ -2404,7 +2434,7 @@ window.DriverApp = (() => {
     $("dHi").textContent = `${me && me.name ? me.name : email} · Driver`;
     if (tab === "loads") {
       const a = active(), d = done().slice(0, 15);
-      $("dLoadList").innerHTML = (a.length ? a.map(t => tripCard(t)).join("") : `<div class="empty"><b>No loads right now</b>When the office gives you a load it shows up here.</div>`)
+      $("dLoadList").innerHTML = `<p class="meta" style="margin:0">📍 When you tap Picked up / Delivered or send a paper, Ops saves where you are at that moment (only then).</p>` + (a.length ? a.map(t => tripCard(t)).join("") : `<div class="empty"><b>No loads right now</b>When the office gives you a load it shows up here.</div>`)
         + (d.length ? `<h2 style="margin:10px 0 0;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">Done</h2>` + d.map(t => tripCard(t, true)).join("") : "");
     }
     if (tab === "rcpt") {
@@ -2447,7 +2477,7 @@ window.DriverApp = (() => {
   $("dLoadList").addEventListener("click", async e => {
     const b = e.target.closest("button"); if (!b) return;
     const card = b.closest("[data-t]"), t = card && trips.find(x => x.id === card.dataset.t); if (!t) return;
-    if (b.dataset.a === "stage") { b.disabled = true; try { await Cloud.setTripStage(t.id, b.dataset.st); toast(`Marked ${b.textContent}`); } catch (err) { console.warn(err); toast("Couldn't save. Check your connection."); b.disabled = false; } return; }
+    if (b.dataset.a === "stage") { b.disabled = true; const label = b.textContent; b.textContent = "Saving…"; try { const loc = await Geo.here(); await Cloud.setTripStage(t.id, b.dataset.st, loc); toast(`Marked ${label}`); } catch (err) { console.warn(err); toast("Couldn't save. Check your connection."); b.disabled = false; } return; }
     if (b.dataset.a === "papers") { openTrip = openTrip === t.id ? "" : t.id; draw(); return; }
     await paperClick(b);
   });
@@ -2456,7 +2486,8 @@ window.DriverApp = (() => {
     const t = trips.find(x => x.id === inp.closest("[data-t]").dataset.t); if (!t) return;
     const files = [...inp.files]; inp.value = ""; const kind = inp.closest(".ppadd").querySelector("[data-a=pkind]").value, lab = inp.closest("label");
     lab.classList.add("busy"); lab.firstChild.textContent = "Saving… "; let ok = 0;
-    for (const file of files) { try { await Papers.save(file, kind, `${kind} · ${t.loadNo ? "#" + t.loadNo : (t.from || "") + " → " + (t.to || "")} · ${me.name || email}`, { driverEmail: email, loadId: t.id }); ok++; } catch (err) { console.warn(err); toast(err.message || "Couldn't save that paper."); } }
+    const loc = await Geo.here();
+    for (const file of files) { try { await Papers.save(file, kind, `${kind} · ${t.loadNo ? "#" + t.loadNo : (t.from || "") + " → " + (t.to || "")} · ${me.name || email}`, { driverEmail: email, loadId: t.id, ...(loc ? { loc } : {}) }); ok++; } catch (err) { console.warn(err); toast(err.message || "Couldn't save that paper."); } }
     if (ok) toast(ok === 1 ? `${kind} sent to the office` : `${ok} papers sent`);
     draw();
   });
@@ -2481,7 +2512,8 @@ window.DriverApp = (() => {
     $("drSend").disabled = true; $("drSend").textContent = "Sending…";
     const claim = { status: "pending", amount, cat: $("drCat").value, date: $("drDate").value || today(), paidWith: $("drPaid").value, note: $("drNote").value.trim().slice(0, 200) };
     try {
-      await Papers.save(pickedRcpt, "Receipt", `Receipt · ${claim.cat} ${money2(amount)} · ${me.name || email}`, { driverEmail: email, claim, ...($("drLoad").value ? { loadId: $("drLoad").value } : {}) });
+      const loc = await Geo.here();
+      await Papers.save(pickedRcpt, "Receipt", `Receipt · ${claim.cat} ${money2(amount)} · ${me.name || email}`, { driverEmail: email, claim, ...($("drLoad").value ? { loadId: $("drLoad").value } : {}), ...(loc ? { loc } : {}) });
       pickedRcpt = null; $("drFileName").textContent = ""; $("drAmt").value = ""; $("drNote").value = ""; $("drDate").value = today();
       toast("Receipt sent. The office will approve it.");
     } catch (err) { console.warn(err); toast(err.message || "Couldn't send. Check your connection."); }
@@ -3069,7 +3101,7 @@ window.Cloud = {
     subs.push(onSnapshot(doc(d, "shared", "app"), s => on.shared(s.exists() ? s.data() : {}), () => on.shared({})));
     return () => { subs.forEach(u => u()); truckSubs.forEach(u => u()); };
   },
-  setTripStage(id, stage){ return updateDoc(doc(getDb(), "trips", id), { stage, stageBy: "driver", stageAt: new Date().toISOString() }); },
+  setTripStage(id, stage, loc){ return updateDoc(doc(getDb(), "trips", id), { stage, stageBy: "driver", stageAt: new Date().toISOString(), stageLoc: loc || null }); },
   reject(email, by){ return updateDoc(doc(getDb(), "requests", email), { status: "rejected", decidedBy: by, decided: new Date().toISOString() }); },
   clearRequest(email){ return deleteDoc(doc(getDb(), "requests", email)); },
   userName(){ return auth.currentUser && auth.currentUser.displayName || ""; },

@@ -167,6 +167,9 @@ await t("driver lists their own trips", getDocs(query(collection(drew, "trips"),
 await t("driver can't read another driver's trip", getDoc(doc(drew, "trips/L2")), false);
 await t("driver can't list all trips", getDocs(collection(drew, "trips")), false);
 await t("driver marks their trip picked up", updateDoc(doc(drew, "trips/L1"), { stage: "pickedup", stageBy: "driver", stageAt: "2026-10-03" }), true);
+await t("driver marks delivered with a location stamp", updateDoc(doc(drew, "trips/L1"), { stage: "delivered", stageBy: "driver", stageAt: "2026-10-03", stageLoc: { lat: 39.74, lng: -104.99, acc: 12, at: "2026-10-03T14:00:00Z", place: "Denver, CO" } }), true);
+await t("driver can't sneak extra fields into a stamp", updateDoc(doc(drew, "trips/L1"), { stage: "delivered", stageBy: "driver", stageAt: "x", stageLoc: { lat: 1, lng: 2, pay: 999 } }), false);
+await t("driver can't send a nonsense location", updateDoc(doc(drew, "trips/L1"), { stage: "delivered", stageBy: "driver", stageAt: "x", stageLoc: { lat: 500, lng: 2 } }), false);
 await t("driver can't mark it paid", updateDoc(doc(drew, "trips/L1"), { stage: "paid", stageBy: "driver", stageAt: "x" }), false);
 await t("driver can't change their pay on a trip", updateDoc(doc(drew, "trips/L1"), { pay: 9999 }), false);
 await t("driver can't move another driver's trip", updateDoc(doc(drew, "trips/L2"), { stage: "delivered", stageBy: "driver", stageAt: "x" }), false);
@@ -183,6 +186,8 @@ await t("driver can't open another truck's paper", getDoc(doc(drew, "fileData/td
 await t("driver can't open the rate con (rates)", getDoc(doc(drew, "fileData/rc1_0")), false);
 await t("driver can't list all papers", getDocs(collection(drew, "files")), false);
 await t("driver uploads a BOL to their trip", upload(drew, "dp1", dpaper()), true);
+await t("driver uploads a POD with a location stamp", upload(drew, "dploc", dpaper({ kind: "POD", loc: { lat: 43.6, lng: -116.2, acc: 20, at: "2026-10-03", place: "Boise, ID" } })), true);
+await t("…but not with a bad one", upload(drew, "dploc2", dpaper({ kind: "POD", loc: { lat: "here", lng: 0 } })), false);
 await t("driver lists their own uploads", getDocs(query(collection(drew, "files"), where("driverEmail", "==", "drew@gmail.com"))), true);
 await t("driver opens their own upload", getDoc(doc(drew, "fileData/dp1_0")), true);
 await t("driver can't open another driver's upload", getDoc(doc(drew, "fileData/samb_0")), false);
