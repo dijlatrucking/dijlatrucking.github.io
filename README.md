@@ -9,6 +9,15 @@ Static site on GitHub Pages. Data lives in Firebase (project dijla-trucking); on
 
 The owner (dijlatrucking@gmail.com) is fixed in `firestore.rules`. Everyone else is on the team list (`team/{email}`), which only the owner changes, from Ops → Settings → Team. Anyone can sign in with Google and ask to join (`requests/{email}`); the owner approves or rejects it there. `tests/rules.test.mjs` checks the rules (runs in GitHub Actions).
 
+## Drivers
+
+The office adds drivers (Drivers tab, or approves a sign-up as a driver): `drivers/{email}` with pay (per mile, per loaded
+mile, % of load or flat per load) and truck. A driver who signs in gets the driver app instead of the office: their loads
+(`trips/{loadId}`, a copy of each assigned load without the rate or fees, plus their pay), Picked up / Delivered (moves the
+office load), BOL/POD uploads, receipts (wait for the office to approve → expense, optionally paid back on the statement),
+their truck's profile and papers (`trucksPublic/{id}`, `files` with their truckId) and their pay statements
+(`statements/{id}`, issued and marked paid by the office; paid adds a Driver pay expense).
+
 ## Papers
 
 Rate cons and receipts scanned in Ops are kept with their load or expense, and each load has a Papers panel for BOLs,

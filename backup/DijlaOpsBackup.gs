@@ -11,7 +11,8 @@
 // Version: New version → Deploy. The URL stays the same.
 //
 // How it stays safe:
-// - Dijla Ops sends only the signed-in person's Firebase sign-in token, nothing else.
+// - Dijla Ops sends only the signed-in person's Firebase sign-in token (and paper ids), nothing else.
+// - Drivers can only open papers the rules let them read (their own uploads, their truck's papers).
 // - This script reads the loads, expenses, applicants and settings from Firestore *as that person*,
 //   so the same approved-accounts list that guards the app decides who can make a backup.
 //   Anyone else gets "not approved" and nothing is written.
@@ -41,11 +42,15 @@ const SNAP_FILE = "Dijla Ops snapshot.json";
 function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || "{}");
-    if (body.ping) return reply({ ok: true, ping: "pong", version: 3 });
+    if (body.ping) return reply({ ok: true, ping: "pong", version: 4 });
     const token = String(body.idToken || "");
     if (!token) return reply({ ok: false, error: "Sign in to Dijla Ops again." });
     const email = whoIs(token);
     if (!email) return reply({ ok: false, error: "Your sign-in expired. Reload Dijla Ops and try again." });
+
+    // Opening a cleared paper: anyone the rules let read that paper (the office, or a driver for their own papers
+    // and their truck's papers).
+    if (body.fetch) return reply(fetchPaper(String(body.id || ""), token));
 
     // The approved-accounts check: can this person read the app's data?
     const settingsDoc = fsGet("meta/settings", token);
@@ -55,7 +60,6 @@ function doPost(e) {
     if (body.papers) return reply({ ok: true, results: (body.ids || []).slice(0, 10).map((id) => copyPaper(String(id), token)) });
     if (body.remove) return reply({ ok: true, results: (body.items || []).slice(0, 200).map((it) => removePaper(it, token)) });
     if (body.verify) return reply({ ok: true, results: (body.items || []).slice(0, 200).map(verifyPaper) });
-    if (body.fetch) return reply(fetchPaper(String(body.id || ""), token));
     if (body.savePdf) return reply(savePdf(String(body.name || ""), String(body.data || "")));
     return reply({ ok: false, error: "Unknown request" });
   } catch (err) {
