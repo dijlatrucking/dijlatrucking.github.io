@@ -460,6 +460,7 @@
       <p class="meta" style="margin:8px 0 0">Counted when paid (the date a load was marked Paid). <span id="taxUnpaid"></span></p></div>
     <div class="card"><h2>Expenses by category</h2><div class="scroll"><table class="sum" id="taxCats"></table></div>
       <p class="meta" style="margin:8px 0 0">Expenses for all trucks are split evenly across the trucks. Truck payments: your accountant may only deduct the interest part, plus depreciation.</p></div>
+    <label class="chk noprint"><input type="checkbox" id="taxItemize"> Include every expense in the PDF (itemized list)</label>
     <button type="button" class="primary wide noprint" id="taxPdf">📄 View PDF</button>
     <p class="meta noprint" style="margin:0">This is a record-keeping summary, not tax advice. Have your accountant check it before filing.</p>
   </section>
@@ -1667,7 +1668,7 @@ async function getLogo(){
   try { const b = await (await fetch("logo.png")).blob(); logoData = await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); }); } catch (e) { logoData = ""; }
   return logoData;
 }
-function buildTaxPdf(year, truck){
+function buildTaxPdf(year, truck, itemize){
   const d = taxData(year, truck), T = d.T, fac = settings.factor || "GAP";
   const { jsPDF } = window.jspdf, doc = new jsPDF({ unit: "pt", format: "letter" });
   const W = 612, M = 40, R = W - M, INK = [20, 22, 28], MUT = [110, 116, 128], LINE = [220, 223, 230], ACC = [120, 160, 220];
@@ -1723,7 +1724,7 @@ function buildTaxPdf(year, truck){
   table(qc, ["", "Q1", "Q2", "Q3", "Q4", "Year"], rowsQ.map(([lab, f]) => [lab, ...Q.map(f), f(T)]), [4, 6]);
   title("Expenses by category");
   table([{ w: 360, a: "l" }, { w: R - M - 360, a: "r" }], ["Category", "Amount"], [...d.catRows.map(([k, v]) => [k, $$(v)]), ["Total", $$(d.deductible)]], [d.catRows.length]);
-  if (d.exps.length) {
+  if (itemize && d.exps.length) {
     title("Expenses");
     table([{ w: 62, a: "l" }, { w: 100, a: "l" }, { w: 70, a: "r" }, { w: 60, a: "l" }, { w: R - M - 292, a: "l" }],
       ["Date", "Category", "Amount", "Paid with", "Note"],
@@ -1761,7 +1762,7 @@ async function showPdf(btn, label, make){
 }
 const fileSafe = t => String(t).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
 function viewTaxPdf(){
-  return showPdf($("taxPdf"), "1099", () => ({ doc: buildTaxPdf(taxYear, taxTruck), title: `${truckName(taxTruck)} · ${taxYear}`,
+  return showPdf($("taxPdf"), "1099", () => ({ doc: buildTaxPdf(taxYear, taxTruck, $("taxItemize").checked), title: `${truckName(taxTruck)} · ${taxYear}`,
     name: `${fileSafe(settings.company || "Dijla Trucking")}-${fileSafe(truckName(taxTruck))}-${taxYear}-1099.pdf` }));
 }
 
