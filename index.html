@@ -2423,7 +2423,7 @@ window.DriverApp = (() => {
       <div class="meta">${esc(t.truckName || "")} · Pickup ${niceDate(t.fromDate) || "?"} · Deliver ${niceDate(t.toDate) || "?"}${num(t.miles) + num(t.empty) ? ` · ${(num(t.miles) + num(t.empty)).toLocaleString("en-US")} mi` : ""}${t.weight ? ` · ${num(t.weight).toLocaleString("en-US")} lb` : ""}${t.commodity ? " · " + esc(t.commodity) : ""}</div>
       ${t.stmt ? `<div class="meta">On a pay statement ✓</div>` : ""}
       <div class="acts">${next && !old ? `<button type="button" data-a="stage" data-st="${next[0]}" class="primary">${next[1]}</button>` : ""}<button type="button" data-a="papers" aria-expanded="${open}">📎 BOL / POD${pp.length ? ` (${pp.length})` : ""}</button></div>
-      ${open ? `<div class="papers">${pp.length ? pp.map(paperRow).join("") : `<div class="meta">Add the signed BOL / POD here. Once sent, only the office can remove it.</div>`}
+      ${open ? `<div class="papers">${pp.length ? pp.map(paperRow).join("") : `<div class="meta">Add the signed BOL / POD here.</div>`}
         <div class="ppadd"><select data-a="pkind" aria-label="Kind of paper"><option>BOL</option><option>POD</option><option>Lumper</option><option>Scale ticket</option><option>Other</option></select>
           <label>📷 Add<input type="file" accept="image/*,application/pdf" multiple data-a="pfile"></label></div></div>` : ""}
     </article>`;
@@ -2434,7 +2434,7 @@ window.DriverApp = (() => {
     $("dHi").textContent = `${me && me.name ? me.name : email} · Driver`;
     if (tab === "loads") {
       const a = active(), d = done().slice(0, 15);
-      $("dLoadList").innerHTML = `<p class="meta" style="margin:0">📍 When you tap Picked up / Delivered or send a paper, Ops saves where you are at that moment (only then).</p>` + (a.length ? a.map(t => tripCard(t)).join("") : `<div class="empty"><b>No loads right now</b>When the office gives you a load it shows up here.</div>`)
+      $("dLoadList").innerHTML = (a.length ? a.map(t => tripCard(t)).join("") : `<div class="empty"><b>No loads right now</b>When the office gives you a load it shows up here.</div>`)
         + (d.length ? `<h2 style="margin:10px 0 0;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">Done</h2>` + d.map(t => tripCard(t, true)).join("") : "");
     }
     if (tab === "rcpt") {
