@@ -23,6 +23,8 @@
 //                                      Rewritten on every backup, so it always matches the app.
 //   Dijla Ops snapshot.json            Every record, exactly as stored. Replaced on every backup, so it always
 //                                      matches the app. This is what a restore would use.
+//   Trucks / Red Pete / Insurance card · exp 2027-01-01 · 2026-10-03.pdf
+//                                      Each truck's profile papers (registration, insurance, IFTA…).
 //   Papers / 2026-10 / 2026-10-03 · BOL · Echo #4471823.jpg
 //                                      Every rate con, receipt, BOL, POD… saved in Ops. Once a copy here is
 //                                      checked, Ops may clear its own copy to save space; it then opens this one.
@@ -34,7 +36,7 @@ const FIREBASE_API_KEY = "AIzaSyCK7StNNquwyFNTkUAgm6rzt2PPAiJ0WlU";
 const PROJECT_ID = "dijla-trucking";
 const ROOT_FOLDER = "Dijla Ops Backups";
 const SNAP_FOLDER = "Snapshots", OLD_SNAP_FOLDER = "Daily snapshots";
-const PAPERS_FOLDER = "Papers", REPORTS_FOLDER = "Reports";
+const PAPERS_FOLDER = "Papers", REPORTS_FOLDER = "Reports", TRUCKS_FOLDER = "Trucks";
 const MARK = "Dijla Ops paper ";
 const SHEET_NAME = "Dijla Ops backup";
 const SNAP_FILE = "Dijla Ops snapshot.json";
@@ -42,7 +44,7 @@ const SNAP_FILE = "Dijla Ops snapshot.json";
 function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || "{}");
-    if (body.ping) return reply({ ok: true, ping: "pong", version: 4 });
+    if (body.ping) return reply({ ok: true, ping: "pong", version: 5 });
     const token = String(body.idToken || "");
     if (!token) return reply({ ok: false, error: "Sign in to Dijla Ops again." });
     const email = whoIs(token);
@@ -57,7 +59,7 @@ function doPost(e) {
     if (settingsDoc === DENIED) return reply({ ok: false, error: email + " isn't approved for Dijla Ops." });
 
     if (body.backup) return reply(backup(token, email, settingsDoc));
-    if (body.papers) return reply({ ok: true, results: (body.ids || []).slice(0, 10).map((id) => copyPaper(String(id), token)) });
+    if (body.papers) return reply({ ok: true, results: (body.ids || []).slice(0, 10).map((id) => copyPaper(String(id), token, settingsDoc)) });
     if (body.remove) return reply({ ok: true, results: (body.items || []).slice(0, 200).map((it) => removePaper(it, token)) });
     if (body.verify) return reply({ ok: true, results: (body.items || []).slice(0, 200).map(verifyPaper) });
     if (body.savePdf) return reply(savePdf(String(body.name || ""), String(body.data || "")));
@@ -96,6 +98,7 @@ function backup(token, email, settingsDoc) {
     // older versions kept dated copies in a folder: move those to the Drive trash
     [SNAP_FOLDER, OLD_SNAP_FOLDER].forEach((n) => { const it = root.getFoldersByName(n); while (it.hasNext()) it.next().setTrashed(true); });
     const sheet = writeSheet(root, data);
+    (data.files || []).forEach((f) => { if (f.truckId && f.driveFileId) { const c = paperCopy(f.id, f.driveFileId); if (c) refile(c, paperPlace(f, data.settings).where); } });
     return {
       ok: true, at: data.backedUpAt, by: email,
       loads: data.loads.length, expenses: data.expenses.length, applicants: data.applications.length, papers: data.files.length,
@@ -189,12 +192,33 @@ function tab(ss, name, cols, rows) {
 
 // ---------- papers ----------
 // Copy one paper into Drive (or confirm the copy that's already there). Reads it from Firestore as the person.
-function copyPaper(id, token) {
+// Where a paper goes: a truck's papers in Trucks/<truck name>, everything else in Papers/<month>.
+function paperPlace(meta, settings) {
+  const root = folder(DriveApp.getRootFolder(), ROOT_FOLDER);
+  const day = String(meta.created || "").slice(0, 10) || Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd");
+  if (meta.truckId) {
+    const s = settings && settings !== DENIED ? settings : {};
+    const trucks = Array.isArray(s.trucks) && s.trucks.length ? s.trucks : [{ id: "t1", name: s.t1 || "Truck 1" }, { id: "t2", name: s.t2 || "Truck 2" }];
+    const t = trucks.filter((x) => x.id === meta.truckId)[0] || { name: meta.truckId };
+    const name = clean(t.name || meta.truckId) + (t.unit ? " (unit " + clean(t.unit) + ")" : "");
+    return { where: folder(folder(root, TRUCKS_FOLDER), name),
+      base: clean((meta.kind || "Paper") + (meta.expiresAt ? " · exp " + meta.expiresAt : "") + " · " + day) };
+  }
+  return { where: folder(folder(root, PAPERS_FOLDER), day.slice(0, 7)), base: clean(day + " · " + (meta.name || meta.kind || "Paper")) };
+}
+// Move a copy that's in the wrong folder (e.g. truck papers saved before they had their own folders).
+function refile(f, where) {
+  const it = f.getParents(); let inPlace = false;
+  while (it.hasNext()) if (it.next().getId() === where.getId()) inPlace = true;
+  if (!inPlace) f.moveTo(where);
+}
+
+function copyPaper(id, token, settings) {
   try {
     const meta = fsGet("files/" + id, token);
     if (!meta || meta === DENIED) return { id: id, ok: false, error: "paper not found" };
     const have = paperCopy(id, meta.driveFileId);
-    if (have) return { id: id, ok: true, fileId: have.getId(), url: have.getUrl(), bytes: have.getSize(), existed: true };
+    if (have) { if (meta.truckId) refile(have, paperPlace(meta, settings).where); return { id: id, ok: true, fileId: have.getId(), url: have.getUrl(), bytes: have.getSize(), existed: true }; }
     if (meta.freed) return { id: id, ok: false, error: "only copy was in Drive and it's gone" };
     let data = "";
     for (let i = 0; i < (meta.parts || 1); i++) {
@@ -205,13 +229,11 @@ function copyPaper(id, token) {
     const m = /^data:([^;,]+);base64,(.*)$/.exec(data);
     if (!m) return { id: id, ok: false, error: "unreadable scan" };
     const pdf = m[1] === "application/pdf", bytes = Utilities.base64Decode(m[2]);
-    const day = String(meta.created || "").slice(0, 10) || Utilities.formatDate(new Date(), "America/Chicago", "yyyy-MM-dd");
     const lock = LockService.getScriptLock();
     lock.waitLock(30000);
     let f;
     try {
-      const where = folder(folder(folder(DriveApp.getRootFolder(), ROOT_FOLDER), PAPERS_FOLDER), day.slice(0, 7));
-      const base = clean(day + " · " + (meta.name || meta.kind || "Paper"));
+      const place = paperPlace(meta, settings), where = place.where, base = place.base;
       f = where.createFile(Utilities.newBlob(bytes, pdf ? "application/pdf" : "image/jpeg", base + (pdf ? ".pdf" : ".jpg")));
       f.setDescription(MARK + id);
     } finally { lock.releaseLock(); }
