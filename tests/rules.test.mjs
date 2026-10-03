@@ -199,7 +199,9 @@ await t("driver can't send a receipt already approved", upload(drew, "dr2", dpap
 await t("driver can't approve their receipt", updateDoc(doc(drew, "files/dr1"), { "claim.status": "approved" }), false);
 await t("driver can't write a scan part alone for someone else's paper", setDoc(doc(drew, "fileData/samb_9"), { data: "x" }), false);
 const delBatch = (db, id) => { const b = writeBatch(db); b.delete(doc(db, "files/" + id)); b.delete(doc(db, "fileData/" + id + "_0")); return b.commit(); };
-await t("driver takes back their own upload", delBatch(drew, "dp1"), true);
+await t("driver can't delete their own upload once sent", delBatch(drew, "dp1"), false);
+await t("driver can't delete a pending receipt either", delBatch(drew, "dr1"), false);
+await t("the office can delete a driver's upload", delBatch(member, "dp1"), true);
 await t("driver can't delete one already backed up", deleteDoc(doc(drew, "files/backedup")), false);
 await t("driver can't delete an approved receipt", deleteDoc(doc(drew, "files/okr")), false);
 await t("driver can't delete another driver's paper", delBatch(drew, "samb"), false);

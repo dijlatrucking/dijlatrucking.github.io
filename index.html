@@ -2413,7 +2413,7 @@ window.DriverApp = (() => {
   const done = () => trips.filter(t => ["paid", "funded"].includes(t.stage)).sort((a, b) => String(b.toDate || b.fromDate).localeCompare(String(a.toDate || a.fromDate)));
   const papersOf = id => mine.filter(f => f.loadId === id && !f.claim);
   const paperRow = f => `<div class="pp" data-f="${esc(f.id)}"><span><b>${esc(f.kind)}</b> <span class="meta">${niceDate(String(f.created || "").slice(0, 10))}</span></span>
-    <button type="button" data-a="popen">Open</button>${!f.driveFileId ? `<button type="button" data-a="pdel" class="danger">${delAsk === f.id ? "Delete?" : "✕"}</button>` : ""}</div>`;
+    <button type="button" data-a="popen">Open</button></div>`;
   function tripCard(t, old){
     const pp = papersOf(t.id), open = openTrip === t.id, next = t.stage === "booked" ? ["pickedup", "Picked up"] : t.stage === "pickedup" ? ["delivered", "Delivered"] : null;
     return `<article class="item st-${esc(t.stage)}" data-t="${esc(t.id)}">
@@ -2423,7 +2423,7 @@ window.DriverApp = (() => {
       <div class="meta">${esc(t.truckName || "")} · Pickup ${niceDate(t.fromDate) || "?"} · Deliver ${niceDate(t.toDate) || "?"}${num(t.miles) + num(t.empty) ? ` · ${(num(t.miles) + num(t.empty)).toLocaleString("en-US")} mi` : ""}${t.weight ? ` · ${num(t.weight).toLocaleString("en-US")} lb` : ""}${t.commodity ? " · " + esc(t.commodity) : ""}</div>
       ${t.stmt ? `<div class="meta">On a pay statement ✓</div>` : ""}
       <div class="acts">${next && !old ? `<button type="button" data-a="stage" data-st="${next[0]}" class="primary">${next[1]}</button>` : ""}<button type="button" data-a="papers" aria-expanded="${open}">📎 BOL / POD${pp.length ? ` (${pp.length})` : ""}</button></div>
-      ${open ? `<div class="papers">${pp.length ? pp.map(paperRow).join("") : `<div class="meta">Add the signed BOL / POD here.</div>`}
+      ${open ? `<div class="papers">${pp.length ? pp.map(paperRow).join("") : `<div class="meta">Add the signed BOL / POD here. Once sent, only the office can remove it.</div>`}
         <div class="ppadd"><select data-a="pkind" aria-label="Kind of paper"><option>BOL</option><option>POD</option><option>Lumper</option><option>Scale ticket</option><option>Other</option></select>
           <label>📷 Add<input type="file" accept="image/*,application/pdf" multiple data-a="pfile"></label></div></div>` : ""}
     </article>`;
@@ -2445,7 +2445,7 @@ window.DriverApp = (() => {
       $("dRcptList").innerHTML = rs.length ? rs.map(f => `<article class="item" data-f="${esc(f.id)}"><div class="top2"><div style="min-width:0"><div class="big">${esc(f.claim.cat || "Receipt")}</div>
           <div class="meta">${niceDate(f.claim.date)} · ${f.claim.paidWith === "company" ? "Company card" : "My own money"}${f.claim.note ? " · " + esc(f.claim.note) : ""}</div></div><div class="r"><b class="money">${money2(num(f.claim.amount))}</b>${tag(f.claim)}</div></div>
           ${f.claim.status === "rejected" && f.claim.reason ? `<div class="meta" style="color:var(--bad)">${esc(f.claim.reason)}</div>` : ""}
-          <div class="acts"><button type="button" data-a="popen">Open</button>${f.claim.status === "pending" && !f.driveFileId ? `<button type="button" data-a="pdel" class="danger">${delAsk === f.id ? "Delete?" : "Take back"}</button>` : ""}</div></article>`).join("")
+          <div class="acts"><button type="button" data-a="popen">Open</button></div></article>`).join("")
         : `<div class="empty"><b>No receipts sent yet</b>Fuel, lumpers, tolls… take a photo and send it. The office approves it.</div>`;
     }
     if (tab === "truck") {
@@ -2494,11 +2494,6 @@ window.DriverApp = (() => {
   async function paperClick(b){
     const row = b.closest("[data-f]"), f = row && (mine.find(x => x.id === row.dataset.f) || truckDocs.find(x => x.id === row.dataset.f)); if (!f) return;
     if (b.dataset.a === "popen") { Papers.open(f); return; }
-    if (b.dataset.a === "pdel") {
-      if (delAsk !== f.id) { delAsk = f.id; draw(); setTimeout(() => { if (delAsk === f.id) { delAsk = ""; draw(); } }, 4000); return; }
-      delAsk = ""; b.disabled = true;
-      try { await Cloud.deleteFile(f.id, f.parts || 1, null); toast("Taken back"); } catch (err) { console.warn(err); toast("Couldn't take it back (the office may have it already)."); b.disabled = false; }
-    }
   }
   $("dRcptList").addEventListener("click", e => { const b = e.target.closest("button"); if (b) paperClick(b); });
   $("dTruckBox").addEventListener("click", e => { const b = e.target.closest("button"); if (b) paperClick(b); });

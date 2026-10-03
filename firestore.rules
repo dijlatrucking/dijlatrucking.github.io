@@ -35,8 +35,8 @@ service cloud.firestore {
       allow read: if isMember() || (isDriver() && driverSees(resource.data));
       allow create: if isMember() || (isDriver() && validDriverPaper(request.resource.data));
       allow update: if isMember();
-      allow delete: if isMember() || (isDriver() && resource.data.get('driverEmail', '') == myEmail()
-        && resource.data.get('driveFileId', null) == null && resource.data.get('claim', {}).get('status', '') != 'approved');
+      // once a driver sends a paper, only the office can remove it
+      allow delete: if isMember();
     }
     function validDriverPaper(d) {
       return d.get('driverEmail', '') == myEmail() && !('truckId' in d) && !('expenseIds' in d) && !('driveFileId' in d) && !('freed' in d)
@@ -50,9 +50,7 @@ service cloud.firestore {
       allow create: if isMember() || (isDriver()
         && getAfter(/databases/$(database)/documents/files/$(paperId())).data.get('driverEmail', '') == myEmail());
       allow update: if isMember();
-      allow delete: if isMember() || (isDriver()
-        && !existsAfter(/databases/$(database)/documents/files/$(paperId()))
-        && get(/databases/$(database)/documents/files/$(paperId())).data.get('driverEmail', '') == myEmail());
+      allow delete: if isMember();
     }
     // the driver list, managed by the office; a driver can read their own entry
     match /drivers/{email} {
