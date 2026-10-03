@@ -33,6 +33,23 @@ service cloud.firestore {
         && (!('name' in d) || str(d.name, 0, 60));
     }
 
+    // Access requests: someone signs in with Google and asks to join; the owner approves or rejects.
+    // A rejected request stays (so it can't be re-sent over and over) until the owner clears it.
+    match /requests/{email} {
+      allow get: if signedIn() && (email == myEmail() || isOwner());
+      allow list: if isOwner();
+      allow create: if signedIn() && email == myEmail() && !isMember() && validRequest(email, request.resource.data);
+      allow update: if isOwner()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decidedBy', 'decided'])
+        && request.resource.data.status in ['approved', 'rejected'];
+      allow delete: if isOwner() || (signedIn() && email == myEmail() && resource.data.status in ['pending', 'approved']);
+    }
+    function validRequest(email, d) {
+      return d.keys().hasOnly(['email', 'name', 'status', 'requested'])
+        && d.email == email && d.status == 'pending' && d.requested == request.time
+        && (!('name' in d) || str(d.name, 0, 80));
+    }
+
     // Hiring page: anyone can SEND an application. Only the team can read, change or delete one.
     match /applications/{appId} {
       allow read, update, delete: if isMember();

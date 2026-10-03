@@ -7,7 +7,7 @@ Static site on GitHub Pages. Data lives in Firebase (project dijla-trucking); on
 
 ## Who can sign in
 
-The owner (dijlatrucking@gmail.com) is fixed in `firestore.rules`. Everyone else is on the team list (`team/{email}`), which only the owner changes, from Ops → Settings → Team. `tests/rules.test.mjs` checks the rules (runs in GitHub Actions).
+The owner (dijlatrucking@gmail.com) is fixed in `firestore.rules`. Everyone else is on the team list (`team/{email}`), which only the owner changes, from Ops → Settings → Team. Anyone can sign in with Google and ask to join (`requests/{email}`); the owner approves or rejects it there. `tests/rules.test.mjs` checks the rules (runs in GitHub Actions).
 
 ## Google Drive backup
 

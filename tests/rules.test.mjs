@@ -87,6 +87,39 @@ await t("public can send a valid application", addDoc(collection(anon, "applicat
 await t("public can't send a bad application", addDoc(collection(anon, "applications"), { ...app(), status: "hired" }), false);
 await t("public can't read applications", getDocs(collection(anon, "applications")), false);
 
+// access requests
+const newbie = who("newbie@gmail.com"), other = who("other@gmail.com");
+const req = (email, extra = {}) => ({ email, name: "New Person", status: "pending", requested: serverTimestamp(), ...extra });
+await t("a new Google account asks for access", setDoc(doc(newbie, "requests/newbie@gmail.com"), req("newbie@gmail.com")), true);
+await t("…and can see its own request", getDoc(doc(newbie, "requests/newbie@gmail.com")), true);
+await t("…can check for a request before sending one", getDoc(doc(other, "requests/other@gmail.com")), true);
+await t("…but can't read someone else's", getDoc(doc(other, "requests/newbie@gmail.com")), false);
+await t("…or list all requests", getDocs(collection(newbie, "requests")), false);
+await t("…or send one for another email", setDoc(doc(other, "requests/someone@gmail.com"), req("someone@gmail.com")), false);
+await t("…or approve itself", updateDoc(doc(newbie, "requests/newbie@gmail.com"), { status: "approved" }), false);
+await t("…or send it already approved", setDoc(doc(other, "requests/other@gmail.com"), req("other@gmail.com", { status: "approved" })), false);
+await t("…or add extra fields", setDoc(doc(other, "requests/other@gmail.com"), req("other@gmail.com", { role: "owner" })), false);
+await t("…or send it again over the first one", setDoc(doc(newbie, "requests/newbie@gmail.com"), req("newbie@gmail.com", { name: "Again" })), false);
+await t("…and still can't read any data", getDocs(collection(newbie, "loads")), false);
+await t("signed out: can't ask for access", setDoc(doc(anon, "requests/x@gmail.com"), req("x@gmail.com")), false);
+await t("unverified email: can't ask for access", setDoc(doc(who("unv@gmail.com", false), "requests/unv@gmail.com"), req("unv@gmail.com")), false);
+await t("a team member doesn't need to ask", setDoc(doc(member, "requests/bakrabd2@gmail.com"), req("bakrabd2@gmail.com")), false);
+await t("a member can't see requests", getDocs(collection(member, "requests")), false);
+await t("owner lists requests", getDocs(collection(owner, "requests")), true);
+await t("owner approves: request marked approved", updateDoc(doc(owner, "requests/newbie@gmail.com"), { status: "approved", decidedBy: "dijlatrucking@gmail.com", decided: "2026-10-03T09:00:00Z" }), true);
+await t("owner can't change the request's email or name", updateDoc(doc(owner, "requests/newbie@gmail.com"), { name: "x" }), false);
+await t("owner approves: person added to the team", setDoc(doc(owner, "team/newbie@gmail.com"), member2("newbie@gmail.com")), true);
+await t("approved person now reads loads", getDocs(collection(newbie, "loads")), true);
+await t("approved person tidies up their request", deleteDoc(doc(newbie, "requests/newbie@gmail.com")), true);
+await setDoc(doc(other, "requests/other@gmail.com"), req("other@gmail.com"));
+await t("owner rejects", updateDoc(doc(owner, "requests/other@gmail.com"), { status: "rejected", decidedBy: "dijlatrucking@gmail.com", decided: "2026-10-03T09:00:00Z" }), true);
+await t("rejected person can't delete it to ask again", deleteDoc(doc(other, "requests/other@gmail.com")), false);
+await t("rejected person can't ask again", setDoc(doc(other, "requests/other@gmail.com"), req("other@gmail.com")), false);
+await t("rejected person can't read data", getDocs(collection(other, "loads")), false);
+await t("owner clears the rejected request", deleteDoc(doc(owner, "requests/other@gmail.com")), true);
+await setDoc(doc(who("cancel@gmail.com"), "requests/cancel@gmail.com"), req("cancel@gmail.com"));
+await t("someone can cancel their own pending request", deleteDoc(doc(who("cancel@gmail.com"), "requests/cancel@gmail.com")), true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

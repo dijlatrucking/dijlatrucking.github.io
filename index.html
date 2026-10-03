@@ -99,6 +99,9 @@
   .hirebtn{position:relative;padding:10px 12px}
   .hirebtn .badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;border-radius:10px;background:var(--bad);color:#fff;font:700 11.5px/20px var(--body);text-align:center;padding:0 5px}
   .hirebtn .badge:empty{display:none}
+  nav.tabs button{position:relative}
+  .tabbadge{position:absolute;top:2px;right:calc(50% - 22px);min-width:18px;height:18px;border-radius:9px;background:var(--bad);color:#fff;font:700 11px/18px var(--body);text-align:center;padding:0 5px}
+  .tabbadge:empty{display:none}
   .appfacts{display:flex;flex-wrap:wrap;gap:6px}
   .appfacts span{background:var(--panel2);border-radius:6px;padding:3px 8px;font-size:12.5px}
   .appfacts .flag{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
@@ -215,7 +218,24 @@
     <button type="button" class="gbtn" id="authBtn"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign in with Google</button>
     <p class="authmsg" id="authMsg" role="status"></p>
     <button type="button" class="authalt" id="authAlt" hidden>Trouble signing in? Try another way</button>
-    <p class="authnote">Only accounts on the Dijla Trucking team can sign in.</p>
+    <p class="authnote">New here? Sign in with Google and ask for access. The owner approves it.</p>
+  </div>
+  <div class="authbox" id="authAsk" hidden>
+    <img class="logo" src="logo.png" alt="Dijla Trucking">
+    <h1 style="font-size:15px;letter-spacing:.3em;color:var(--muted)">OPS</h1>
+    <p id="askWho" style="margin:0;font-size:14.5px"></p>
+    <div id="askNew" class="stack" hidden style="text-align:left">
+      <label>Your name<input id="askName" maxlength="60" autocomplete="name" placeholder="First and last name"></label>
+      <button type="button" class="primary" id="askSend" style="padding:13px;font-size:16px">Request access</button>
+    </div>
+    <div id="askPending" hidden>
+      <p style="margin:0 0 6px;font-weight:700;font-size:16px">Request sent ✓</p>
+      <p class="authnote" style="font-size:14px">Waiting for the owner to approve it. Leave this open: Ops opens by itself as soon as you're approved.</p>
+      <button type="button" class="authalt" id="askCancel">Cancel my request</button>
+    </div>
+    <p id="askRejected" class="authmsg" hidden>The owner didn't approve access for this account.</p>
+    <p class="authmsg" id="askMsg" role="status"></p>
+    <button type="button" class="authalt" id="askOther">Use a different Google account</button>
   </div>
   <p class="muted" id="authWait">Connecting…</p>
 </div>
@@ -242,7 +262,7 @@
     <button type="button" role="tab" data-tab="loads" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3.5 3.5v2.5h-7.5"/><circle cx="6.5" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/></svg><span>Loads</span></button>
     <button type="button" role="tab" data-tab="exp" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3 10h18M7 15h3"/></svg><span>Expenses</span></button>
     <button type="button" role="tab" data-tab="tax" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3h8l4 4v14h-12z"/><path d="M14.5 3v4h4M9 12h6M9 15.5h6"/></svg><span>1099</span></button>
-    <button type="button" role="tab" data-tab="set" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
+    <button type="button" role="tab" data-tab="set" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span><span class="tabbadge" id="setBadge"></span></button>
   </nav>
 
   <!-- ===== DASHBOARD ===== -->
@@ -430,6 +450,7 @@
     </form>
     <div class="card stack" id="teamCard">
       <h2>Team</h2>
+      <div id="reqBox" class="stack" hidden style="gap:0;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:4px 12px"></div>
       <p class="meta" id="teamTxt" style="margin:0"></p>
       <div id="teamList" style="display:grid;gap:0"></div>
       <form class="stack" id="teamForm" autocomplete="off" novalidate hidden>
@@ -1738,11 +1759,25 @@ $("setForm").onsubmit = e => {
 // ===== Team: who can sign in. The owner is fixed (also in the Firestore rules); the owner adds and removes everyone else. =====
 const OWNER_EMAIL = "dijlatrucking@gmail.com";
 window.Team = (() => {
-  let list = [], me = "", asking = "";
+  let list = [], me = "", asking = "", reqs = [], reqsSeen = null;
   const isOwner = () => me === OWNER_EMAIL;
   const okEmail = e => /^[^@\s/]+@[^@\s/]+\.[a-z]{2,}$/.test(e);
+  const reqRow = r => `<div data-req="${esc(r.email)}" style="display:flex;align-items:center;gap:8px;padding:10px 0;flex-wrap:wrap;border-top:1px solid var(--line)">
+      <div style="min-width:0;flex:1 1 160px"><div style="font-weight:600;overflow-wrap:anywhere">${esc(r.name || r.email)}</div>${r.name ? `<div class="meta" style="overflow-wrap:anywhere">${esc(r.email)}</div>` : ""}</div>
+      <div style="display:flex;gap:6px;align-items:center">${r.status === "rejected" ? `<span class="meta">Rejected</span><button type="button" data-a="clear" style="padding:7px 10px">Clear</button>`
+        : `<button type="button" data-a="approve" class="primary" style="padding:7px 12px">Approve</button><button type="button" data-a="reject" class="danger" style="padding:7px 10px">Reject</button>`}</div>
+    </div>`;
+  function drawReqs(){
+    const owner = isOwner(), pend = reqs.filter(r => r.status === "pending"), rej = reqs.filter(r => r.status === "rejected");
+    $("setBadge").textContent = owner && pend.length ? String(pend.length) : "";
+    const box = $("reqBox"); if (!box) return;
+    box.hidden = !owner || !(pend.length || rej.length);
+    box.innerHTML = (pend.length ? `<div style="font-weight:700;padding:8px 0 2px">Asking to join (${pend.length})</div>` + pend.map(reqRow).join("") : "")
+      + (rej.length ? `<details style="padding:8px 0"><summary class="meta" style="cursor:pointer">Rejected (${rej.length}) · clear one to let them ask again</summary>${rej.map(reqRow).join("")}</details>` : "");
+  }
   function draw(){
     if (!$("teamCard")) return;
+    drawReqs();
     const owner = isOwner();
     $("teamTxt").textContent = owner
       ? "These Google accounts can sign in to Dijla Ops and see everything. Add someone by their Gmail address; remove them and they're locked out right away."
@@ -1767,6 +1802,16 @@ window.Team = (() => {
       try { await Cloud.removeMember(email); toast("Removed " + email); } catch (err) { console.warn(err); toast("Couldn't remove. Check your connection."); draw(); }
     }
   });
+  $("reqBox").addEventListener("click", async e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const r = reqs.find(x => x.email === b.closest("[data-req]").dataset.req); if (!r) return;
+    b.disabled = true;
+    try {
+      if (b.dataset.a === "approve") { await Cloud.approve(r, me); toast(`Approved. ${r.email} is in.`); }
+      else if (b.dataset.a === "reject") { await Cloud.reject(r.email, me); toast("Request rejected"); }
+      else if (b.dataset.a === "clear") { await Cloud.clearRequest(r.email); toast("Cleared"); }
+    } catch (err) { console.warn(err); toast("Couldn't save. Check your connection."); b.disabled = false; }
+  });
   $("teamForm").onsubmit = async e => {
     e.preventDefault();
     const email = $("tEmail").value.trim().toLowerCase(), name = $("tName").value.trim().slice(0, 60);
@@ -1782,10 +1827,59 @@ window.Team = (() => {
   };
   return {
     apply(rows){ list = rows; draw(); },
+    // owner only: access requests, newest first; a toast when a new one comes in while Ops is open
+    applyRequests(rows){
+      reqs = rows.filter(r => r.status !== "approved").sort((a, b) => String(b.requested || "").localeCompare(String(a.requested || "")));
+      const pend = reqs.filter(r => r.status === "pending").map(r => r.email);
+      if (reqsSeen) { const fresh = pend.filter(e => !reqsSeen.has(e)); if (fresh.length) toast(fresh.length === 1 ? `New access request: ${fresh[0]}` : `${fresh.length} new access requests`); }
+      reqsSeen = new Set(pend); draw();
+    },
     signedIn(email){ me = String(email || "").toLowerCase(); draw(); },
-    signedOut(){ list = []; me = ""; asking = ""; },
+    signedOut(){ list = []; me = ""; asking = ""; reqs = []; reqsSeen = null; $("setBadge").textContent = ""; },
     draw
   };
+})();
+
+// ===== Not on the team yet: ask for access (signed in with Google, waiting for the owner) =====
+window.Access = (() => {
+  let unsub = null, email = "", entering = false;
+  const msg = t => { $("askMsg").textContent = t || ""; };
+  function draw(r){
+    $("askWho").innerHTML = `Signed in as <b>${esc(email)}</b>`;
+    $("askNew").hidden = !!r; $("askPending").hidden = !(r && r.status === "pending"); $("askRejected").hidden = !(r && r.status === "rejected");
+    if (!r && !$("askName").value) $("askName").value = Cloud.userName() || "";
+  }
+  function show(em){
+    email = String(em || "").toLowerCase(); entering = false; msg("");
+    $("authGate").hidden = false; document.body.classList.add("auth-lock");
+    $("authForm").hidden = true; $("authWait").hidden = true; $("authAsk").hidden = false;
+    ["askNew", "askPending", "askRejected"].forEach(id => { $(id).hidden = true; });
+    $("askWho").innerHTML = `Signed in as <b>${esc(email)}</b>`;
+    if (unsub) unsub();
+    unsub = Cloud.watchMyRequest(email, (r, err) => {
+      if (err) { msg("Couldn't check for a request. Check your connection."); return; }
+      if (r && r.status === "approved") { enter(); return; }
+      draw(r);
+    });
+  }
+  function hide(){ if (unsub) { unsub(); unsub = null; } $("authAsk").hidden = true; }
+  // approved while waiting: open Ops right away, then tidy the request away
+  function enter(){
+    if (entering) return; entering = true;
+    hide(); Sync.signedIn(email); Cloud.restart();
+    setTimeout(() => Cloud.cancelRequest(email).catch(() => {}), 3000);
+  }
+  $("askSend").onclick = async () => {
+    const name = $("askName").value.trim().slice(0, 60);
+    if (!name) { msg("Add your name so the owner knows who's asking."); $("askName").focus(); return; }
+    $("askSend").disabled = true; msg("");
+    try { await Cloud.requestAccess(email, name); }
+    catch (e) { console.warn(e); msg(e && e.code === "permission-denied" ? "Couldn't send the request. If you asked before, the owner needs to clear it first." : "Couldn't send. Check your connection and try again."); }
+    finally { $("askSend").disabled = false; }
+  };
+  $("askCancel").onclick = async () => { try { await Cloud.cancelRequest(email); } catch (e) { msg("Couldn't cancel. Check your connection."); } };
+  $("askOther").onclick = async () => { hide(); if (window.Cloud) await Cloud.signOut(); location.reload(); };
+  return { show, hide };
 })();
 
 // ===== Google Drive backup (through the owner's Apps Script: backup/DijlaOpsBackup.gs) =====
@@ -1927,11 +2021,14 @@ window.Sync = (() => {
     status(); console.warn(err);
   }
   async function error(k, err){
-    // not on the team (or just removed from it): back to the sign-in screen with a clear reason
+    // not on the team (or just removed from it): stay signed in and offer to ask the owner for access
     if (err && err.code === "permission-denied") {
       if (!on) return; on = false;
-      if (window.Cloud) await Cloud.signOutOnly();
-      signedOut(); $("authMsg").textContent = `${userEmail || "That account"} isn't on the Dijla Trucking team. Ask the owner (${OWNER_EMAIL}) to add you in Settings → Team.`; return;
+      const em = userEmail;
+      if (window.Cloud) Cloud.stopOnly();
+      loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; last.loads = last.expenses = last.settings = last.applications = null;
+      fresh.expenses = fresh.settings = false; Team.signedOut(); render();
+      Access.show(em); return;
     }
     fail(err);
   }
@@ -1941,7 +2038,7 @@ window.Sync = (() => {
     $("authGate").hidden = true; document.body.classList.remove("auth-lock"); status(); render();
   }
   function signedOut(){
-    on = false; fresh.expenses = fresh.settings = false; loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; Team.signedOut(); last.loads = last.expenses = last.settings = last.applications = null;
+    on = false; fresh.expenses = fresh.settings = false; loads = []; expenses = []; applicants = []; settings = { ...DEFAULTS }; Team.signedOut(); Access.hide(); last.loads = last.expenses = last.settings = last.applications = null;
     $("authGate").hidden = false; document.body.classList.add("auth-lock");
     $("authForm").hidden = false; $("authWait").hidden = true; $("authMsg").textContent = "";
   }
@@ -2012,7 +2109,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
-         collection, doc, onSnapshot, writeBatch, setDoc, deleteDoc, terminate, clearIndexedDbPersistence }
+         collection, doc, onSnapshot, writeBatch, setDoc, updateDoc, deleteDoc, serverTimestamp, terminate, clearIndexedDbPersistence }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -2049,6 +2146,11 @@ function startSync(){
   unsubs.push(onSnapshot(collection(d, "applications"), { includeMetadataChanges: true },
     snap => live() && S.apply("applications", snap.docs.map(x => { const v = x.data(); return [x.id, { ...v, created: iso(v.created) }]; }), snap.metadata),
     err => console.warn("applications not readable yet (check Firestore rules)", err)));   // never blocks the rest of the app
+  // the owner sees access requests (nobody else may read them)
+  if ((auth.currentUser && auth.currentUser.email || "").toLowerCase() === "dijlatrucking@gmail.com")
+    unsubs.push(onSnapshot(collection(d, "requests"), snap => live() && window.Team.applyRequests(snap.docs.map(x => {
+      const v = x.data(); return { ...v, email: x.id, requested: v.requested && typeof v.requested.toDate === "function" ? v.requested.toDate().toISOString() : v.requested };
+    })), err => console.warn("requests not readable", err)));
   // who's on the team (shown in Settings; only the owner can change it)
   unsubs.push(onSnapshot(collection(d, "team"), snap => live() && window.Team.apply(snap.docs.map(x => ({ ...x.data(), email: x.id }))),
     err => console.warn("team list not readable", err)));
@@ -2068,6 +2170,21 @@ window.Cloud = {
   },
   writeSettings(data){ return setDoc(doc(getDb(), "meta", "settings"), data); },
   addMember(m){ return setDoc(doc(getDb(), "team", m.email), m); },
+  // access requests
+  watchMyRequest(email, cb){ return onSnapshot(doc(getDb(), "requests", email), s => cb(s.exists() ? s.data() : null), e => cb(null, e)); },
+  requestAccess(email, name){ return setDoc(doc(getDb(), "requests", email), { email, name, status: "pending", requested: serverTimestamp() }); },
+  cancelRequest(email){ return deleteDoc(doc(getDb(), "requests", email)); },
+  async approve(r, by){
+    const d = getDb(), b = writeBatch(d), now = new Date().toISOString();
+    b.set(doc(d, "team", r.email), { email: r.email, ...(r.name ? { name: String(r.name).slice(0, 60) } : {}), addedBy: by, added: now });
+    b.update(doc(d, "requests", r.email), { status: "approved", decidedBy: by, decided: now });
+    await b.commit();
+  },
+  reject(email, by){ return updateDoc(doc(getDb(), "requests", email), { status: "rejected", decidedBy: by, decided: new Date().toISOString() }); },
+  clearRequest(email){ return deleteDoc(doc(getDb(), "requests", email)); },
+  userName(){ return auth.currentUser && auth.currentUser.displayName || ""; },
+  stopOnly(){ session++; stop(); },
+  restart(){ startSync(); },
   removeMember(email){ return deleteDoc(doc(getDb(), "team", email)); },
   // for the Drive backup script, which reads the data as the signed-in person
   idToken(){ if (!auth.currentUser) return Promise.reject(new Error("Sign in again.")); return auth.currentUser.getIdToken(); },
