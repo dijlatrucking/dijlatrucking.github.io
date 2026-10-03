@@ -580,6 +580,7 @@
     </div>
     <button type="button" class="ghost" id="dSignOut">Sign out</button>
   </header>
+  <div class="installhint" id="dInstall" hidden><span aria-hidden="true">📲</span><b id="dInstallTxt">Install Dijla Ops on your phone</b><button type="button" class="primary" id="dInstallBtn">Install app</button></div>
   <nav class="tabs" id="driverNav" role="tablist" aria-label="Driver" style="--ntabs:4">
     <button type="button" role="tab" data-dtab="loads" aria-selected="true"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3.5 3.5v2.5h-7.5"/><circle cx="6.5" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/></svg><span>My loads</span></button>
     <button type="button" role="tab" data-dtab="rcpt" aria-selected="false"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg><span>Receipts</span></button>
@@ -1417,6 +1418,9 @@ function installUI(){
   $("installBtn").hidden = st || !(installEvt || isIOSDevice);
   let dismissed = false; try { dismissed = localStorage.getItem("dijla_install_hint") === "x"; } catch (e) {}
   $("installHint").hidden = st || dismissed || !matchMedia("(max-width:760px)").matches;
+  // driver page: the button stays until the app is installed
+  $("dInstall").hidden = st;
+  if (!st) $("dInstallTxt").textContent = "Install Dijla Ops on your phone";
 }
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; installUI(); });
 addEventListener("appinstalled", () => { installEvt = null; installUI(); toast("Dijla Ops installed"); });
@@ -1438,6 +1442,10 @@ $("iosGuide").onclick = e => { if (e.target.id === "iosGuide") $("iosGuide").hid
 $("installBtn").onclick = async () => { if (!installEvt) { if (isIOSDevice) iosGuide(); return; } installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {} installEvt = null; installUI(); };
 $("docAlert").onclick = () => { const f = Papers.expiring()[0]; if (!f) return; openProfile = f.truckId; showTab("set"); setTimeout(() => { const el = document.querySelector(`#trkList [data-id="${f.truckId}"]`); if (el) el.scrollIntoView({ block: "center" }); }, 50); };
 $("hintHow").onclick = () => { if (installEvt || isIOSDevice) $("installBtn").click(); else { showTab("set"); $("installCard").scrollIntoView({ block: "center" }); } };
+$("dInstallBtn").onclick = () => {
+  if (installEvt || isIOSDevice) return $("installBtn").click();
+  $("dInstallTxt").innerHTML = "In <b>Chrome</b>: tap the <b>⋮</b> menu (top right) → <b>Add to Home screen</b> or <b>Install app</b>.";
+};
 $("hintX").onclick = () => { try { localStorage.setItem("dijla_install_hint", "x"); } catch (e) {} installUI(); };
 installUI();
 if ("serviceWorker" in navigator && location.hostname !== "localhost") addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
