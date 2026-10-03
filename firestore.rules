@@ -40,7 +40,8 @@ service cloud.firestore {
     }
     function validDriverPaper(d) {
       return d.get('driverEmail', '') == myEmail() && !('truckId' in d) && !('expenseIds' in d) && !('driveFileId' in d) && !('freed' in d)
-        && (d.get('loadId', null) == null || get(/databases/$(database)/documents/trips/$(d.loadId)).data.get('driverEmail', '') == myEmail())
+        && (d.get('loadId', null) == null || (get(/databases/$(database)/documents/trips/$(d.loadId)).data.get('driverEmail', '') == myEmail()
+            && !(get(/databases/$(database)/documents/trips/$(d.loadId)).data.get('stage', '') in ['paid', 'funded', 'cancelled'])))
         && (!('claim' in d) || (d.claim.get('status', '') == 'pending' && d.claim.amount is number && d.claim.amount >= 0 && d.claim.amount < 100000))
         && validLoc(d.get('loc', null));
     }
@@ -64,11 +65,13 @@ service cloud.firestore {
         && d.email == email && d.get('payType', 'perMile') in ['perMile', 'perLoadedMile', 'percent', 'flat']
         && (!('payRate' in d) || d.payRate is number);
     }
-    // a driver's copy of each assigned load (no rate, broker pay or fees); they can only move it to picked up / delivered
+    // a driver's copy of each assigned load (no rate, broker pay or fees); they can only set picked up / delivered,
+    // and nothing once the office has closed it (paid / cancelled)
     match /trips/{id} {
       allow read: if isMember() || (isDriver() && resource.data.driverEmail == myEmail());
       allow create, delete: if isMember();
       allow update: if isMember() || (isDriver() && resource.data.driverEmail == myEmail()
+        && !(resource.data.get('stage', '') in ['paid', 'funded', 'cancelled'])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage', 'stageBy', 'stageAt', 'stageLoc'])
         && request.resource.data.stage in ['pickedup', 'delivered'] && request.resource.data.stageBy == 'driver'
         && validLoc(request.resource.data.get('stageLoc', null)));

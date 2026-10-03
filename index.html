@@ -2197,7 +2197,9 @@ window.Drivers = (() => {
       const l = loads.find(x => x.id === t.id); if (!l || l.driver !== t.driverEmail) return;
       // where they were when they tapped it
       if (t.stageLoc && typeof t.stageLoc.lat === "number" && !(l.locs && l.locs[t.stage])) { l.locs = { ...(l.locs || {}), [t.stage]: t.stageLoc }; moved++; }
-      if ((STAGE_RANK[t.stage] ?? 0) <= (STAGE_RANK[l.stage] ?? 0)) return;
+      if (t.stage === l.stage || !["booked", "pickedup", "delivered"].includes(l.stage) || !["pickedup", "delivered"].includes(t.stage)) return;
+      // a driver correcting Delivered back to Picked up: drop the Delivered step from the history
+      if ((STAGE_RANK[t.stage] ?? 0) < (STAGE_RANK[l.stage] ?? 0)) l.hist = (l.hist || []).filter(h => (STAGE_RANK[h.s] ?? 0) <= (STAGE_RANK[t.stage] ?? 0));
       l.stage = t.stage; l.hist = (l.hist || []).filter(h => h.s !== l.stage); l.hist.push({ s: l.stage, d: today() });
       if (l.stage === "delivered" && !l.toDate) l.toDate = today();
       moved++;
@@ -2386,6 +2388,7 @@ window.Drivers = (() => {
 window.DriverApp = (() => {
   let unsub = null, email = "", me = null, trips = [], mine = [], truckDocs = [], truck = null, stmts = [], tab = "loads", openTrip = "", delAsk = "", pickedRcpt = null;
   const STAGE_TXT = { booked: "Booked", pickedup: "Picked up", delivered: "Delivered", paid: "Done", funded: "Done", cancelled: "Cancelled" };
+  const LOCKED = ["paid", "funded", "cancelled"];             // the office has closed it: the driver can only look
   const on = () => !!unsub;
   function start(em, d){
     stop(); email = em; me = d;
@@ -2415,17 +2418,18 @@ window.DriverApp = (() => {
   const paperRow = f => `<div class="pp" data-f="${esc(f.id)}"><span><b>${esc(f.kind)}</b> <span class="meta">${niceDate(String(f.created || "").slice(0, 10))}</span></span>
     <button type="button" data-a="popen">Open</button></div>`;
   function tripCard(t, old){
-    const pp = papersOf(t.id), open = openTrip === t.id, next = t.stage === "booked" ? ["pickedup", "Picked up"] : t.stage === "pickedup" ? ["delivered", "Delivered"] : null;
+    const pp = papersOf(t.id), open = openTrip === t.id, locked = LOCKED.includes(t.stage);
     return `<article class="item st-${esc(t.stage)}" data-t="${esc(t.id)}">
       <div class="top2"><div style="min-width:0"><div class="big">${esc(t.broker || "Load")}${t.loadNo ? ` <span class="mono muted" style="font-weight:500;font-size:13px">#${esc(t.loadNo)}</span>` : ""}</div>
         <div class="lane">${esc(t.from || "?")} → ${esc(t.to || "?")}</div></div>
         <div class="r"><span class="pill st-${esc(t.stage)}">${esc(STAGE_TXT[t.stage] || t.stage)}</span></div></div>
       <div class="meta">${esc(t.truckName || "")} · Pickup ${niceDate(t.fromDate) || "?"} · Deliver ${niceDate(t.toDate) || "?"}${num(t.miles) + num(t.empty) ? ` · ${(num(t.miles) + num(t.empty)).toLocaleString("en-US")} mi` : ""}${t.weight ? ` · ${num(t.weight).toLocaleString("en-US")} lb` : ""}${t.commodity ? " · " + esc(t.commodity) : ""}</div>
       ${t.stmt ? `<div class="meta">On a pay statement ✓</div>` : ""}
-      <div class="acts">${next && !old ? `<button type="button" data-a="stage" data-st="${next[0]}" class="primary">${next[1]}</button>` : ""}<button type="button" data-a="papers" aria-expanded="${open}">📎 BOL / POD${pp.length ? ` (${pp.length})` : ""}</button></div>
-      ${open ? `<div class="papers">${pp.length ? pp.map(paperRow).join("") : `<div class="meta">Add the signed BOL / POD here.</div>`}
-        <div class="ppadd"><select data-a="pkind" aria-label="Kind of paper"><option>BOL</option><option>POD</option><option>Lumper</option><option>Scale ticket</option><option>Other</option></select>
-          <label>📷 Add<input type="file" accept="image/*,application/pdf" multiple data-a="pfile"></label></div></div>` : ""}
+      ${locked ? "" : `<div class="steps" role="group" aria-label="Load status">${[["pickedup", "Picked up"], ["delivered", "Delivered"]].map(([st, lab]) => `<button type="button" data-a="stage" data-st="${st}" aria-pressed="${t.stage === st}">${lab}</button>`).join("")}</div>`}
+      <div class="acts"><button type="button" data-a="papers" aria-expanded="${open}">📎 BOL / POD${pp.length ? ` (${pp.length})` : ""}</button></div>
+      ${open ? `<div class="papers">${pp.length ? pp.map(paperRow).join("") : `<div class="meta">${locked ? "No papers sent for this load." : "Add the signed BOL / POD here."}</div>`}
+        ${locked ? "" : `<div class="ppadd"><select data-a="pkind" aria-label="Kind of paper"><option>BOL</option><option>POD</option><option>Lumper</option><option>Scale ticket</option><option>Other</option></select>
+          <label>📷 Add<input type="file" accept="image/*,application/pdf" multiple data-a="pfile"></label></div>`}</div>` : ""}
     </article>`;
   }
   function draw(){
@@ -2438,7 +2442,7 @@ window.DriverApp = (() => {
         + (d.length ? `<h2 style="margin:10px 0 0;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">Done</h2>` + d.map(t => tripCard(t, true)).join("") : "");
     }
     if (tab === "rcpt") {
-      $("drLoad").innerHTML = `<option value="">No load</option>` + active().concat(done().slice(0, 10)).map(t => `<option value="${esc(t.id)}">${esc((t.loadNo ? "#" + t.loadNo + " · " : "") + (t.from || "?") + " → " + (t.to || "?"))}</option>`).join("");
+      $("drLoad").innerHTML = `<option value="">No load</option>` + active().map(t => `<option value="${esc(t.id)}">${esc((t.loadNo ? "#" + t.loadNo + " · " : "") + (t.from || "?") + " → " + (t.to || "?"))}</option>`).join("");
       const rs = mine.filter(f => f.claim).sort((x, y) => String(y.created).localeCompare(String(x.created)));
       const tag = c => c.status === "approved" ? `<span class="pill" style="background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)">Approved${c.reimburse ? (c.stmt ? " · paid back" : " · paid back on next statement") : ""}</span>`
         : c.status === "rejected" ? `<span class="pill" style="background:rgba(224,122,122,.18);color:var(--bad)">Not approved</span>` : `<span class="pill">Waiting</span>`;
@@ -2477,7 +2481,7 @@ window.DriverApp = (() => {
   $("dLoadList").addEventListener("click", async e => {
     const b = e.target.closest("button"); if (!b) return;
     const card = b.closest("[data-t]"), t = card && trips.find(x => x.id === card.dataset.t); if (!t) return;
-    if (b.dataset.a === "stage") { b.disabled = true; const label = b.textContent; b.textContent = "Saving…"; try { const loc = await Geo.here(); await Cloud.setTripStage(t.id, b.dataset.st, loc); toast(`Marked ${label}`); } catch (err) { console.warn(err); toast("Couldn't save. Check your connection."); b.disabled = false; } return; }
+    if (b.dataset.a === "stage") { if (t.stage === b.dataset.st || LOCKED.includes(t.stage)) return; b.disabled = true; const label = b.textContent; b.textContent = "Saving…"; try { const loc = await Geo.here(); await Cloud.setTripStage(t.id, b.dataset.st, loc); toast(`Marked ${label}`); } catch (err) { console.warn(err); toast("Couldn't save. Check your connection."); b.disabled = false; } return; }
     if (b.dataset.a === "papers") { openTrip = openTrip === t.id ? "" : t.id; draw(); return; }
     await paperClick(b);
   });

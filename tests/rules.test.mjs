@@ -136,6 +136,7 @@ await t("someone can cancel their own pending request", deleteDoc(doc(who("cance
 // ---------- drivers ----------
 await env.withSecurityRulesDisabled(async (c) => {
   const db = c.firestore();
+  await setDoc(doc(db, "trips/LP"), { driverEmail: "drew@gmail.com", loadNo: "999", stage: "funded" });
   await setDoc(doc(db, "drivers/drew@gmail.com"), { email: "drew@gmail.com", name: "Drew", payType: "perMile", payRate: 0.6, truckId: "t1", active: true });
   await setDoc(doc(db, "drivers/old@gmail.com"), { email: "old@gmail.com", name: "Old", truckId: "t1", active: false });
   await setDoc(doc(db, "drivers/sam@gmail.com"), { email: "sam@gmail.com", name: "Sam", truckId: "t2", active: true });
@@ -172,6 +173,9 @@ await t("driver can't sneak extra fields into a stamp", updateDoc(doc(drew, "tri
 await t("driver can't send a nonsense location", updateDoc(doc(drew, "trips/L1"), { stage: "delivered", stageBy: "driver", stageAt: "x", stageLoc: { lat: 500, lng: 2 } }), false);
 await t("driver can't mark it paid", updateDoc(doc(drew, "trips/L1"), { stage: "paid", stageBy: "driver", stageAt: "x" }), false);
 await t("driver can't change their pay on a trip", updateDoc(doc(drew, "trips/L1"), { pay: 9999 }), false);
+await t("driver sets it back to picked up (fixing a wrong tap)", updateDoc(doc(drew, "trips/L1"), { stage: "pickedup", stageBy: "driver", stageAt: "y" }), true);
+await t("driver can't change a load the office marked paid", updateDoc(doc(drew, "trips/LP"), { stage: "delivered", stageBy: "driver", stageAt: "z" }), false);
+await t("driver can't add papers to a load the office marked paid", upload(drew, "dpPaid", dpaper({ loadId: "LP" })), false);
 await t("driver can't move another driver's trip", updateDoc(doc(drew, "trips/L2"), { stage: "delivered", stageBy: "driver", stageAt: "x" }), false);
 await t("driver can't read loads (rates)", getDocs(collection(drew, "loads")), false);
 await t("driver can't read expenses", getDocs(collection(drew, "expenses")), false);
