@@ -156,6 +156,12 @@
   .pp{display:flex;align-items:center;gap:8px;font-size:14px}
   .pp>span{flex:1;min-width:0;overflow-wrap:anywhere}
   .pp button{padding:6px 10px;font-size:13px}
+  .ptiles.sm{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+  .ptiles.sm .ptile .pl{padding:6px 8px 7px} .ptiles.sm .ptile .pl b{font-size:13px} .ptiles.sm .ptile .pl span{font-size:11.5px}
+  .ptiles.sm .ptile.add .pv{padding:12px 6px 2px}
+  .pchips{display:flex;flex-wrap:wrap;gap:6px;background:none;border:0;padding:0;text-align:left;cursor:pointer}
+  .pchips .pc{font-size:12px;font-weight:600;border-radius:999px;padding:4px 9px;background:rgba(29,138,82,.1);color:var(--good)}
+  .pchips .pc.miss{background:#fff4e0;color:#9a5b00}
   .ppadd{display:flex;gap:8px;align-items:center}
   .ppadd select{flex:1;min-width:0;padding:8px;font-size:15px}
   .ppadd label{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
@@ -318,6 +324,7 @@
   <section class="stack" id="d-pay" hidden><div id="dPayBox" class="stack"></div></section>
 </div>
 
+<script src="../papers-ui.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
@@ -378,6 +385,7 @@ window.Papers = (() => {
     for (let i = 0; i < data.length; i += PART) parts.push(data.slice(i, i + PART));
     const meta = { kind, name: String(name || kind).slice(0, 120), type, parts: parts.length, chars: data.length, bytes: bytesOf(data),
       created: new Date().toISOString(), by: Cloud.email(), ...link };
+    try { meta.thumb = await PUI.makeThumb(data); } catch (e) { console.warn("thumb", e); }   // small preview for the tiles
     await Cloud.saveFile(id, meta, parts);
     return id;
   }
@@ -395,19 +403,12 @@ window.Papers = (() => {
     if (!f.driveFileId) throw new Error("This paper's file is missing.");
     return fromDrive(f.id);
   }
-  async function open(f){
-    const w = window.open("", "_blank");
-    try {
-      const blob = await (await fetch(await dataOf(f))).blob(), url = URL.createObjectURL(blob);
-      if (w) w.location = url; else location.href = url;
-    } catch (e) {
-      if (w) w.close(); console.warn(e);
-      toast(e && e.message && !/fetch/i.test(e.message) ? e.message : "Couldn't open that paper. Check your connection.");
-    }
-  }
+  // full-screen viewer (swipe through the others in the same list); drivers can't delete what they've sent
+  function open(f, list){ const l = list && list.length ? list : [f]; PUI.DocView.open(l, Math.max(0, l.findIndex(x => x.id === f.id)), { who: false }); }
   const daysTo = d => Math.round((new Date(d + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5);
-  return { VKINDS, save, open, daysTo };
+  return { VKINDS, save, open, daysTo, data: dataOf };
 })();
+PUI.setup({ data: f => Papers.data(f), toast });
 
 // ===== Location stamps: only when the driver taps Picked up / Delivered or sends a paper (never in the background) =====
 const Geo = (() => {
@@ -460,8 +461,12 @@ window.DriverApp = (() => {
   const active = () => trips.filter(t => !["paid", "funded", "cancelled"].includes(t.stage)).sort((a, b) => String(a.fromDate).localeCompare(String(b.fromDate)));
   const done = () => trips.filter(t => ["paid", "funded"].includes(t.stage)).sort((a, b) => String(b.toDate || b.fromDate).localeCompare(String(a.toDate || a.fromDate)));
   const papersOf = id => mine.filter(f => f.loadId === id && !f.claim);
-  const paperRow = f => `<div class="pp" data-f="${esc(f.id)}"><span><b>${esc(f.kind)}</b> <span class="meta">${niceDate(String(f.created || "").slice(0, 10))}</span></span>
-    <button type="button" data-a="popen">Open</button></div>`;
+  // what's been sent for a load, at a glance (and the POD once it's delivered)
+  function paperChips(t, pp){
+    const kinds = [...new Set(pp.map(f => f.kind))], needPod = ["delivered", "paid", "funded"].includes(t.stage) && !kinds.includes("POD");
+    if (!kinds.length && !needPod) return "";
+    return `<button type="button" class="pchips" data-a="papers" aria-label="What's on file for this load">${kinds.map(k => `<span class="pc">${esc(k)} ✓</span>`).join("")}${needPod ? '<span class="pc miss">POD missing</span>' : ""}</button>`;
+  }
   function tripCard(t, old){
     const pp = papersOf(t.id), open = openTrip === t.id, locked = LOCKED.includes(t.stage);
     return `<article class="item st-${esc(t.stage)}" data-t="${esc(t.id)}">
@@ -471,10 +476,10 @@ window.DriverApp = (() => {
       <div class="meta">${esc(t.truckName || "")} · Pickup ${niceDate(t.fromDate) || "?"} · Deliver ${niceDate(t.toDate) || "?"}${num(t.miles) + num(t.empty) ? ` · ${(num(t.miles) + num(t.empty)).toLocaleString("en-US")} mi` : ""}${t.weight ? ` · ${num(t.weight).toLocaleString("en-US")} lb` : ""}${t.commodity ? " · " + esc(t.commodity) : ""}</div>
       ${t.stmt ? `<div class="meta">On a pay statement ✓</div>` : ""}
       ${locked ? "" : `<div class="steps" role="group" aria-label="Load status">${[["pickedup", "Picked up"], ["delivered", "Delivered"]].map(([st, lab]) => `<button type="button" data-a="stage" data-st="${st}" aria-pressed="${t.stage === st}">${lab}</button>`).join("")}</div>`}
+      ${open ? "" : paperChips(t, pp)}
       <div class="acts"><button type="button" data-a="papers" aria-expanded="${open}">📎 BOL / POD${pp.length ? ` (${pp.length})` : ""}</button></div>
-      ${open ? `<div class="papers">${pp.length ? pp.map(paperRow).join("") : `<div class="meta">${locked ? "No papers sent for this load." : "Add the signed BOL / POD here."}</div>`}
-        ${locked ? "" : `<div class="ppadd"><select data-a="pkind" aria-label="Kind of paper"><option>BOL</option><option>POD</option><option>Lumper</option><option>Scale ticket</option><option>Other</option></select>
-          <label>📷 Add<input type="file" accept="image/*,application/pdf" multiple data-a="pfile"></label></div>`}</div>` : ""}
+      ${open ? `<div class="papers">${!pp.length && locked ? `<div class="meta">No papers sent for this load.</div>` : ""}
+        <div class="ptiles sm">${pp.map(f => PUI.paperTile(f, { attr: 'data-a="popen"', who: false })).join("")}${locked ? "" : PUI.addTile("Send a paper", "", "BOL, POD…")}</div></div>` : ""}
     </article>`;
   }
   function draw(){
@@ -500,12 +505,12 @@ window.DriverApp = (() => {
     if (tab === "truck") {
       if (!me || !me.truckId) { $("dTruckBox").innerHTML = `<div class="empty"><b>No truck assigned</b>The office sets your truck in Drivers.</div>`; }
       else {
-        const t = truck || {}, xp = d => { if (!d) return ""; const n = Papers.daysTo(d); return n < 0 ? '<span class="xp late">Expired</span>' : n <= 30 ? '<span class="xp soon">Expires soon</span>' : ""; };
-        const docs = truckDocs.slice().sort((a, b) => Papers.VKINDS.indexOf(a.kind) - Papers.VKINDS.indexOf(b.kind));
+        const t = truck || {}, rank = f => { const c = PUI.xpState(f).c; return c === "late" ? 0 : c === "soon" ? 1 : 2; };
+        const docs = truckDocs.slice().sort((a, b) => rank(a) - rank(b) || Papers.VKINDS.indexOf(a.kind) - Papers.VKINDS.indexOf(b.kind));
         $("dTruckBox").innerHTML = `<div class="card stack"><h2>${esc(t.name || "My truck")}${t.unit ? ` <span class="meta" style="font-weight:500">· unit ${esc(t.unit)}</span>` : ""}</h2>
           <div class="meta" style="font-size:14px;color:var(--text)">${[[t.year, t.make, t.model].filter(Boolean).join(" "), t.plate ? "Plate " + esc(t.plate) : "", t.vin ? "VIN " + esc(t.vin) : ""].filter(Boolean).join("<br>") || "No details yet."}</div></div>
           <div class="card stack"><h2>Truck papers</h2><p class="meta" style="margin:0">Registration, insurance, IFTA… Keep them handy for inspections and scales.</p>
-          ${docs.length ? docs.map(f => `<div class="vdoc" data-f="${esc(f.id)}"><span><b>${esc(f.kind)}</b> ${xp(f.expiresAt)}<br><span class="meta">${f.expiresAt ? "Expires " + niceDate(f.expiresAt) + ", " + f.expiresAt.slice(0, 4) : "No expiry"}</span></span><button type="button" data-a="popen">Open</button></div>`).join("")
+          ${docs.length ? `<div class="ptiles">${docs.map(f => PUI.paperTile(f, { expiry: true, attr: 'data-a="popen"' })).join("")}</div>`
             : `<div class="meta">No papers on file yet.</div>`}</div>`;
       }
     }
@@ -530,19 +535,22 @@ window.DriverApp = (() => {
     if (b.dataset.a === "papers") { openTrip = openTrip === t.id ? "" : t.id; draw(); return; }
     await paperClick(b);
   });
-  $("dLoadList").addEventListener("change", async e => {
-    const inp = e.target.closest("[data-a=pfile]"); if (!inp) return;
+  $("dLoadList").addEventListener("change", e => {
+    const inp = e.target.closest(".papers .ptile input[type=file]"); if (!inp || !inp.files.length) return;
     const t = trips.find(x => x.id === inp.closest("[data-t]").dataset.t); if (!t) return;
-    const files = [...inp.files]; inp.value = ""; const kind = inp.closest(".ppadd").querySelector("[data-a=pkind]").value, lab = inp.closest("label");
-    lab.classList.add("busy"); lab.firstChild.textContent = "Saving… "; let ok = 0;
-    const loc = await Geo.here();
-    for (const file of files) { try { await Papers.save(file, kind, `${kind} · ${t.loadNo ? "#" + t.loadNo : (t.from || "") + " → " + (t.to || "")} · ${me.name || email}`, { driverEmail: email, loadId: t.id, ...(loc ? { loc } : {}) }); ok++; } catch (err) { console.warn(err); toast(err.message || "Couldn't save that paper."); } }
-    if (ok) toast(ok === 1 ? `${kind} sent to the office` : `${ok} papers sent`);
-    draw();
+    const files = [...inp.files]; inp.value = "";
+    let here = null;                                       // one location stamp for the batch
+    PUI.PaperAdd.start(files, { kinds: ["BOL", "POD", "Lumper", "Scale ticket", "Other"], saveLabel: "Send to the office",
+      save: async (file, kind) => { if (!here) here = Geo.here(); const loc = await here;
+        return Papers.save(file, kind, `${kind} · ${t.loadNo ? "#" + t.loadNo : (t.from || "") + " → " + (t.to || "")} · ${me.name || email}`, { driverEmail: email, loadId: t.id, ...(loc ? { loc } : {}) }); },
+      saved: (kind, n) => n === 1 ? `${kind} sent to the office` : `${n} papers sent`, done: () => draw() });
   });
   async function paperClick(b){
-    const row = b.closest("[data-f]"), f = row && (mine.find(x => x.id === row.dataset.f) || truckDocs.find(x => x.id === row.dataset.f)); if (!f) return;
-    if (b.dataset.a === "popen") { Papers.open(f); return; }
+    const row = b.closest("[data-f]"), all = [...mine, ...truckDocs], f = row && all.find(x => x.id === row.dataset.f); if (!f) return;
+    if (b.dataset.a === "popen") {
+      const box = b.closest(".papers, .ptiles"), sib = box ? [...box.querySelectorAll(".ptile[data-f]")].map(r => all.find(x => x.id === r.dataset.f)).filter(Boolean) : [f];
+      Papers.open(f, sib); return;
+    }
   }
   $("dRcptList").addEventListener("click", e => { const b = e.target.closest("button"); if (b) paperClick(b); });
   $("dTruckBox").addEventListener("click", e => { const b = e.target.closest("button"); if (b) paperClick(b); });
