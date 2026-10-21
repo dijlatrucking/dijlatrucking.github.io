@@ -9,6 +9,7 @@
   const niceDate = d => d ? day(d).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
   const niceFull = d => d ? day(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
   const ymd = x => x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
+  const localDay = iso => { const d = new Date(iso || ""); return isNaN(d) ? String(iso || "").slice(0, 10) : ymd(d); };   // saved-at time → the day on this phone
   const daysTo = d => Math.round((day(d) - day(ymd(new Date()))) / 864e5);
   const fileSafe = t => String(t).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const b64Bytes = data => { const bin = atob(data.slice(data.indexOf(",") + 1)), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return u8; };
@@ -53,7 +54,7 @@
   function paperTile(f, o = {}){
     const st = o.expiry ? xpState(f) : null;
     const sub = o.expiry ? (f.expiresAt ? (daysTo(f.expiresAt) < 0 ? "Expired " : "Expires ") + niceFull(f.expiresAt) : "No expiry date")
-      : [niceDate(String(f.created || "").slice(0, 10)), f.driverEmail && o.who !== false ? H.nameOf(f.driverEmail) : "", f.claim ? "$" + Number(f.claim.amount || 0).toFixed(2) : ""].filter(Boolean).join(" · ");
+      : [niceDate(localDay(f.created)), f.driverEmail && o.who !== false ? H.nameOf(f.driverEmail) : "", f.claim ? "$" + Number(f.claim.amount || 0).toFixed(2) : ""].filter(Boolean).join(" · ");
     const bg = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(f.thumb || "") ? ` style="background-image:url(${f.thumb})"` : "";
     return `<button type="button" class="ptile" data-f="${esc(f.id)}"${o.attr ? " " + o.attr : ""} aria-label="${esc(f.kind)}: ${esc(sub)}">
       <span class="pv"${bg}>${bg ? "" : ICON_DOC}${f.type === "pdf" ? '<span class="pdft">PDF</span>' : ""}${st ? `<span class="st ${st.c}">${esc(st.t)}</span>` : ""}</span>
@@ -95,7 +96,7 @@
     function head(){
       const f = list[idx]; if (!f) return;
       $("dvTitle").textContent = f.kind || "Paper";
-      $("dvSub").textContent = [f.expiresAt ? (daysTo(f.expiresAt) < 0 ? "Expired " : "Expires ") + niceFull(f.expiresAt) : "", "Added " + niceFull(String(f.created || "").slice(0, 10)),
+      $("dvSub").textContent = [f.expiresAt ? (daysTo(f.expiresAt) < 0 ? "Expired " : "Expires ") + niceFull(f.expiresAt) : "", "Added " + niceFull(localDay(f.created)),
         f.driverEmail && opts.who !== false ? "from " + H.nameOf(f.driverEmail) : ""].filter(Boolean).join(" · ");
       $("dvCount").textContent = list.length > 1 ? `${idx + 1} of ${list.length}` : "";
       $("dvInfo").innerHTML = f.loc ? "Sent from " + locLink(f.loc) : f.freed ? "Kept in Google Drive" : "";
@@ -136,7 +137,7 @@
     $("dvTrack").addEventListener("dblclick", e => { const s = e.target.closest(".dv-slide"); if (s && s.querySelector("img")) s.classList.toggle("zoom"); });
     $("dvClose").onclick = close;
     const fileOf = f => { const d = datas[f.id]; if (!d) return null; const type = d.slice(5, d.indexOf(";")), ext = type === "application/pdf" ? "pdf" : "jpg";
-      return new File([b64Bytes(d)], `${fileSafe(f.kind || "paper")}-${String(f.created || "").slice(0, 10)}.${ext}`, { type }); };
+      return new File([b64Bytes(d)], `${fileSafe(f.kind || "paper")}-${localDay(f.created)}.${ext}`, { type }); };
     $("dvSave").onclick = () => { const f = list[idx], file = f && fileOf(f); if (!file) { toast("Still loading…"); return; }
       const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
     $("dvShare").onclick = async () => { const f = list[idx], file = f && fileOf(f); if (!file) { toast("Still loading…"); return; }

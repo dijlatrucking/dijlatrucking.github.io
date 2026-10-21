@@ -145,9 +145,24 @@
   .ptiles.sm{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
   .ptiles.sm .ptile .pl{padding:6px 8px 7px} .ptiles.sm .ptile .pl b{font-size:13px} .ptiles.sm .ptile .pl span{font-size:11.5px}
   .ptiles.sm .ptile.add .pv{padding:12px 6px 2px}
-  .pchips{display:flex;flex-wrap:wrap;gap:6px;background:none;border:0;padding:0;text-align:left;cursor:pointer}
-  .pchips .pc{font-size:12px;font-weight:600;border-radius:999px;padding:4px 9px;background:rgba(29,138,82,.1);color:var(--good)}
-  .pchips .pc.miss{background:#fff4e0;color:#9a5b00}
+  .docs{border:1px solid var(--line);border-radius:12px;background:var(--ink);overflow:hidden}
+  .docs.warn{border-color:#efcf98}
+  .docs-hd{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px 10px;width:100%;background:none;border:0;border-radius:0;padding:10px 12px;text-align:left;color:var(--text)}
+  .docs-hd:hover{background:rgba(15,42,92,.03)}
+  .docs-hd .dic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(15,42,92,.08);color:var(--acc)}
+  .docs-hd .dic svg{width:20px;height:20px}
+  .docs-hd .dtt{display:grid;line-height:1.2;min-width:0} .docs-hd .dtt b{font-size:15px} .docs-hd .dtt small{font-size:12.5px;color:var(--muted)}
+  .docs-hd .chev{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--muted);transition:transform .2s ease}
+  .docs-hd .chev svg{width:18px;height:18px}
+  .docs.open .docs-hd .chev{transform:rotate(180deg);color:var(--acc)}
+  .docs-hd .dchips{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px} .docs-hd .dchips:empty{display:none}
+  .docs.open .docs-hd .dchips{display:none}
+  .dchips .pc{font-size:12px;font-weight:600;border-radius:999px;padding:4px 9px;background:rgba(29,138,82,.1);color:var(--good)}
+  .dchips .pc.miss{background:#fff4e0;color:#9a5b00}
+  .docs-bd{display:grid;gap:10px;padding:2px 12px 12px;border-top:1px solid var(--line);padding-top:12px}
+  .docs.anim .docs-bd{animation:docsIn .22s ease-out}
+  @keyframes docsIn{from{opacity:0;transform:translateY(-6px)}}
+  .docs-link{justify-self:start;padding:8px 12px;font-size:13.5px}
   .confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13.5px}
   .confirm span{flex:1;min-width:150px}
   .hist{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:12px;color:var(--muted)} .hist b{color:var(--text);font-weight:600}
@@ -1043,10 +1058,9 @@ function renderLoads(){
       ${l.notes ? `<div class="meta" style="color:var(--text)">${esc(l.notes)}</div>` : ""}
       ${l.locs ? `<div class="meta" style="display:grid;gap:2px">${["pickedup", "delivered"].filter(k => l.locs[k]).map(k => `<span>${Geo.link(l.locs[k], k === "pickedup" ? "Picked up" : "Delivered")}</span>`).join("")}</div>` : ""}
       <div class="steps" role="group" aria-label="Set stage">${STAGES().map(([id, lab]) => `<button type="button" data-a="stage" data-st="${id}" aria-pressed="${l.stage === id}">${esc(lab)}</button>`).join("")}</div>
-      ${openPapers.has(l.id) ? "" : paperChips(l, pp)}
-      <div class="acts"><button type="button" data-a="edit">Edit</button><button type="button" data-a="papers" aria-expanded="${openPapers.has(l.id)}">📎 Papers${pp.length ? ` (${pp.length})` : ""}</button>${l.link ? `<button type="button" data-a="link">Paperwork link</button>` : ""}<button type="button" data-a="del" class="danger">Delete</button></div>
-      ${openPapers.has(l.id) ? papersPanel(pp) : ""}
-      <div class="confirm" hidden><span>Delete this load${pp.length ? ` and its ${pp.length} paper${pp.length === 1 ? "" : "s"}` : ""} for good?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
+      ${docsSection(l.id, pp, { need: ["delivered", "funded"].includes(l.stage) && !pp.some(f => f.kind === "POD") ? ["POD"] : [], link: l.link, linkLabel: "Paperwork link" })}
+      <div class="acts"><button type="button" data-a="edit">Edit</button><button type="button" data-a="del" class="danger">Delete</button></div>
+      <div class="confirm" hidden><span>Delete this load${pp.length ? ` and its ${pp.length} document${pp.length === 1 ? "" : "s"}` : ""} for good?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
     </article>`;
   }).join("") + (rest ? `<button type="button" class="ghost" id="loadMore" style="width:100%">Show ${Math.min(100, rest)} more · ${rest} older load${rest === 1 ? "" : "s"}</button>` : "");
 }
@@ -1107,7 +1121,7 @@ $("loadFilters").addEventListener("click", e => { const b = e.target.closest("[d
 $("loadSearch").addEventListener("input", e => { loadQuery = e.target.value; loadLimit = 100; renderLoads(); });
 const papersClickSync = (b, redraw) => b.dataset.a === "popen" ? (papersClick(b, redraw), true) : false;
 $("loadList").addEventListener("change", e => {
-  const inp = e.target.closest(".papers .ptile input[type=file]"); if (!inp) return;
+  const inp = e.target.closest(".docs .ptile input[type=file]"); if (!inp) return;
   const l = loads.find(x => x.id === inp.closest(".item").dataset.id); if (l) papersAdd(inp, { loadId: l.id }, loadLabel(l), ["BOL", "POD", "Lumper", "Rate con", "Receipt", "Scale ticket", "Other"]);
 });
 $("loadList").addEventListener("click", e => {
@@ -1127,7 +1141,7 @@ $("loadList").addEventListener("click", e => {
     l.deposit = Math.round(num(v) * 100) / 100; Sync.push("loads"); renderLoads(); toast("Deposit saved");
   }
   if (a === "edit") openLoadForm(l);
-  if (a === "papers") { openPapers.has(l.id) ? openPapers.delete(l.id) : openPapers.add(l.id); renderLoads(); return; }
+  if (a === "papers") { if (openPapers.has(l.id)) openPapers.delete(l.id); else { openPapers.add(l.id); docAnim = l.id; } renderLoads(); docAnim = ""; return; }
   if (papersClickSync(b, renderLoads)) return;
   if (a === "link") window.open(l.link, "_blank", "noopener");
   if (a === "del") card.querySelector(".confirm").hidden = false;
@@ -1245,27 +1259,37 @@ $("billPlan").addEventListener("click", e => {
 
 // ----- Papers panel (shared by loads and expenses) -----
 const openPapers = new Set();                      // cards whose papers are shown (kept open through redraws)
-// papers on a load / expense card: a tile per paper (tap to open, swipe through the rest) and a + tile
-function papersPanel(list){
-  return `<div class="papers"><div class="ptiles sm">${list.map(f => paperTile(f, { attr: 'data-a="popen"' })).join("")}${addTile("Add paper")}</div></div>`;
-}
-// what's on file for a load, at a glance (and what's missing once it's delivered)
-function paperChips(l, pp){
-  const kinds = [...new Set(pp.map(f => f.kind))];
-  const needPod = ["delivered", "funded"].includes(l.stage) && !kinds.includes("POD");
-  if (!kinds.length && !needPod) return "";
-  return `<button type="button" class="pchips" data-a="papers" aria-label="What's on file for this load">${kinds.map(k => `<span class="pc">${esc(k)} ✓</span>`).join("")}${needPod ? '<span class="pc miss">POD missing</span>' : ""}</button>`;
+// "Documents" on a load / expense card: a header that shows what's on file (and what's missing), and opens to
+// a tile per document (tap to view, swipe through the rest), dashed tiles for what's missing, and a + tile
+let docAnim = "";                                      // the card whose Documents just opened (animates once)
+const ICON_FOLDER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5a2 2 0 0 1 2-2h4l2 2.2h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10.5h18"/></svg>';
+function docsSection(id, pp, o = {}){
+  const open = openPapers.has(id), need = o.need || [], kinds = [...new Set(pp.map(f => f.kind))];
+  const chips = kinds.map(k => `<span class="pc">${esc(k)} ✓</span>`).join("") + need.map(k => `<span class="pc miss">${esc(k)} missing</span>`).join("");
+  return `<div class="docs${open ? " open" : ""}${need.length ? " warn" : ""}${docAnim === id ? " anim" : ""}">
+    <button type="button" class="docs-hd" data-a="papers" aria-expanded="${open}">
+      <span class="dic">${ICON_FOLDER}</span>
+      <span class="dtt"><b>Documents</b><small>${pp.length ? pp.length + (pp.length === 1 ? " file" : " files") : "Nothing yet"}${o.link ? " · 🔗 link" : ""}</small></span>
+      <span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+      <span class="dchips">${chips}</span>
+    </button>
+    ${open ? `<div class="docs-bd">
+      <div class="ptiles sm">${pp.map(f => paperTile(f, { attr: 'data-a="popen"' })).join("")}${need.map(k => addTile(k, k)).join("")}${addTile("Add document")}</div>
+      ${o.link ? `<button type="button" class="docs-link" data-a="link">🔗 ${esc(o.linkLabel || "Link")} <span aria-hidden="true">↗</span></button>` : ""}
+      <p class="meta" style="margin:0">Tap a document to view, share or delete it. Add a photo or a PDF with the camera tile.</p>
+    </div>` : ""}
+  </div>`;
 }
 // tap a tile: open it full screen with the rest of that card's papers. Returns true when handled.
 async function papersClick(b){
   const f = Papers.all().find(x => x.id === b.dataset.f);
-  if (b.dataset.a === "popen" && f) { const sib = [...b.closest(".papers").querySelectorAll(".ptile[data-f]")].map(r => Papers.all().find(x => x.id === r.dataset.f)).filter(Boolean); Papers.open(f, sib); return true; }
+  if (b.dataset.a === "popen" && f) { const sib = [...b.closest(".docs-bd").querySelectorAll(".ptile[data-f]")].map(r => Papers.all().find(x => x.id === r.dataset.f)).filter(Boolean); Papers.open(f, sib); return true; }
   return false;
 }
 // photos / PDFs picked on a card: ask what they are, then save each one to that load / expense
 function papersAdd(input, link, label, kinds){
-  const files = [...input.files]; input.value = ""; if (!files.length) return;
-  PaperAdd.start(files, { kinds, save: (file, kind) => Papers.save(file, kind, `${kind} · ${label}`, link) });
+  const files = [...input.files], kind = input.closest(".ptile").dataset.kind || ""; input.value = ""; if (!files.length) return;
+  PaperAdd.start(files, { kinds, kind, save: (file, k) => Papers.save(file, k, `${k} · ${label}`, link) });
 }
 const loadLabel = l => [l.broker, l.loadNo ? "#" + l.loadNo : ""].filter(Boolean).join(" ") || "load " + niceDate(lDate(l));
 const expLabel = x => `${x.cat} ${money2(num(x.amount))} ${x.date || ""}`.trim();
@@ -1297,8 +1321,8 @@ function renderExp(){
         <div class="r"><b class="money">${money2(num(e.amount))}</b></div>
       </div>
       ${e.note ? `<div class="meta" style="color:var(--text)">${esc(e.note)}</div>` : ""}
-      <div class="acts"><button type="button" data-a="edit">Edit</button><button type="button" data-a="papers" aria-expanded="${openPapers.has(e.id)}">📎 Receipt${Papers.ofExp(e.id).length ? ` (${Papers.ofExp(e.id).length})` : ""}</button>${e.link ? `<button type="button" data-a="link">Receipt link</button>` : ""}<button type="button" data-a="del" class="danger">Delete</button></div>
-      ${openPapers.has(e.id) ? papersPanel(Papers.ofExp(e.id)) : ""}
+      ${docsSection(e.id, Papers.ofExp(e.id), { link: e.link, linkLabel: "Receipt link" })}
+      <div class="acts"><button type="button" data-a="edit">Edit</button><button type="button" data-a="del" class="danger">Delete</button></div>
       <div class="confirm" hidden><span>Delete this expense${Papers.ofExp(e.id).length ? " and its receipt" : ""}?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
     </article>`).join("");
 }
@@ -1348,7 +1372,7 @@ $("exFrom").addEventListener("change", onExRange); $("exTo").addEventListener("c
 $("exClear").onclick = () => { exFrom = exTo = ""; expPer = "month"; renderExp(); };
 $("exCat").addEventListener("change", () => { exCat = $("exCat").value; renderExp(); });
 $("expList").addEventListener("change", e => {
-  const inp = e.target.closest(".papers .ptile input[type=file]"); if (!inp) return;
+  const inp = e.target.closest(".docs .ptile input[type=file]"); if (!inp) return;
   const x = expenses.find(y => y.id === inp.closest(".item").dataset.id); if (x) papersAdd(inp, { expenseIds: [x.id] }, expLabel(x), ["Receipt", "Lumper", "Other"]);
 });
 $("expList").addEventListener("click", e => {
@@ -1356,7 +1380,7 @@ $("expList").addEventListener("click", e => {
   const card = b.closest(".item"), x = expenses.find(y => y.id === card.dataset.id); if (!x) return;
   const a = b.dataset.a;
   if (a === "edit") openExpForm(x);
-  if (a === "papers") { openPapers.has(x.id) ? openPapers.delete(x.id) : openPapers.add(x.id); renderExp(); return; }
+  if (a === "papers") { if (openPapers.has(x.id)) openPapers.delete(x.id); else { openPapers.add(x.id); docAnim = x.id; } renderExp(); docAnim = ""; return; }
   if (papersClickSync(b, renderExp)) return;
   if (a === "link") window.open(x.link, "_blank", "noopener");
   if (a === "del") card.querySelector(".confirm").hidden = false;
