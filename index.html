@@ -1058,7 +1058,7 @@ function renderLoads(){
       ${l.notes ? `<div class="meta" style="color:var(--text)">${esc(l.notes)}</div>` : ""}
       ${l.locs ? `<div class="meta" style="display:grid;gap:2px">${["pickedup", "delivered"].filter(k => l.locs[k]).map(k => `<span>${Geo.link(l.locs[k], k === "pickedup" ? "Picked up" : "Delivered")}</span>`).join("")}</div>` : ""}
       <div class="steps" role="group" aria-label="Set stage">${STAGES().map(([id, lab]) => `<button type="button" data-a="stage" data-st="${id}" aria-pressed="${l.stage === id}">${esc(lab)}</button>`).join("")}</div>
-      ${docsSection(l.id, pp, { need: ["delivered", "funded"].includes(l.stage) && !pp.some(f => f.kind === "POD") ? ["POD"] : [], link: l.link, linkLabel: "Paperwork link" })}
+      ${docsSection(l.id, pp, { need: ["delivered", "funded"].includes(l.stage) && !pp.some(f => PUI.kindOf(f.kind) === PUI.BOL) ? [PUI.BOL] : [], link: l.link, linkLabel: "Paperwork link" })}
       <div class="acts"><button type="button" data-a="edit">Edit</button><button type="button" data-a="del" class="danger">Delete</button></div>
       <div class="confirm" hidden><span>Delete this load${pp.length ? ` and its ${pp.length} document${pp.length === 1 ? "" : "s"}` : ""} for good?</span><button type="button" data-a="nodel">Keep</button><button type="button" data-a="yesdel" class="danger">Delete</button></div>
     </article>`;
@@ -1122,7 +1122,7 @@ $("loadSearch").addEventListener("input", e => { loadQuery = e.target.value; loa
 const papersClickSync = (b, redraw) => b.dataset.a === "popen" ? (papersClick(b, redraw), true) : false;
 $("loadList").addEventListener("change", e => {
   const inp = e.target.closest(".docs .ptile input[type=file]"); if (!inp) return;
-  const l = loads.find(x => x.id === inp.closest(".item").dataset.id); if (l) papersAdd(inp, { loadId: l.id }, loadLabel(l), ["BOL", "POD", "Lumper", "Rate con", "Receipt", "Scale ticket", "Other"]);
+  const l = loads.find(x => x.id === inp.closest(".item").dataset.id); if (l) papersAdd(inp, { loadId: l.id }, loadLabel(l), [PUI.BOL, "Rate con", "Lumper", "Receipt", "Scale ticket", "Other"]);
 });
 $("loadList").addEventListener("click", e => {
   if (e.target.closest("#loadMore")) { loadLimit += 100; renderLoads(); return; }
@@ -1264,7 +1264,7 @@ const openPapers = new Set();                      // cards whose papers are sho
 let docAnim = "";                                      // the card whose Documents just opened (animates once)
 const ICON_FOLDER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5a2 2 0 0 1 2-2h4l2 2.2h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10.5h18"/></svg>';
 function docsSection(id, pp, o = {}){
-  const open = openPapers.has(id), need = o.need || [], kinds = [...new Set(pp.map(f => f.kind))];
+  const open = openPapers.has(id), need = o.need || [], kinds = [...new Set(pp.map(f => PUI.kindOf(f.kind)))];
   const chips = kinds.map(k => `<span class="pc">${esc(k)} ✓</span>`).join("") + need.map(k => `<span class="pc miss">${esc(k)} missing</span>`).join("");
   return `<div class="docs${open ? " open" : ""}${need.length ? " warn" : ""}${docAnim === id ? " anim" : ""}">
     <button type="button" class="docs-hd" data-a="papers" aria-expanded="${open}">
@@ -2004,7 +2004,7 @@ $("setForm").onsubmit = e => {
 // checked the copy, "free space" removes the scan here (freed: true); opening it then fetches it from Drive.
 window.Papers = (() => {
   const PART = 700000, MAX_PARTS = 7;                      // ~3.5 MB PDFs at most
-  const KINDS = ["BOL", "POD", "Lumper", "Rate con", "Receipt", "Other"];
+  const KINDS = ["BOL / POD", "BOL", "POD", "Rate con", "Lumper", "Receipt", "Scale ticket", "Other"];
   let files = [];
   const readUrl = f => new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => bad(r.error); r.readAsDataURL(f); });
   async function decode(file){

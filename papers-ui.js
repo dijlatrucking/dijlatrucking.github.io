@@ -42,6 +42,8 @@
   while (box.firstChild) document.body.appendChild(box.firstChild);
   const unlock = () => { if (!document.querySelector(".docview:not([hidden]), .tpage:not([hidden]), .pdfview:not([hidden]), .authgate:not([hidden]), .sheet-bg:not([hidden])")) document.body.classList.remove("auth-lock"); };
 
+  // the signed BOL is the proof of delivery, so it's one kind of document; older "BOL" and "POD" records count as it
+  const BOL = "BOL / POD", kindOf = k => (k === "BOL" || k === "POD") ? BOL : k;
   const ICON_DOC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3h8l4 4v14h-12z"/><path d="M14.5 3v4h4M9 12h6M9 15.5h6"/></svg>';
   const ICON_ADD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5h3l1.6-2.5h6.8L17 8.5h3v10.5H4z"/><circle cx="12" cy="13.5" r="3.2"/></svg>';
   // expiry status of a paper (truck papers)
@@ -56,9 +58,9 @@
     const sub = o.expiry ? (f.expiresAt ? (daysTo(f.expiresAt) < 0 ? "Expired " : "Expires ") + niceFull(f.expiresAt) : "No expiry date")
       : [niceDate(localDay(f.created)), f.driverEmail && o.who !== false ? H.nameOf(f.driverEmail) : "", f.claim ? "$" + Number(f.claim.amount || 0).toFixed(2) : ""].filter(Boolean).join(" · ");
     const bg = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(f.thumb || "") ? ` style="background-image:url(${f.thumb})"` : "";
-    return `<button type="button" class="ptile" data-f="${esc(f.id)}"${o.attr ? " " + o.attr : ""} aria-label="${esc(f.kind)}: ${esc(sub)}">
+    return `<button type="button" class="ptile" data-f="${esc(f.id)}"${o.attr ? " " + o.attr : ""} aria-label="${esc(kindOf(f.kind))}: ${esc(sub)}">
       <span class="pv"${bg}>${bg ? "" : ICON_DOC}${f.type === "pdf" ? '<span class="pdft">PDF</span>' : ""}${st ? `<span class="st ${st.c}">${esc(st.t)}</span>` : ""}</span>
-      <span class="pl"><b>${esc(f.kind)}</b><span>${esc(sub)}</span></span></button>`;
+      <span class="pl"><b>${esc(kindOf(f.kind))}</b><span>${esc(sub)}</span></span></button>`;
   }
   // "+" tile (or a dashed "add this one" tile for a paper that's missing); the camera / file picker opens straight away
   const addTile = (label, kind = "", sub = "") => `<label class="ptile ${kind ? "ghost" : "add"}"${kind ? ` data-kind="${esc(kind)}"` : ""}>
@@ -95,7 +97,7 @@
     function close(){ hide(); if (history.state && history.state.doc) history.back(); }
     function head(){
       const f = list[idx]; if (!f) return;
-      $("dvTitle").textContent = f.kind || "Paper";
+      $("dvTitle").textContent = kindOf(f.kind) || "Paper";
       $("dvSub").textContent = [f.expiresAt ? (daysTo(f.expiresAt) < 0 ? "Expired " : "Expires ") + niceFull(f.expiresAt) : "", "Added " + niceFull(localDay(f.created)),
         f.driverEmail && opts.who !== false ? "from " + H.nameOf(f.driverEmail) : ""].filter(Boolean).join(" · ");
       $("dvCount").textContent = list.length > 1 ? `${idx + 1} of ${list.length}` : "";
@@ -187,5 +189,5 @@
     return { start, isOpen: () => !$("addSheet").hidden };
   })();
 
-  window.PUI = { setup: h => Object.assign(H, h), xpState, paperTile, addTile, makeThumb, DocView, PaperAdd, daysTo };
+  window.PUI = { setup: h => Object.assign(H, h), xpState, paperTile, addTile, makeThumb, DocView, PaperAdd, daysTo, BOL, kindOf };
 })();

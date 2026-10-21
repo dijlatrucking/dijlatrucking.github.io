@@ -461,11 +461,13 @@ window.DriverApp = (() => {
   const active = () => trips.filter(t => !["paid", "funded", "cancelled"].includes(t.stage)).sort((a, b) => String(a.fromDate).localeCompare(String(b.fromDate)));
   const done = () => trips.filter(t => ["paid", "funded"].includes(t.stage)).sort((a, b) => String(b.toDate || b.fromDate).localeCompare(String(a.toDate || a.fromDate)));
   const papersOf = id => mine.filter(f => f.loadId === id && !f.claim);
-  // what's been sent for a load, at a glance (and the POD once it's delivered)
+  // the signed BOL (= POD) is due once the load is delivered
+  const needBol = (t, pp) => ["delivered", "paid", "funded"].includes(t.stage) && !pp.some(f => PUI.kindOf(f.kind) === PUI.BOL);
+  // what's been sent for a load, at a glance (and the signed BOL once it's delivered)
   function paperChips(t, pp){
-    const kinds = [...new Set(pp.map(f => f.kind))], needPod = ["delivered", "paid", "funded"].includes(t.stage) && !kinds.includes("POD");
+    const kinds = [...new Set(pp.map(f => PUI.kindOf(f.kind)))], needPod = needBol(t, pp);
     if (!kinds.length && !needPod) return "";
-    return `<button type="button" class="pchips" data-a="papers" aria-label="What's on file for this load">${kinds.map(k => `<span class="pc">${esc(k)} ✓</span>`).join("")}${needPod ? '<span class="pc miss">POD missing</span>' : ""}</button>`;
+    return `<button type="button" class="pchips" data-a="papers" aria-label="What's on file for this load">${kinds.map(k => `<span class="pc">${esc(k)} ✓</span>`).join("")}${needPod ? '<span class="pc miss">BOL / POD missing</span>' : ""}</button>`;
   }
   function tripCard(t, old){
     const pp = papersOf(t.id), open = openTrip === t.id, locked = LOCKED.includes(t.stage);
@@ -479,7 +481,7 @@ window.DriverApp = (() => {
       ${open ? "" : paperChips(t, pp)}
       <div class="acts"><button type="button" data-a="papers" aria-expanded="${open}">📎 BOL / POD${pp.length ? ` (${pp.length})` : ""}</button></div>
       ${open ? `<div class="papers">${!pp.length && locked ? `<div class="meta">No papers sent for this load.</div>` : ""}
-        <div class="ptiles sm">${pp.map(f => PUI.paperTile(f, { attr: 'data-a="popen"', who: false })).join("")}${locked ? "" : PUI.addTile("Send a paper", "", "BOL, POD…")}</div></div>` : ""}
+        <div class="ptiles sm">${pp.map(f => PUI.paperTile(f, { attr: 'data-a="popen"', who: false })).join("")}${locked ? "" : (needBol(t, pp) ? PUI.addTile("Signed BOL", PUI.BOL, "Still needed") : "") + PUI.addTile("Send a paper", "", "BOL, lumper…")}</div></div>` : ""}
     </article>`;
   }
   function draw(){
@@ -538,9 +540,9 @@ window.DriverApp = (() => {
   $("dLoadList").addEventListener("change", e => {
     const inp = e.target.closest(".papers .ptile input[type=file]"); if (!inp || !inp.files.length) return;
     const t = trips.find(x => x.id === inp.closest("[data-t]").dataset.t); if (!t) return;
-    const files = [...inp.files]; inp.value = "";
+    const files = [...inp.files], preset = inp.closest(".ptile").dataset.kind || PUI.BOL; inp.value = "";
     let here = null;                                       // one location stamp for the batch
-    PUI.PaperAdd.start(files, { kinds: ["BOL", "POD", "Lumper", "Scale ticket", "Other"], saveLabel: "Send to the office",
+    PUI.PaperAdd.start(files, { kinds: [PUI.BOL, "Lumper", "Scale ticket", "Other"], kind: preset, saveLabel: "Send to the office",
       save: async (file, kind) => { if (!here) here = Geo.here(); const loc = await here;
         return Papers.save(file, kind, `${kind} · ${t.loadNo ? "#" + t.loadNo : (t.from || "") + " → " + (t.to || "")} · ${me.name || email}`, { driverEmail: email, loadId: t.id, ...(loc ? { loc } : {}) }); },
       saved: (kind, n) => n === 1 ? `${kind} sent to the office` : `${n} papers sent`, done: () => draw() });
