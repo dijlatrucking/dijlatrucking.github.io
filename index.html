@@ -681,7 +681,7 @@ window.RateCon = (() => {
 
   // ---- turn text into load fields ----
   const STATES = "AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC".split(" ");
-  const BROKERS = [["TQL", /\bTQL\b|Total Quality Logistics/i], ["Scotlynn", /scotl[yv]nn/i], ["MegaCorp Logistics", /mega\s?corp/i], ["American Diamond Logistics", /american diamond/i], ["Silo", /shipsilo|simple\s*logistics/i], ["DMX Logistics", /DMX\s+LOGISTICS/i],
+  const BROKERS = [["Spot Freight", /spot\s+freight|spotinc\.com|myspotcarrier/i], ["TQL", /\bTQL\b|Total Quality Logistics/i], ["Scotlynn", /scotl[yv]nn/i], ["MegaCorp Logistics", /mega\s?corp/i], ["American Diamond Logistics", /american diamond/i], ["Silo", /shipsilo|simple\s*logistics/i], ["DMX Logistics", /DMX\s+LOGISTICS/i],
     ["CH Robinson", /C\.?\s?H\.?\s+Robinson|chrobinson/i], ["Coyote", /\bcoyote\b/i], ["Echo Global", /echo global/i], ["RXO", /\bRXO\b/],
     ["Uber Freight", /uber freight/i], ["Arrive Logistics", /arrive logistics/i], ["Landstar", /landstar/i], ["JB Hunt", /j\.?\s?b\.?\s+hunt/i],
     ["Schneider", /schneider/i], ["Werner", /werner/i], ["Mode Transportation", /mode (global|transportation)/i], ["Nolan Transportation", /nolan transportation/i],
@@ -714,6 +714,14 @@ window.RateCon = (() => {
     const text = raw.replace(/\r/g, "").replace(/[‐-―]/g, "-").replace(/[“”]/g, '"');
     const lines = text.split("\n").map(l => l.replace(/\s+$/, ""));
     const f = {}, found = [];
+    // table-style headers ("Shipment #   Origin   Destination" with the values on the next line): header -> value
+    const cols = {};
+    for (let i = 0; i + 1 < lines.length; i++) {
+      const h = lines[i].trim().split(/\s{3,}/), v = lines[i + 1].trim().split(/\s{3,}/);
+      if (h.length < 3 || h.length !== v.length || /\d/.test(h.join(" ")) || !/\d/.test(v.join(" "))) continue;
+      h.forEach((k, j) => { const key = k.toLowerCase().replace(/[*:]/g, "").trim(); if (!(key in cols)) cols[key] = v[j].trim(); });
+    }
+    const col = re => { for (const k in cols) if (re.test(k)) return cols[k]; return ""; };
     // broker
     for (const [name, re] of BROKERS) if (re.test(text)) { f.broker = name; break; }
     if (!f.broker) { const l = lines.find(l => /\b(logistics|brokerage|freight|transport(ation)?)\b/i.test(l) && !/dijla/i.test(l) && l.trim().length < 60); if (l) f.broker = titleCase(l.trim().replace(/\s{2,}.*/, "").replace(/[,.]?\s*(llc|inc|corp)\.?$/i, "").replace(/[,.]$/, "")); }
@@ -722,7 +730,9 @@ window.RateCon = (() => {
     const AMT = /\$\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})(?:\.\d{2})?|(?<![\d\/.:,])([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})\.\d{2}(?![\d\/])/;
     const LEGAL = /not to exceed|advance|limited|\bfees?\b|penalt|\blate\b|per day|detention|deduct|\bfine|up to|reduction|quick\s*pay|\d+%/i;
     const amountIn = str => { const m = str.match(AMT); if (!m) return 0; const v = parseFloat((m[1] || m[2]).replace(/,/g, "") + (m[0].match(/\.\d{2}$/) || [""])[0]); return v >= 100 && v <= 50000 ? v : 0; };
+    let rateKey = -1;
     for (const key of RATE_KEYS) {
+      rateKey++;
       for (let i = 0; i < lines.length && !f.rate; i++) {
         const l = lines[i], k = l.search(key); if (k < 0 || LEGAL.test(l)) continue;
         let v = amountIn(l.slice(k));
@@ -731,12 +741,22 @@ window.RateCon = (() => {
       }
       if (f.rate) break;
     }
+    // rate table whose grand total sits alone under the rows (line haul + fuel = "$4,000.00")
+    if (f.rate && rateKey >= RATE_KEYS.length - 2) {
+      const lh = lines.findIndex(l => /line\s*haul/i.test(l) && amountIn(l));
+      for (let j = lh + 1; lh >= 0 && j <= lh + 8 && j < lines.length; j++) {
+        const m = lines[j].match(/^\s*\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{2})?)\s*$/);
+        if (m) { const v = parseFloat(m[1].replace(/,/g, "")); if (v > f.rate && v <= 50000) { f.rate = v; break; } }
+      }
+    }
     // load / order number
     // most specific first; a customer's own PO is not the broker's load number
     const NO_KEYS = [/\border\s*:\s*([0-9]{5,})/i, /rate confirmation\s+(?:for\s+\w+#?\s*)?([0-9]{5,})/i,
       /\b(?:load|order|pro|confirmation|shipment|trip)\s*(?:#|no\.?|number)\s*:?\s*([A-Z0-9-]*\d[A-Z0-9-]{3,})/i,
       /(?<!customer\s)\bPO\s*#\s*([0-9]{5,})/i, /\b([0-9]{5,})\s*\n\s*(?:trip|load|order)\s*(?:number|#|no)/i];
-    for (const re of NO_KEYS) { const m = text.match(re); if (m) { f.loadNo = m[1]; break; } }
+    const tNo = col(/^(shipment|load|order|pro|trip)\s*(#|no\.?|number)$/);
+    if (/^[A-Z0-9-]*\d[A-Z0-9-]{3,}$/i.test(tNo)) f.loadNo = tNo;
+    else for (const re of NO_KEYS) { const m = text.match(re); if (m) { f.loadNo = m[1]; break; } }
     // pickup / delivery: find a section keyword, then the first City, ST and date after it
     // our own address (Boise 83709, W Gowen Rd) and broker/factoring offices; loads can still pick up or deliver in Boise
     const SKIP = /\b83709\b|gowen|ogden, ut|milford, oh|exeter, nh|fort myers, fl/i;
@@ -766,6 +786,10 @@ window.RateCon = (() => {
         if (c !== f.from && !head.has(c)) { f.to = c; const g = grab(i - 1, 3); if (g.date && g.date !== f.fromDate) f.toDate = g.date; else { const g2 = grab(i, 2); if (g2.date) f.toDate = g2.date; } break; }
       }
     }
+    if (!f.from) { const c = cityIn(col(/^(origin|shipper|pick\s*up)$/)); if (c) f.from = c; }
+    if (!f.to) { const c = cityIn(col(/^(destination|consignee|receiver|delivery)$/)); if (c) f.to = c; }
+    if (!f.fromDate) { const m = col(/pick\s*up.*date|ship\s*date/).match(DATE); if (m) f.fromDate = toISO(m); }
+    if (!f.toDate) { const m = col(/deliver.*date/).match(DATE); if (m) f.toDate = toISO(m); }
     const tr = text.match(/\btruck\s*(?:#|no\.?|number|unit)\s*:?\s*(\d{1,5})\b/i) || text.match(/\bunit\s*#?\s*:?\s*(\d{1,5})\b/i);
     if (tr) f.truckNo = tr[1];
     else {   // table style: "... Truck #   Trailer #" with the numbers on the next line
@@ -776,10 +800,12 @@ window.RateCon = (() => {
     const mi = text.match(/\b(?:total\s+)?miles?\s*:?\s*([0-9,]{2,6})\b/i)
       || text.match(/\b(?:distance|total|loaded)\s*:?\s*([0-9,]{2,6})(?:\.\d+)?\s*(?:mi|miles)\b/i);   // "Distance 2195.07 Miles"
     if (mi) f.miles = parseInt(mi[1].replace(/,/g, ""), 10);
+    if (!f.miles) { const n = parseFloat(col(/^(total\s+|loaded\s+)?miles$/).replace(/,/g, "")); if (n > 0) f.miles = Math.round(n); }
     const wt = text.match(/\b(?:estimated\s+)?weight\s*:?\s*([0-9,]{3,6}(?:\.\d+)?)/i); if (wt) f.weight = Math.round(parseFloat(wt[1].replace(/,/g, "")));
+    if (!f.weight) { const n = parseFloat(col(/^weight/).replace(/,/g, "")); if (n > 0) f.weight = Math.round(n); }
     const cm = text.match(/commodit(?:y|ies)\s*:?\s*([A-Za-z][A-Za-z &/-]{2,30})/i) || text.match(/description\s*:\s*([A-Za-z][A-Za-z &/-]{2,30})/i);
     const cleanC = s => s.trim().replace(/\s{2,}.*/, "").replace(/\s+(trailer|temp|weight|pieces|pcs|hazmat|size|type|mode|reefer|van|miles)\b.*$/i, "");
-    const junk = c => /\b(must|if|the|shall|will|be|of|to|any|all)\b/i.test(c) || /^(pick|quantity|unit|notes)/i.test(c);
+    const junk = c => /\b(must|if|the|shall|will|be|of|to|any|all)\b/i.test(c) || /^(pick|quantity|unit|notes|product|code|description|class|cargo|packaging|stackable)\b/i.test(c);
     const pr = text.match(/product\s*:\s*([A-Za-z][A-Za-z &/-]{2,30})/i);
     if (cm && !junk(cleanC(cm[1]))) f.commodity = titleCase(cleanC(cm[1]));
     else if (pr && !junk(cleanC(pr[1]))) f.commodity = titleCase(cleanC(pr[1]));
