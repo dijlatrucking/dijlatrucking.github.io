@@ -2045,9 +2045,12 @@ window.Papers = (() => {
   async function toData(file){
     const pdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
     if (pdf) {
-      const url = await readUrl(file);
-      const data = url.replace(/^data:[^;,]*;/, "data:application/pdf;");
-      if (data.length > PART * MAX_PARTS) throw new Error("That PDF is too big to keep (over about 3.5 MB). Take a photo of the pages instead.");
+      let data = (await readUrl(file)).replace(/^data:[^;,]*;/, "data:application/pdf;");
+      // too big to keep as is (over ~3.5 MB): shrink it into a lighter PDF of the same pages
+      if (data.length > PART * MAX_PARTS) {
+        toast("Big PDF: shrinking it to fit. One moment…");
+        data = await PUI.shrinkPdf(data, PART * MAX_PARTS);
+      }
       return { data, type: "pdf" };
     }
     if (!/^image\//.test(file.type || "")) throw new Error("Use a photo or a PDF.");

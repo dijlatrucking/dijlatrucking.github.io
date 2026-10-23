@@ -18,6 +18,36 @@
   let pdfP = null;
   const pdfjs = () => pdfP || (pdfP = (window.pdfjsLib ? Promise.resolve() : new Promise((ok, bad) => { const el = document.createElement("script"); el.src = PDFJS; el.onload = ok; el.onerror = () => { pdfP = null; bad(new Error("Couldn't load the PDF viewer. Check your connection.")); }; document.head.appendChild(el); }))
     .then(() => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_W; return window.pdfjsLib; }));
+  const JSPDF = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+  let jsP = null;
+  const jspdf = () => jsP || (jsP = (window.jspdf ? Promise.resolve() : new Promise((ok, bad) => { const el = document.createElement("script"); el.src = JSPDF; el.onload = ok; el.onerror = () => { jsP = null; bad(new Error("Couldn't load the PDF tools. Check your connection.")); }; document.head.appendChild(el); }))
+    .then(() => window.jspdf));
+  // A PDF too big to keep (big scans, phone-camera PDFs): redraw each page as a good-quality photo and put them
+  // back together as a smaller PDF. Tries sharper first, then smaller, until it fits in maxChars.
+  async function shrinkPdf(data, maxChars, onPage){
+    const lib = await pdfjs(), { jsPDF } = await jspdf();
+    const pdf = await lib.getDocument({ data: b64Bytes(data) }).promise;
+    if (pdf.numPages > 60) throw new Error("That PDF has " + pdf.numPages + " pages. Split it into smaller files (60 pages at most).");
+    for (const [px, q] of [[2400, 0.75], [1800, 0.7], [1500, 0.62], [1200, 0.56], [1000, 0.5], [800, 0.45]]) {
+      let doc = null, total = 0;
+      for (let n = 1; n <= pdf.numPages; n++) {
+        if (onPage) onPage(n, pdf.numPages);
+        const pg = await pdf.getPage(n), vp0 = pg.getViewport({ scale: 1 }), vp = pg.getViewport({ scale: px / Math.max(vp0.width, vp0.height) });
+        const c = document.createElement("canvas"); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+        const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+        await pg.render({ canvasContext: g, viewport: vp }).promise;
+        const img = c.toDataURL("image/jpeg", q); c.width = c.height = 0;
+        total += img.length; if (total > maxChars * 1.05) break;            // already too big at this size: try smaller
+        const w = vp0.width, h = vp0.height, o = w > h ? "l" : "p";
+        if (!doc) doc = new jsPDF({ unit: "pt", format: [w, h], orientation: o, compress: true }); else doc.addPage([w, h], o);
+        doc.addImage(img, "JPEG", 0, 0, w, h);
+      }
+      if (!doc || total > maxChars * 1.05) continue;
+      const out = doc.output("datauristring"), small = "data:application/pdf;base64," + out.slice(out.indexOf(",") + 1);
+      if (small.length <= maxChars) return small;
+    }
+    throw new Error("That PDF is too big even after shrinking it. Split it into smaller files, or take photos of the pages.");
+  }
   const locLink = loc => !loc || typeof loc.lat !== "number" ? "" : `<a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">📍 ${esc(loc.place || loc.lat.toFixed(3) + ", " + loc.lng.toFixed(3))}</a>`;
 
   // ---- styles + the viewer and sheet (one copy per page)
@@ -189,5 +219,5 @@
     return { start, isOpen: () => !$("addSheet").hidden };
   })();
 
-  window.PUI = { setup: h => Object.assign(H, h), xpState, paperTile, addTile, makeThumb, DocView, PaperAdd, daysTo, BOL, kindOf };
+  window.PUI = { setup: h => Object.assign(H, h), xpState, paperTile, addTile, makeThumb, shrinkPdf, DocView, PaperAdd, daysTo, BOL, kindOf };
 })();
