@@ -711,7 +711,8 @@ window.RateCon = (() => {
     ["Allen Lund", /allen lund/i], ["Sunset Transportation", /sunset transportation/i], ["BlueGrace", /bluegrace/i], ["GlobalTranz", /globaltranz/i],
     ["Worldwide Express", /worldwide express/i], ["Axle Logistics", /axle logistics/i], ["Integrity Express", /integrity express/i], ["England Logistics", /england logistics/i],
     ["Covenant Logistics", /covenant logistics/i], ["Kirsch Transportation", /kirsch/i], ["Redwood", /redwood logistics/i], ["Transplace", /transplace|uber freight/i],
-    ["JTS (Johanson)", /johanson\s*trans|\bJTS\s+FILE\b|call\s+JTS\b/i], ["MTC (Manraj)", /manraj\s+trucking|\bMTC-MI\b/i]];
+    ["JTS (Johanson)", /johanson\s*trans|\bJTS\s+FILE\b|call\s+JTS\b/i], ["MTC (Manraj)", /manraj\s+trucking|\bMTC-MI\b/i],
+    ["Direct Connect Logistix", /direct\s*connect\s*logisti[xc]|directconnectlogistix|dclogistix/i]];
   const titleCase = s => s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
   const MONEY = /\$?\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.\d{2})?|[0-9]{3,6}(?:\.\d{2})?)/;
   const DATE = /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/;
@@ -785,8 +786,8 @@ window.RateCon = (() => {
     // pickup / delivery: find a section keyword, then the first City, ST and date after it
     // our own address (Boise 83709, W Gowen Rd) and broker/factoring offices; loads can still pick up or deliver in Boise
     const SKIP = /\b83709\b|gowen|ogden, ut|milford, oh|exeter, nh|fort myers, fl/i;
-    const PU = /(pick[\s-]*up\b|\bpickup\b|\bshipper\b|\bshipping location|\borigin\b|^\s*PU\s+\d|\bPICK\s+\d|\bload at\b)/i;
-    const DEL = /(\bdelivery\b|\bdeliver to\b|\bconsignee\b|\breceiver\b|\bdestination\b|^\s*SO\s+\d|\bSTOP\s+\d|\bDEL\s+\d|\bdrop\b|\bunload at\b)/i;
+    const PU = /(pick[\s-]*up\b|\bpickup\b|\bshipper\b|\bshipping location|\borigin\b|^\s*PU\s*\d|\bPICK\s+\d|\bload at\b)/i;
+    const DEL = /(\bdelivery\b|\bdeliver to\b|\bconsignee\b|\breceiver\b|\bdestination\b|^\s*S[O0]\s*\d|\bSTOP\s+\d|\bDEL\s+\d|\bdrop\b|\bunload at\b)/i;
     const grab = (start, span) => {
       let city = "", date = "";
       for (let i = start; i < Math.min(lines.length, start + span); i++) {
