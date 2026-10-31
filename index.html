@@ -750,7 +750,7 @@ window.RateCon = (() => {
     // broker
     for (const [name, re] of BROKERS) if (re.test(text)) { f.broker = name; break; }
     if (!f.broker) { const l = lines.find(l => /\b(logistics|brokerage|freight|transport(ation)?)\b/i.test(l) && !/dijla/i.test(l) && l.trim().length < 60
-      && !/\b(the|by|to|of|shall|must|and|for|any|is)\b/.test(l.replace(/\s{2,}.*/, ""))); if (l) f.broker = titleCase(l.trim().replace(/\s{2,}.*/, "").replace(/[,.]?\s*(llc|inc|corp)\.?$/i, "").replace(/[,.]$/, "")); }
+      && !/\b(the|by|to|of|shall|must|and|for|any|is)\b/.test(l.replace(/\s{2,}.*/, ""))); if (l) f.broker = titleCase(l.trim().replace(/\s{2,}.*/, "").replace(/^(.*?\b(?:llc|inc|corp)\b).*$/i, "$1").replace(/[,.]?\s*(llc|inc|corp)\.?$/i, "").replace(/[,.]$/, "")); }
     // rate: the most specific "total" wins
     const RATE_KEYS = [/total\s+carrier\s+pay/i, /carrier\s+(freight\s+)?pay/i, /total\s+rate/i, /total\s+(amount|charges?|pay|comp)/i, /\btotal\s*:/i, /agreed\s+rate/i, /line\s*haul(\s+rate)?/i, /\brate\b/i];
     const AMT = /\$\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})(?:\.\d{2})?|(?<![\d\/.:,])([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})\.\d{2}(?![\d\/])/;
