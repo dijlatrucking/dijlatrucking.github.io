@@ -725,7 +725,8 @@ window.RateCon = (() => {
     for (const re of tries) {
       let m;
       while ((m = re.exec(line))) {
-        const st = m[2], city = m[1].replace(/^.*\b(address|name|location|city)\s*:?\s*/i, "").replace(/\s{2,}.*$/, "").trim();
+        // a wide gap means another column ("CONFIRMED   Nampa, ID"): the city is the part after the last gap
+        const st = m[2], city = m[1].replace(/^.*\b(address|name|location|city)\s*:?\s*/i, "").trim().split(/\s{2,}/).pop().trim();
         if (!STATES.includes(st) || city.length < 2 || /\d/.test(city)) continue;
         const words = city.split(/\s+/); const c = titleCase(words.slice(-3).join(" "));
         const val = `${c}, ${st}`;
@@ -836,6 +837,7 @@ window.RateCon = (() => {
     if (cm && !junk(cleanC(cm[1]))) f.commodity = titleCase(cleanC(cm[1]));
     else if (pr && !junk(cleanC(pr[1]))) f.commodity = titleCase(cleanC(pr[1]));
     if (!f.commodity) { const m = text.match(/Truckload\s+([A-Za-z][A-Za-z ]{2,25})/); if (m) f.commodity = titleCase(m[1].trim().replace(/\s{2,}.*/, "")); }
+    if (!f.commodity) { const m = text.match(/^\s*load products\b.*\n\s*name\b.*\n\s*([A-Za-z][A-Za-z &\/-]{2,30})/im); if (m && !junk(cleanC(m[1]))) f.commodity = titleCase(cleanC(m[1])); }   // MegaCorp: "Load Products / Name / Frozen Food"
     if (!f.commodity) { const m = text.match(/^\s*item\s*:\s*(.{3,40}?)\s*$/im); if (m && !junk(m[1])) f.commodity = m[1].replace(/\s{2,}.*/, "").trim(); }   // Echo: "Item: ..."
     if (!f.commodity) { const m = text.match(/\bPO#?\s*\d{5,}\s+([A-Z][A-Z ]{2,30}?)\s+(?:EACH|CASES?|CS|PCS?|BOXES|BINS?|LBS?)\b/); if (m && !junk(m[1])) f.commodity = titleCase(m[1].trim()); }   // JTS: "PO# 2631007225 GOLDEN MELON EACH 539 PC"
     return f;
