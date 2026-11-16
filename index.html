@@ -1701,7 +1701,7 @@ function renderTax(){
   const d = taxData(taxYear, taxTruck), T = d.T;
   $("taxHead").innerHTML = `<h2>${esc(truckName(taxTruck))} · ${taxYear}</h2>
     <div class="meta">${esc(settings.company || "Truck Ops")} · ${T.n || 0} paid load${T.n === 1 ? "" : "s"} · ${Math.round(T.miles || 0).toLocaleString("en-US")} mi · ${(T.gallons || 0).toLocaleString("en-US", { maximumFractionDigits: 0 })} gal fuel</div>
-    <div class="taxbig"><div><b>${money(T.paid || 0)}</b><span>Paid to truck (1099)</span></div><div><b>${money(d.deductible)}</b><span>Expenses incl. fees</span></div>
+    <div class="taxbig"><div><b>${money(T.gross || 0)}</b><span>Gross (loads paid)</span></div><div><b>${money(d.deductible)}</b><span>Expenses incl. fees</span></div>
     <div><b class="${T.net >= 0 ? "" : "neg"}">${money(T.net || 0)}</b><span>Net profit</span></div></div>`;
   const qs = ["Q1 Jan–Mar", "Q2 Apr–Jun", "Q3 Jul–Sep", "Q4 Oct–Dec"];
   const rows = [["Loads paid", q => q.n], ["Gross", q => money(q.gross)], [`${esc(settings.factor || "GAP")} fees`, q => money(-q.fees)],
@@ -1744,7 +1744,7 @@ function buildTaxPdf(year, truck, itemize){
   };
   const footer = () => { doc.setFontSize(8); doc.setTextColor(...MUT); doc.setFont("helvetica", "normal");
     doc.text("Record-keeping summary for your accountant, not tax advice. Income counted when paid (cash basis). Expenses for all trucks split evenly across them.", M, 772);
-    doc.text("Page " + page, R, 772, { align: "right" }); };
+    doc.text("Page " + page, R, 784, { align: "right" }); };
   const need = h => { if (y + h > 750) { footer(); doc.addPage(); page++; header(); } };
   const title = t => { need(40); doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...INK); doc.text(t.toUpperCase(), M, y); doc.setDrawColor(...ACC); doc.setLineWidth(1.5); doc.line(M, y + 5, M + 40, y + 5); y += 22; };
   // table: cols = [{w, a:'l'|'r'}], rows = arrays of strings; bold row indexes
@@ -1765,7 +1765,8 @@ function buildTaxPdf(year, truck, itemize){
   };
   header();
   // big numbers
-  const boxes = [["Paid to truck (1099)", T.paid || 0], ["Expenses incl. fees", d.deductible], ["Net profit", T.net || 0]];
+  // gross - expenses = net (the fees and GAP fuel are in the expenses, so they come off once)
+  const boxes = [["Gross (loads paid)", T.gross || 0], ["Expenses incl. fees", d.deductible], ["Net profit", T.net || 0]];
   const bw = (R - M - 20) / 3;
   boxes.forEach(([lab, v], i) => { const x = M + i * (bw + 10); doc.setFillColor(246, 247, 249); doc.setDrawColor(...LINE); doc.roundedRect(x, y, bw, 54, 4, 4, "FD");
     doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(...INK); doc.text($$(v), x + 10, y + 26);
